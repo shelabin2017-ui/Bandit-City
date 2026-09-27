@@ -61,6 +61,8 @@ def send(user_id, text, keyboard=None, attachment=None):
 
 def card_key(text):
     t=text.lower()
+    if "админ" in t or "admin" in t or "статистик" in t:
+        return "admin"
     if "магазин" in t or "black market" in t or "одежд" in t or "оруж" in t:
         return "shop"
     if "профил" in t or "story" in t:
@@ -119,7 +121,7 @@ def send_v5(user_id, text, rows):
     attachment=upload_card(user_id, card_key(text))
     send(user_id, text, keyboard, attachment)
 
-def kb_main():
+def kb_main(is_admin=False):
     k = VkKeyboard(one_time=False)
     rows = [
         [("👤 Профиль", VkKeyboardColor.PRIMARY), ("💼 Работа", VkKeyboardColor.POSITIVE)],
@@ -129,6 +131,8 @@ def kb_main():
         [("👥 Игроки", VkKeyboardColor.PRIMARY), ("🏆 Рейтинг", VkKeyboardColor.PRIMARY)],
         [("🏆 Достижения", VkKeyboardColor.PRIMARY), ("🎟 Промокод", VkKeyboardColor.POSITIVE)],
     ]
+    if is_admin:
+        rows.append([("👑 Админ-панель", VkKeyboardColor.NEGATIVE)])
     for row in rows:
         for i,(label,color) in enumerate(row):
             k.add_button(label,color)
@@ -232,7 +236,7 @@ def process(uid, text):
             if len(parts) == 2:
                 referral_bonus = bool(game.apply_referral(user["id"], parts[1]))
         db.complete_onboarding(user["id"])
-        send(uid, game.welcome(user["id"], referral_bonus), kb_main())
+        send(uid, game.welcome(user["id"], referral_bonus), kb_main(uid in ADMIN_IDS))
         return
 
     # Повторный /start просто открывает профиль
@@ -474,6 +478,37 @@ def process(uid, text):
             send(uid, game.attack(user["id"], int(p[1]), mode), kb_main())
         except (ValueError, IndexError):
             send(uid, "Использование: /scam VK_ID или /rob VK_ID", kb_main())
+        return
+
+    # Admin UI — компактная панель с визуальной карточкой.
+    if uid in ADMIN_IDS and text == "👑 Админ-панель":
+        send_v5(uid,
+                "👑 АДМИН-ПАНЕЛЬ\n\n"
+                "🔐 Закрытый центр управления Bandit City.\n"
+                "Выбери действие ниже. Для операций с игроками используются команды с VK ID.",
+                [["📊 Статистика", "🏆 Игроки TOP"],
+                 ["🛠 Команды", "🏙️ Главное меню"]])
+        return
+    if uid in ADMIN_IDS and text == "📊 Статистика":
+        send_v5(uid, "📊 СТАТИСТИКА АДМИН-ПАНЕЛИ\n\n" + game.admin_command(user["id"], "/admin stats"),
+                [["👑 Админ-панель"], ["🏙️ Главное меню"]])
+        return
+    if uid in ADMIN_IDS and text == "🏆 Игроки TOP":
+        send_v5(uid, "🏆 TOP — АДМИН-ПАНЕЛЬ\n\n" + game.admin_command(user["id"], "/admin top"),
+                [["👑 Админ-панель"], ["🏙️ Главное меню"]])
+        return
+    if uid in ADMIN_IDS and text == "🛠 Команды":
+        send_v5(uid,
+                "🛠 КОМАНДЫ АДМИН-ПАНЕЛИ\n\n"
+                "/admin stats — статистика\n"
+                "/admin top — рейтинг\n"
+                "/admin give VK_ID SUM — выдать деньги\n"
+                "/admin take VK_ID SUM — снять деньги\n"
+                "/admin level VK_ID LEVEL — уровень\n"
+                "/admin stock VK_ID AMOUNT — склад\n"
+                "/admin ban VK_ID — бан\n"
+                "/admin unban VK_ID — разбан",
+                [["👑 Админ-панель"], ["🏙️ Главное меню"]])
         return
 
     # Admin
