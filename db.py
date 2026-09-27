@@ -131,6 +131,23 @@ class Database:
                 price INTEGER NOT NULL,
                 bought_at INTEGER NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS promo_codes(
+                code TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                reward_cash INTEGER NOT NULL DEFAULT 0,
+                reward_xp INTEGER NOT NULL DEFAULT 0,
+                reward_item TEXT,
+                reward_slot TEXT,
+                max_uses INTEGER NOT NULL DEFAULT 0,
+                used_count INTEGER NOT NULL DEFAULT 0,
+                active INTEGER NOT NULL DEFAULT 1
+            );
+            CREATE TABLE IF NOT EXISTS promo_redemptions(
+                user_id INTEGER NOT NULL,
+                code TEXT NOT NULL,
+                redeemed_at INTEGER NOT NULL,
+                PRIMARY KEY(user_id, code)
+            );
             """)
             self.add_column(c, "users", "ref_code", "TEXT")
             self.add_column(c, "users", "referred_by", "INTEGER")
@@ -173,6 +190,48 @@ class Database:
         params=list(values.values())+[user_id]
         with self.connect() as c:
             c.execute("UPDATE user_appearance SET "+fields+" WHERE user_id=?", params)
+
+    def seed_promos(self):
+        promos=[
+            ("NIGHTFALL-2026","NIGHTFALL • Founder Drop",250000,500,"🖤 Shadow Jacket","clothes",0),
+            ("LOS-SANTOS-7","LOS SANTOS 7 • Neon Drop",150000,300,"🌌 Neon Shades","accessory",0),
+            ("BANDIT-PRIME","BANDIT PRIME • Private Drop",500000,1000,"👑 Prime Hair","hair",0),
+        ]
+        with self.connect() as c:
+            for p in promos:
+                c.execute(
+                    "INSERT OR IGNORE INTO promo_codes(code,title,reward_cash,reward_xp,reward_item,reward_slot,max_uses) VALUES(?,?,?,?,?,?,?)",
+                    p
+                )
+
+    def redeem_promo(self, user_id, code):
+        code=code.strip().upper()
+        self.seed_promos()
+        with self.connect() as c:
+            promo=c.execute("SELECT * FROM promo_codes WHERE code=? AND active=1",(code,)).fetchone()
+            if not promo:
+                return False,"❌ Промокод не найден или уже отключён."
+            if promo["max_uses"] and promo["used_count"]>=promo["max_uses"]:
+                return False,"❌ Лимит промокода исчерпан."
+            if c.execute("SELECT 1 FROM promo_redemptions WHERE user_id=? AND code=?",(user_id,code)).fetchone():
+                return False,"❌ Ты уже использовал этот промокод."
+            c.execute("INSERT INTO promo_redemptions(user_id,code,redeemed_at) VALUES(?,?,?)",(user_id,code,int(time.time())))
+            if promo["reward_cash"]:
+                c.execute("UPDATE users SET balance=balance+? WHERE id=?",(promo["reward_cash"],user_id))
+            if promo["reward_xp"]:
+                c.execute("UPDATE users SET xp=xp+? WHERE id=?",(promo["reward_xp"],user_id))
+                xp=c.execute("SELECT xp FROM users WHERE id=?",(user_id,)).fetchone()["xp"]
+                c.execute("UPDATE users SET level=? WHERE id=?",(xp//100+1,user_id))
+            if promo["reward_item"]:
+                c.execute(
+                    "INSERT OR IGNORE INTO v5_wardrobe(user_id,category,name,price,bought_at) VALUES(?,?,?,?,?)",
+                    (user_id,"🎟 PROMO",promo["reward_item"],0,int(time.time()))
+                )
+            c.execute("UPDATE promo_codes SET used_count=used_count+1 WHERE code=?",(code,))
+            cash=f"${promo['reward_cash']:,}".replace(","," ")
+            return True,("🎟 ПРОМОКОД АКТИВИРОВАН\n\n" +
+                f"✨ {promo['title']}\n💵 +{cash}\n⭐ +{promo['reward_xp']} XP\n" +
+                f"🎁 {promo['reward_item'] or 'Эксклюзивный бонус'}")
 
     def get_or_create_user(self, vk_id):
         with self.connect() as c:
