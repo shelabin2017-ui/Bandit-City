@@ -137,6 +137,9 @@ class Database:
             self.add_column(c, "users", "referrals", "INTEGER NOT NULL DEFAULT 0")
             self.add_column(c, "users", "banned", "INTEGER NOT NULL DEFAULT 0")
             self.add_column(c, "users", "onboarding_done", "INTEGER NOT NULL DEFAULT 0")
+            self.add_column(c, "user_appearance", "pants", "TEXT NOT NULL DEFAULT 'default'")
+            self.add_column(c, "user_appearance", "shoes", "TEXT NOT NULL DEFAULT 'default'")
+            self.add_column(c, "user_appearance", "head", "TEXT NOT NULL DEFAULT 'default'")
             for row in c.execute("SELECT id FROM users WHERE ref_code IS NULL OR ref_code=''").fetchall():
                 c.execute("UPDATE users SET ref_code=? WHERE id=?", (self.new_ref(), row["id"]))
 
