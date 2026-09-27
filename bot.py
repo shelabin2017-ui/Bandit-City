@@ -119,22 +119,20 @@ def send_v5(user_id, text, rows):
 
 def kb_main():
     k = VkKeyboard(one_time=False)
-    for label, color in [
-        ("👤 Профиль", VkKeyboardColor.PRIMARY),
-        ("💼 Работа", VkKeyboardColor.POSITIVE),
-        ("🏢 Бизнес", VkKeyboardColor.PRIMARY),
-        ("🚗 Авто", VkKeyboardColor.PRIMARY),
-        ("🛒 Магазин", VkKeyboardColor.PRIMARY),
-        ("🎰 Казино", VkKeyboardColor.NEGATIVE),
-        ("👥 Игроки", VkKeyboardColor.PRIMARY),
-        ("🏦 Банк", VkKeyboardColor.PRIMARY),
-        ("🎁 Бонус", VkKeyboardColor.POSITIVE),
-        ("🏆 Достижения", VkKeyboardColor.PRIMARY),
-        ("🏆 Рейтинг", VkKeyboardColor.PRIMARY),
-    ]:
-        k.add_button(label, color)
-        if label in ("👤 Профиль", "🏢 Бизнес", "🛒 Магазин", "👥 Игроки"):
-            k.add_line()
+    rows = [
+        [("👤 Профиль", VkKeyboardColor.PRIMARY), ("💼 Работа", VkKeyboardColor.POSITIVE)],
+        [("🚗 Авто", VkKeyboardColor.PRIMARY), ("🛒 Магазин", VkKeyboardColor.PRIMARY)],
+        [("🏢 Бизнес", VkKeyboardColor.PRIMARY), ("🏦 Банк", VkKeyboardColor.PRIMARY)],
+        [("🎰 Казино", VkKeyboardColor.NEGATIVE), ("🎁 Бонус", VkKeyboardColor.POSITIVE)],
+        [("👥 Игроки", VkKeyboardColor.PRIMARY), ("🏆 Рейтинг", VkKeyboardColor.PRIMARY)],
+        [("🏆 Достижения", VkKeyboardColor.PRIMARY), ("🎟 Промокод", VkKeyboardColor.POSITIVE)],
+    ]
+    for row in rows:
+        for i,(label,color) in enumerate(row):
+            k.add_button(label,color)
+            if i < len(row)-1:
+                pass
+        k.add_line()
     return k
 
 
@@ -387,6 +385,21 @@ def process(uid, text):
     if text == "↩️ К одежде":
         msg, buttons = v5.clothing_menu()
         send_v5(uid, msg, buttons)
+        return
+
+    if text == "🎟 Промокод":
+        send_v5(uid,
+                "🎟 UNDERGROUND PASS\n\n"
+                "Одноразовые промокоды дают уникальные награды.\n"
+                "Использование: /promo КОД\n\n"
+                "Некоторые коды выдаются только владельцам проекта, "
+                "на закрытых ивентах и в специальных дропах.",
+                [["🏙️ Главное меню"]])
+        return
+    if low.startswith("/promo "):
+        code=text.split(maxsplit=1)[1].strip()
+        ok,msg=db.redeem_promo(user["id"],code)
+        send_v5(uid,msg,[["🎟 Промокод"],["🏙️ Главное меню"]])
         return
 
     # Casino
