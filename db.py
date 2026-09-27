@@ -227,6 +227,15 @@ class Database:
                     "INSERT OR IGNORE INTO v5_wardrobe(user_id,category,name,price,bought_at) VALUES(?,?,?,?,?)",
                     (user_id,"🎟 PROMO",promo["reward_item"],0,int(time.time()))
                 )
+                now=int(time.time())
+                c.execute(
+                    "INSERT OR IGNORE INTO user_appearance(user_id,hair,clothes,pants,shoes,head,accessory,background,updated_at) VALUES(?,?,?,?,?,?,?,?,?)",
+                    (user_id,"default","default","default","default","default","none","city",now)
+                )
+                slot=promo["reward_slot"]
+                if slot in {"hair","clothes","pants","shoes","head","accessory"}:
+                    c.execute("UPDATE user_appearance SET "+slot+"=?, updated_at=? WHERE user_id=?",
+                              (promo["reward_item"],now,user_id))
             c.execute("UPDATE promo_codes SET used_count=used_count+1 WHERE code=?",(code,))
             cash=f"${promo['reward_cash']:,}".replace(","," ")
             return True,("🎟 ПРОМОКОД АКТИВИРОВАН\n\n" +
