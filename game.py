@@ -14,10 +14,24 @@ class Game:
         "refwork": ("🔗 Рефка", 40000, 20),
     }
     CARS = {
-        "common": [("Clover",10,1_000_000),("Elegy",12,2_000_000)],
-        "sport": [("Sultan",20,8_000_000),("Banshee",25,12_000_000)],
-        "super": [("Infernus",40,50_000_000),("Turismo",45,65_000_000)],
-        "lowrider": [("Savanna",14,5_000_000),("Voodoo",16,6_000_000)],
+        "common": [
+            ("Clover",10,1_000_000), ("Elegy",12,2_000_000),
+            ("Falcon Compact",52,18_000), ("Vektor Sedan",64,35_000),
+        ],
+        "sport": [
+            ("Sultan",20,8_000_000), ("Banshee",25,12_000_000),
+            ("Raptor Coupe",79,65_000), ("Night Runner",91,145_000),
+        ],
+        "super": [
+            ("Infernus",40,50_000_000), ("Turismo",45,65_000_000),
+            ("Bullet GT",97,250_000), ("Phantom X",99,450_000),
+        ],
+        "lowrider": [
+            ("Savanna",14,5_000_000), ("Voodoo",16,6_000_000),
+        ],
+        "special": [
+            ("Titan SUV",68,90_000), ("Iron Wolf",88,180_000),
+        ],
     }
 
     def __init__(self, db, admins):
@@ -119,7 +133,7 @@ class Game:
         return self.db.attack(uid,target,mode)
 
     def catalog(self,cat):
-        title={"common":"🚙 ОБЫЧНЫЕ","sport":"🏎 СПОРТ","super":"🔥 СУПЕРКАРЫ","lowrider":"💿 ЛОУРАЙДЕРЫ"}[cat]
+        title={"common":"🚙 ОБЫЧНЫЕ","sport":"🏎 СПОРТ","super":"🔥 СУПЕРКАРЫ","lowrider":"💿 ЛОУРАЙДЕРЫ","special":"🚘 СПЕЦТРАНСПОРТ"}[cat]
         out=[title,""]
         for model,speed,price in self.CARS[cat]:
             out.append(f"🚗 {model}\n⚡ {speed} км/мин\n💵 {money(price)}\n/buycar {model}\n")
