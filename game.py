@@ -214,16 +214,20 @@ class Game:
         try:
             target=int(p[2])
             if p[1] in ("give","take"):
-                amount=int(p[3]); self.db.admin_money(target, amount if p[1]=="give" else -amount)
-                return "✅ Баланс изменён."
+                amount=int(p[3])
+                if amount <= 0:
+                    return "❌ Сумма должна быть положительной."
+                ok=self.db.admin_money(target, amount if p[1]=="give" else -amount)
+                return "✅ Баланс изменён." if ok else "❌ Игрок не найден."
             if p[1]=="level":
-                self.db.admin_level(target,int(p[3])); return "✅ Уровень изменён."
+                ok=self.db.admin_level(target,int(p[3]))
+                return "✅ Уровень изменён." if ok else "❌ Игрок не найден."
             if p[1]=="stock":
-                return "✅ Склад изменён." if self.db.admin_stock(target,int(p[3])) else "❌ Нет игрока/бизнеса."
+                return "✅ Склад изменён." if self.db.admin_stock(target,int(p[3])) else "❌ Нет игрока или бизнеса."
             if p[1]=="ban":
-                self.db.admin_ban(target,True); return "⛔ Игрок заблокирован."
+                return "⛔ Игрок заблокирован." if self.db.admin_ban(target,True) else "❌ Игрок не найден."
             if p[1]=="unban":
-                self.db.admin_ban(target,False); return "✅ Игрок разблокирован."
+                return "✅ Игрок разблокирован." if self.db.admin_ban(target,False) else "❌ Игрок не найден."
         except (ValueError,IndexError):
             return "❌ Неверные параметры."
         return "❌ Неизвестная админ-команда."
