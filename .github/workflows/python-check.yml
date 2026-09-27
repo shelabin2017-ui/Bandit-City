@@ -15,3 +15,18 @@ jobs:
       - name: Compile Python files
         run: |
           python -m py_compile bot.py db.py game.py v5/__init__.py v5/bridge.py v5/extras.py
+      - name: Build repository ZIP
+        run: |
+          rm -rf package Bandit-City.zip
+          mkdir package
+          cp -r . package/Bandit-City
+          rm -rf package/Bandit-City/.git package/Bandit-City/__pycache__
+          find package/Bandit-City -type f -name '*.pyc' -delete
+          cd package
+          zip -qr ../Bandit-City.zip Bandit-City
+      - name: Upload repository ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bandit-City-Final
+          path: Bandit-City.zip
+          if-no-files-found: error
