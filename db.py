@@ -95,6 +95,42 @@ class Database:
                 created_at INTEGER NOT NULL,
                 PRIMARY KEY(user_id, code)
             );
+            CREATE TABLE IF NOT EXISTS user_appearance(
+                user_id INTEGER PRIMARY KEY,
+                hair TEXT NOT NULL DEFAULT 'default',
+                clothes TEXT NOT NULL DEFAULT 'default',
+                pants TEXT NOT NULL DEFAULT 'default',
+                shoes TEXT NOT NULL DEFAULT 'default',
+                head TEXT NOT NULL DEFAULT 'default',
+                accessory TEXT NOT NULL DEFAULT 'none',
+                background TEXT NOT NULL DEFAULT 'city',
+                updated_at INTEGER NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS v5_wardrobe(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                category TEXT NOT NULL,
+                name TEXT NOT NULL,
+                price INTEGER NOT NULL,
+                bought_at INTEGER NOT NULL,
+                UNIQUE(user_id, category, name)
+            );
+            CREATE TABLE IF NOT EXISTS v5_weapons(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                code TEXT NOT NULL,
+                name TEXT NOT NULL,
+                price INTEGER NOT NULL,
+                bought_at INTEGER NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS v5_purchases(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                code TEXT NOT NULL,
+                name TEXT NOT NULL,
+                price INTEGER NOT NULL,
+                bought_at INTEGER NOT NULL
+            );
             """)
             self.add_column(c, "users", "ref_code", "TEXT")
             self.add_column(c, "users", "referred_by", "INTEGER")
@@ -113,6 +149,27 @@ class Database:
     @staticmethod
     def new_ref():
         return "R" + "".join(secrets.choice(string.ascii_letters + string.digits) for _ in range(8))
+
+    def appearance(self, user_id):
+        with self.connect() as c:
+            row=c.execute("SELECT * FROM user_appearance WHERE user_id=?", (user_id,)).fetchone()
+            if row:
+                return row
+            now=int(time.time())
+            c.execute("INSERT INTO user_appearance(user_id,hair,clothes,pants,shoes,head,accessory,background,updated_at) VALUES(?,?,?,?,?,?,?,?,?)", (user_id,"default","default","default","default","default","none","city",now))
+            return c.execute("SELECT * FROM user_appearance WHERE user_id=?", (user_id,)).fetchone()
+
+    def set_appearance(self, user_id, **values):
+        allowed={"hair","clothes","pants","shoes","head","accessory","background"}
+        values={k:v for k,v in values.items() if k in allowed}
+        self.appearance(user_id)
+        if not values:
+            return
+        values["updated_at"]=int(time.time())
+        fields=", ".join(k+"=?" for k in values)
+        params=list(values.values())+[user_id]
+        with self.connect() as c:
+            c.execute("UPDATE user_appearance SET "+fields+" WHERE user_id=?", params)
 
     def get_or_create_user(self, vk_id):
         with self.connect() as c:
