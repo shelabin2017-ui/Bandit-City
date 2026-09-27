@@ -233,7 +233,7 @@ def process(uid, text):
     if text == "🚗 Авто":
         send(uid, "🚗 АВТОСАЛОН", kb_auto())
         return
-    cats = {"🚙 Обычные":"common", "🏎 Спорт":"sport", "🔥 Суперкары":"super", "💿 Лоурайдеры":"lowrider"}
+    cats = {"🚙 Обычные":"common", "🏎 Спорт":"sport", "🔥 Суперкары":"super", "💿 Лоурайдеры":"lowrider", "🚘 Спецтранспорт":"special"}
     if text in cats:
         send(uid, game.catalog(cats[text]), kb_auto())
         return
