@@ -17,13 +17,11 @@ jobs:
           python -m py_compile bot.py db.py game.py v5/__init__.py v5/bridge.py v5/extras.py
       - name: Build repository ZIP
         run: |
-          rm -rf package Bandit-City.zip
-          mkdir package
-          cp -r . package/Bandit-City
-          rm -rf package/Bandit-City/.git package/Bandit-City/__pycache__
-          find package/Bandit-City -type f -name '*.pyc' -delete
-          cd package
-          zip -qr ../Bandit-City.zip Bandit-City
+          rm -rf "$RUNNER_TEMP/bandit-package" Bandit-City.zip
+          mkdir -p "$RUNNER_TEMP/bandit-package/Bandit-City"
+          rsync -a --exclude='.git' --exclude='__pycache__' --exclude='*.pyc' ./ "$RUNNER_TEMP/bandit-package/Bandit-City/"
+          cd "$RUNNER_TEMP/bandit-package"
+          zip -qr "$GITHUB_WORKSPACE/Bandit-City.zip" Bandit-City
       - name: Upload repository ZIP
         uses: actions/upload-artifact@v4
         with:
