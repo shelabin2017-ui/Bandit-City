@@ -52,6 +52,8 @@ def send(user_id, text, keyboard=None, attachment=None):
     }
     if keyboard:
         payload["keyboard"] = keyboard.get_keyboard()
+    if attachment is None:
+        attachment = upload_card(user_id, card_key(text))
     if attachment:
         payload["attachment"] = attachment
     vk.messages.send(**payload)
