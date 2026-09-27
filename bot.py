@@ -291,9 +291,9 @@ def process(uid, text):
         send_v5(uid, msg, buttons)
         return
 
-    item_names = {name for name, _price in v5.ITEMS}
-    if text in item_names:
-        msg, buttons = v5.buy_item(db, uid, text)
+    item_choice = next((name for name, _price in v5.ITEMS if text.startswith(name + " — ")), None)
+    if item_choice:
+        msg, buttons = v5.buy_item(db, uid, item_choice)
         send_v5(uid, msg, buttons)
         return
 
