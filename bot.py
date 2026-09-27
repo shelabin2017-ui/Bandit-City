@@ -182,6 +182,8 @@ def kb_auto():
     k.add_button("💿 Лоурайдеры", VkKeyboardColor.PRIMARY)
     k.add_line()
     k.add_button("🚘 Гараж", VkKeyboardColor.PRIMARY)
+    k.add_line()
+    k.add_button("🚘 Спецтранспорт", VkKeyboardColor.POSITIVE)
     k.add_button("◀️ Назад", VkKeyboardColor.SECONDARY)
     return k
 
