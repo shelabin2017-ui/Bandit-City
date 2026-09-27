@@ -49,6 +49,25 @@ def send(user_id, text, keyboard=None):
     vk.messages.send(**payload)
 
 
+
+def send_v5(user_id, text, rows):
+    keyboard = VkKeyboard(one_time=False)
+    colors = {
+        "primary": VkKeyboardColor.PRIMARY,
+        "positive": VkKeyboardColor.POSITIVE,
+        "negative": VkKeyboardColor.NEGATIVE,
+        "secondary": VkKeyboardColor.SECONDARY,
+    }
+    for row in rows:
+        if isinstance(row, str):
+            row = [row]
+        for i, label in enumerate(row):
+            keyboard.add_button(label, colors.get("primary", VkKeyboardColor.PRIMARY))
+            if i < len(row) - 1:
+                pass
+        keyboard.add_line()
+    send(user_id, text, keyboard)
+
 def kb_main():
     k = VkKeyboard(one_time=False)
     for label, color in [
@@ -234,55 +253,55 @@ def process(uid, text):
     # V5 Shop / Inventory / Wardrobe / Character
     if text == "🛒 Магазин":
         msg, buttons = v5.shop_hub()
-        send(uid, msg, None)
+        send_v5(uid, msg, buttons)
         for row in buttons:
             pass
         return
 
     if text == "🛍️ Предметы":
         msg, buttons = v5.item_shop()
-        send(uid, msg, None)
+        send_v5(uid, msg, buttons)
         return
     if text == "🎒 Инвентарь":
         msg, buttons = v5.inventory(db, uid)
-        send(uid, msg, None)
+        send_v5(uid, msg, buttons)
         return
     if text == "🧥 Одежда":
         msg, buttons = v5.clothing_menu()
-        send(uid, msg, None)
+        send_v5(uid, msg, buttons)
         return
     if text in v5.CLOTHING:
         msg, buttons = v5.clothing_catalog(db, uid, text)
-        send(uid, msg, None)
+        send_v5(uid, msg, buttons)
         return
     if text == "🔫 Оружие":
         msg, buttons = v5.weapon_shop()
-        send(uid, msg, None)
+        send_v5(uid, msg, buttons)
         return
     if text == "💎 Премиум":
         msg, buttons = v5.premium_shop()
-        send(uid, msg, None)
+        send_v5(uid, msg, buttons)
         return
     if text == "🚗 Авто":
         msg, buttons = v5.car_dealership()
-        send(uid, msg, None)
+        send_v5(uid, msg, buttons)
         return
     if text == "👤 Персонаж":
         msg, buttons = v5.character(db, uid)
-        send(uid, msg, None)
+        send_v5(uid, msg, buttons)
         return
 
     item_names = {name for name, _price in v5.ITEMS}
     if text in item_names:
         msg, buttons = v5.buy_item(db, uid, text)
-        send(uid, msg, None)
+        send_v5(uid, msg, buttons)
         return
 
     if text.startswith("🗑 Продать #"):
         try:
             item_id = int(text.split("#", 1)[1])
             msg, buttons = v5.sell_item(db, uid, item_id)
-            send(uid, msg, None)
+            send_v5(uid, msg, buttons)
         except ValueError:
             send(uid, "❌ Неверный ID вещи.")
         return
@@ -297,28 +316,28 @@ def process(uid, text):
             break
     if clothing_choice:
         msg, buttons = v5.buy_wardrobe(db, uid, *clothing_choice)
-        send(uid, msg, None)
+        send_v5(uid, msg, buttons)
         return
 
     weapon_choice = next((name for name, _price, _code in v5.WEAPONS if text.startswith(name)), None)
     if weapon_choice:
         msg, buttons = v5.buy_weapon(db, uid, weapon_choice)
-        send(uid, msg, None)
+        send_v5(uid, msg, buttons)
         return
 
     premium_choice = next((name for name, _price, _code in v5.PREMIUM if text.startswith(name)), None)
     if premium_choice:
         msg, buttons = v5.buy_premium(db, uid, premium_choice)
-        send(uid, msg, None)
+        send_v5(uid, msg, buttons)
         return
 
     if text in ("↩️ В магазин", "🛒 В магазин"):
         msg, buttons = v5.shop_hub()
-        send(uid, msg, None)
+        send_v5(uid, msg, buttons)
         return
     if text == "↩️ К одежде":
         msg, buttons = v5.clothing_menu()
-        send(uid, msg, None)
+        send_v5(uid, msg, buttons)
         return
 
     # Casino
