@@ -3,6 +3,9 @@ import os
 import random
 import threading
 import time
+from pathlib import Path
+
+import requests
 
 from dotenv import load_dotenv
 import vk_api
@@ -38,7 +41,10 @@ vk = session.get_api()
 longpoll = VkLongPoll(session)
 
 
-def send(user_id, text, keyboard=None):
+CARD_CACHE = {}
+CARD_DIR = Path(__file__).resolve().parent / "assets" / "cards"
+
+def send(user_id, text, keyboard=None, attachment=None):
     payload = {
         "user_id": user_id,
         "random_id": random.randint(1, 2_147_483_647),
@@ -46,27 +52,70 @@ def send(user_id, text, keyboard=None):
     }
     if keyboard:
         payload["keyboard"] = keyboard.get_keyboard()
+    if attachment:
+        payload["attachment"] = attachment
     vk.messages.send(**payload)
 
+
+def card_key(text):
+    t=text.lower()
+    if "магазин" in t or "black market" in t or "одежд" in t or "оруж" in t:
+        return "shop"
+    if "профил" in t or "story" in t:
+        return "profile"
+    if "гараж" in t or "авто" in t or "машин" in t:
+        return "garage"
+    if "промокод" in t or "promo" in t or "under" in t:
+        return "promo"
+    return "main"
+
+
+def upload_card(user_id, key):
+    if key in CARD_CACHE:
+        return CARD_CACHE[key]
+    try:
+        import cairosvg
+        svg=CARD_DIR / (key + ".svg")
+        png=CARD_DIR / (key + ".png")
+        if not png.exists() or png.stat().st_mtime < svg.stat().st_mtime:
+            cairosvg.svg2png(url=str(svg), write_to=str(png), output_width=1200, output_height=630)
+        upload=vk.photos.getMessagesUploadServer(peer_id=user_id)
+        with png.open("rb") as fh:
+            response=requests.post(upload["upload_url"], files={"photo": fh}, timeout=30).json()
+        saved=vk.photos.saveMessagesPhoto(
+            server=response["server"], photo=response["photo"], hash=response["hash"]
+        )
+        photo=saved[0]
+        attachment=f"photo{photo['owner_id']}_{photo['id']}"
+        CARD_CACHE[key]=attachment
+        return attachment
+    except Exception:
+        logging.exception("Не удалось загрузить визуальную карточку %s", key)
+        return None
+
+
+def button_color(label):
+    if any(x in label for x in ("Назад", "В магазин", "К одежде", "Главное меню")):
+        return VkKeyboardColor.SECONDARY
+    if any(x in label for x in ("Купить", "Куплено", "Активировать", "Промокод", "Бонус")):
+        return VkKeyboardColor.POSITIVE
+    if any(x in label for x in ("Продать", "Удалить", "Казино", "Риск")):
+        return VkKeyboardColor.NEGATIVE
+    return VkKeyboardColor.PRIMARY
 
 
 def send_v5(user_id, text, rows):
     keyboard = VkKeyboard(one_time=False)
-    colors = {
-        "primary": VkKeyboardColor.PRIMARY,
-        "positive": VkKeyboardColor.POSITIVE,
-        "negative": VkKeyboardColor.NEGATIVE,
-        "secondary": VkKeyboardColor.SECONDARY,
-    }
     for row in rows:
         if isinstance(row, str):
-            row = [row]
-        for i, label in enumerate(row):
-            keyboard.add_button(label, colors.get("primary", VkKeyboardColor.PRIMARY))
-            if i < len(row) - 1:
+            row=[row]
+        for index, label in enumerate(row):
+            keyboard.add_button(str(label)[:40], button_color(str(label)))
+            if index < len(row)-1:
                 pass
         keyboard.add_line()
-    send(user_id, text, keyboard)
+    attachment=upload_card(user_id, card_key(text))
+    send(user_id, text, keyboard, attachment)
 
 def kb_main():
     k = VkKeyboard(one_time=False)
