@@ -390,9 +390,13 @@ class Database:
     def buy_car(self, user_id, model):
         cars = {
             "Clover":("common",10,1_000_000),"Elegy":("common",12,2_000_000),
+            "Falcon Compact":("common",52,18_000),"Vektor Sedan":("common",64,35_000),
             "Sultan":("sport",20,8_000_000),"Banshee":("sport",25,12_000_000),
+            "Raptor Coupe":("sport",79,65_000),"Night Runner":("sport",91,145_000),
             "Infernus":("super",40,50_000_000),"Turismo":("super",45,65_000_000),
-            "Savanna":("lowrider",14,5_000_000),"Voodoo":("lowrider",16,6_000_000)
+            "Bullet GT":("super",97,250_000),"Phantom X":("super",99,450_000),
+            "Savanna":("lowrider",14,5_000_000),"Voodoo":("lowrider",16,6_000_000),
+            "Titan SUV":("special",68,90_000),"Iron Wolf":("special",88,180_000)
         }
         if model not in cars:
             return "❌ Такой машины нет."
