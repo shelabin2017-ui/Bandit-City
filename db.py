@@ -594,15 +594,29 @@ class Database:
 
     def admin_money(self,vk_id,delta):
         with self.connect() as c:
-            c.execute("UPDATE users SET balance=balance+? WHERE vk_id=?",(delta,vk_id))
+            row=c.execute("SELECT id,balance FROM users WHERE vk_id=?",(vk_id,)).fetchone()
+            if not row:
+                return False
+            new_balance=max(0, row["balance"] + int(delta))
+            c.execute("UPDATE users SET balance=? WHERE id=?",(new_balance,row["id"]))
+            return True
 
     def admin_level(self,vk_id,level):
+        level=max(1,min(100, int(level)))
         with self.connect() as c:
-            c.execute("UPDATE users SET level=? WHERE vk_id=?",(level,vk_id))
+            row=c.execute("SELECT id FROM users WHERE vk_id=?",(vk_id,)).fetchone()
+            if not row:
+                return False
+            c.execute("UPDATE users SET level=? WHERE id=?",(level,row["id"]))
+            return True
 
     def admin_ban(self,vk_id,value):
         with self.connect() as c:
-            c.execute("UPDATE users SET banned=? WHERE vk_id=?",(int(value),vk_id))
+            row=c.execute("SELECT id FROM users WHERE vk_id=?",(vk_id,)).fetchone()
+            if not row:
+                return False
+            c.execute("UPDATE users SET banned=? WHERE id=?",(int(value),row["id"]))
+            return True
 
     def admin_stock(self,vk_id,stock):
         stock=max(0,min(5_000_000,stock))
