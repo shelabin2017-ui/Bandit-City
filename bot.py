@@ -11,6 +11,7 @@ from vk_api.longpoll import VkLongPoll, VkEventType
 
 from db import Database
 from game import Game
+from v5 import bridge as v5
 
 load_dotenv()
 
@@ -143,6 +144,10 @@ def money(n):
 
 
 def process(uid, text):
+    if v5.MAINTENANCE and uid not in v5.ADMIN_IDS:
+        send(uid, "🔧 ТЕХНИЧЕСКИЕ РАБОТЫ\n\nБот временно недоступен.\nПожалуйста, зайди немного позже.")
+        return
+
     if db.is_banned(uid):
         send(uid, "⛔ Твой аккаунт заблокирован.")
         return
@@ -226,28 +231,94 @@ def process(uid, text):
             send(uid, "Использование: /sellcar ID", kb_auto())
         return
 
-    # Shop
+    # V5 Shop / Inventory / Wardrobe / Character
     if text == "🛒 Магазин":
-        send(uid, "🛒 МАГАЗИН", kb_shop())
+        msg, buttons = v5.shop_hub()
+        send(uid, msg, None)
+        for row in buttons:
+            pass
         return
-    shop = {
-        "💻 MacBook": ("MacBook Pro 13", 150000),
-        "👟 Кроссовки": ("Yung-1", 80000),
-        "👕 Куртка": ("Sport Jacket", 65000),
-        "💇 Волосы": ("Hair Style", 30000),
-    }
-    if text in shop:
-        name, price = shop[text]
-        send(uid, game.buy_item(user["id"], name, price), kb_shop())
+
+    if text == "🛍️ Предметы":
+        msg, buttons = v5.item_shop()
+        send(uid, msg, None)
         return
-    if text == "📦 Мои вещи" or low == "/items":
-        send(uid, game.items(user["id"]), kb_shop())
+    if text == "🎒 Инвентарь":
+        msg, buttons = v5.inventory(db, uid)
+        send(uid, msg, None)
         return
-    if low.startswith("/sellitem "):
+    if text == "🧥 Одежда":
+        msg, buttons = v5.clothing_menu()
+        send(uid, msg, None)
+        return
+    if text in v5.CLOTHING:
+        msg, buttons = v5.clothing_catalog(db, uid, text)
+        send(uid, msg, None)
+        return
+    if text == "🔫 Оружие":
+        msg, buttons = v5.weapon_shop()
+        send(uid, msg, None)
+        return
+    if text == "💎 Премиум":
+        msg, buttons = v5.premium_shop()
+        send(uid, msg, None)
+        return
+    if text == "🚗 Авто":
+        msg, buttons = v5.car_dealership()
+        send(uid, msg, None)
+        return
+    if text == "👤 Персонаж":
+        msg, buttons = v5.character(db, uid)
+        send(uid, msg, None)
+        return
+
+    item_names = {name for name, _price in v5.ITEMS}
+    if text in item_names:
+        msg, buttons = v5.buy_item(db, uid, text)
+        send(uid, msg, None)
+        return
+
+    if text.startswith("🗑 Продать #"):
         try:
-            send(uid, game.sell_item(user["id"], int(text.split()[1])), kb_shop())
-        except (ValueError, IndexError):
-            send(uid, "Использование: /sellitem ID", kb_shop())
+            item_id = int(text.split("#", 1)[1])
+            msg, buttons = v5.sell_item(db, uid, item_id)
+            send(uid, msg, None)
+        except ValueError:
+            send(uid, "❌ Неверный ID вещи.")
+        return
+
+    clothing_choice = None
+    for category, rows in v5.CLOTHING.items():
+        for name, _price, _slot in rows:
+            if text.endswith(name) or text.startswith("🛒 " + name) or text.startswith("✅ " + name):
+                clothing_choice = (category, name)
+                break
+        if clothing_choice:
+            break
+    if clothing_choice:
+        msg, buttons = v5.buy_wardrobe(db, uid, *clothing_choice)
+        send(uid, msg, None)
+        return
+
+    weapon_choice = next((name for name, _price, _code in v5.WEAPONS if text.startswith(name)), None)
+    if weapon_choice:
+        msg, buttons = v5.buy_weapon(db, uid, weapon_choice)
+        send(uid, msg, None)
+        return
+
+    premium_choice = next((name for name, _price, _code in v5.PREMIUM if text.startswith(name)), None)
+    if premium_choice:
+        msg, buttons = v5.buy_premium(db, uid, premium_choice)
+        send(uid, msg, None)
+        return
+
+    if text in ("↩️ В магазин", "🛒 В магазин"):
+        msg, buttons = v5.shop_hub()
+        send(uid, msg, None)
+        return
+    if text == "↩️ К одежде":
+        msg, buttons = v5.clothing_menu()
+        send(uid, msg, None)
         return
 
     # Casino
