@@ -104,6 +104,12 @@ class AdminWorkflowTests(unittest.TestCase):
         handled, _, _ = self.panel.handle(self.player, "💵 Наличные")
         self.assertFalse(handled)
 
+        handled, _, _ = self.panel.handle(self.player, "⛔ Заблокировать")
+        self.assertTrue(handled)
+        handled, message, _ = self.panel.handle(self.player, str(self.admin))
+        self.assertTrue(handled)
+        self.assertIn("заблокирован", message.lower())
+
 
 if __name__ == "__main__":
     unittest.main()
