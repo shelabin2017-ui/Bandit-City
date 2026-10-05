@@ -85,6 +85,30 @@ class AdminWorkflowTests(unittest.TestCase):
         handled, _, _ = self.panel.handle(self.player, "💰 Экономика")
         self.assertFalse(handled)
 
+    def test_admin_rejects_negative_economy_and_promo_values(self):
+        # Economy values must never create negative balances.
+        handled, _, _ = self.panel.handle(self.admin, "💰 Экономика")
+        self.assertTrue(handled)
+        handled, _, _ = self.panel.handle(self.admin, "💵 Наличные")
+        self.assertTrue(handled)
+        handled, message, _ = self.panel.handle(self.admin, f"{self.player} -100")
+        self.assertTrue(handled)
+        self.assertIn("не может быть отрицательным", message)
+        self.assertEqual(self.db.user(self.db.get_or_create_user(self.player)["id"])["balance"], 100000)
+
+        # Promo rewards and limits must reject negative values.
+        handled, _, _ = self.panel.handle(self.admin, "🎟 Промокоды")
+        self.assertTrue(handled)
+        handled, _, _ = self.panel.handle(self.admin, "➕ Создать промокод")
+        self.assertTrue(handled)
+        handled, message, _ = self.panel.handle(self.admin, "BAD|Bad|-1|0|10")
+        self.assertTrue(handled)
+        self.assertIn("не могут быть отрицательными", message)
+
+        handled, message, _ = self.panel.handle(self.admin, "GOOD|Good|100|10|-1")
+        self.assertTrue(handled)
+        self.assertIn("не могут быть отрицательными", message)
+
     def test_moderator_lookup_cannot_escalate_to_economy(self):
         self.roles.set_role(self.owner, self.player, Role.MODERATOR)
 
