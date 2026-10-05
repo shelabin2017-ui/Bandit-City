@@ -303,27 +303,27 @@ class AdminPanel:
             body = ["👥 ИГРОКИ • TOP"]
             for i, r in enumerate(rows, 1):
                 body.append(f"{i}. VK {r['vk_id']} • 💵 {r['balance']:,} • 🏦 {r['bank']:,} • ⭐{r['level']}".replace(",", " "))
-            body.append("\nКоманда: /aplayer VK_ID")
+            body.append("\n🔎 Нажми «Найти игрока» для управления.")
             return True, "\n".join(body), [["👑 Админ-панель"], ["🏙️ Главное меню"]]
         if text == "💰 Экономика":
-            return True, "💰 ЭКОНОМИКА\n\n/acash VK_ID SUM — установить наличные\n/abank VK_ID SUM — установить банк", [["💵 Наличные", "🏦 Банк"], ["👑 Админ-панель"]]
+            return True, "💰 ЭКОНОМИКА\n\nВыбери действие.", [["💵 Наличные", "🏦 Банк"], ["👑 Админ-панель"]]
         if text in ("💵 Наличные", "🏦 Банк"):
             self.state[uid] = "cash" if text == "💵 Наличные" else "bank"
             return True, "Введи: VK_ID СУММА\nПример: 123456789 37500\n\nДля отмены: отмена", [["👑 Админ-панель"]]
         if text == "⭐ XP / Уровень":
-            return True, "⭐ XP / УРОВЕНЬ\n\n/axp VK_ID XP — установить XP\n/alevel VK_ID LEVEL — установить уровень", [["👑 Админ-панель"]]
+            return True, "⭐ XP / УРОВЕНЬ\n\nВыбери действие.", [["⭐ XP", "🎚 Уровень"], ["👑 Админ-панель"]]
         if text == "🏢 Бизнес":
-            return True, "🏢 БИЗНЕС\n\n/astock VK_ID AMOUNT — установить сырьё", [["👑 Админ-панель"]]
+            return True, "🏢 БИЗНЕС\n\nВыбери действие.", [["📦 Изменить склад"], ["👑 Админ-панель"]]
         if text == "🚗 Машины":
-            return True, "🚗 МАШИНЫ\n\n/apcars VK_ID — список машин\n/acardel VK_ID CAR_ID — удалить машину", [["👑 Админ-панель"]]
+            return True, "🚗 МАШИНЫ\n\nВыбери действие.", [["📋 Машины игрока", "🗑 Удалить машину"], ["👑 Админ-панель"]]
         if text == "🎒 Вещи":
-            return True, "🎒 ВЕЩИ\n\n/apitems VK_ID — список вещей\n/aitemdel VK_ID ITEM_ID — удалить вещь", [["👑 Админ-панель"]]
+            return True, "🎒 ВЕЩИ\n\nВыбери действие.", [["📋 Вещи игрока", "🗑 Удалить вещь"], ["👑 Админ-панель"]]
         if text == "🛡 Безопасность":
-            return True, "🛡 БЕЗОПАСНОСТЬ\n\n/aban VK_ID — бан\n/aunban VK_ID — разбан\n/aplayer VK_ID — карточка игрока", [["👑 Админ-панель"]]
+            return True, "🛡 БЕЗОПАСНОСТЬ\n\nВыбери действие.", [["🔎 Карточка игрока"], ["⛔ Заблокировать", "✅ Разблокировать"], ["👑 Админ-панель"]]
         if text == "📢 Рассылка":
-            return True, "📢 РАССЫЛКА\n\n/broadcast ТЕКСТ\n\nПеред отправкой бот покажет подтверждение.", [["👑 Админ-панель"]]
+            return True, "📢 РАССЫЛКА\n\nНажми кнопку, затем введи текст.", [["✍️ Создать рассылку"], ["👑 Админ-панель"]]
         if text == "🎟 Промокоды":
-            return True, "🎟 ПРОМОКОДЫ\n\n/promoadd CODE|TITLE|CASH|XP|MAX_USES\n/promodel CODE\n/promolist", [["👑 Админ-панель"]]
+            return True, "🎟 ПРОМОКОДЫ\n\nВыбери действие.", [["➕ Создать промокод", "📋 Список промокодов"], ["🔄 Переключить промокод"], ["👑 Админ-панель"]]
         if text == "⚙️ Настройки":
             with self._conn() as c:
                 row = c.execute("SELECT value FROM settings WHERE key='maintenance_mode'").fetchone()
@@ -413,7 +413,7 @@ class AdminPanel:
         if text == "🧾 Журнал":
             return True, self._logs(), [["👑 Админ-панель"]]
         if text == "🎨 Внешность":
-            return True, "🎨 ВНЕШНОСТЬ\n\n/aappearance VK_ID — показать\n/asetappearance VK_ID SLOT VALUE — изменить\n\nSLOT: hair, clothes, pants, shoes, head, accessory, background", [["👑 Админ-панель"]]
+            return True, "🎨 ВНЕШНОСТЬ\n\nВыбери действие.", [["🔎 Посмотреть внешность", "✏️ Изменить внешность"], ["👑 Админ-панель"]]
         if text == "🎪 Ивенты":
             from catalog import EVENTS, active_events
             active = active_events()
