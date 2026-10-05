@@ -272,6 +272,33 @@ class Database:
                 f"✨ {promo['title']}\n💵 +{cash}\n⭐ +{promo['reward_xp']} XP\n" +
                 f"🎁 {promo['reward_item'] or 'Эксклюзивный бонус'}")
 
+    def phone_contacts(self,user_id):
+        with self.connect() as c:
+            return c.execute("SELECT * FROM phone_contacts WHERE user_id=? ORDER BY nickname",(user_id,)).fetchall()
+
+    def phone_add(self,user_id,contact_id,nickname):
+        with self.connect() as c:
+            if int(contact_id)==int(user_id): return False,"❌ Нельзя добавить самого себя."
+            c.execute("INSERT OR REPLACE INTO phone_contacts(user_id,contact_id,nickname,created_at) VALUES(?,?,?,?)",
+                      (user_id,contact_id,nickname,int(time.time())))
+        return True,"📱 Контакт добавлен."
+
+    def phone_remove(self,user_id,contact_id):
+        with self.connect() as c:
+            cur=c.execute("DELETE FROM phone_contacts WHERE user_id=? AND contact_id=?",(user_id,contact_id))
+        return bool(cur.rowcount)
+
+    def npc_value(self,user_id,npc_code):
+        with self.connect() as c:
+            r=c.execute("SELECT value FROM npc_state WHERE user_id=? AND npc_code=?",(user_id,npc_code)).fetchone()
+        return int(r["value"]) if r else 0
+
+    def npc_set(self,user_id,npc_code,value):
+        with self.connect() as c:
+            c.execute("INSERT INTO npc_state(user_id,npc_code,value,updated_at) VALUES(?,?,?,?) "
+                      "ON CONFLICT(user_id,npc_code) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at",
+                      (user_id,npc_code,int(value),int(time.time())))
+
     def get_or_create_user(self, vk_id):
         with self.connect() as c:
             row = c.execute("SELECT * FROM users WHERE vk_id=?", (vk_id,)).fetchone()
