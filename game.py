@@ -38,6 +38,42 @@ class Game:
         self.db = db
         self.admins = admins
 
+    NPCS = {
+        "dealer": ("💰 Дилер", "Сделки и быстрые деньги."),
+        "fixer": ("🕴️ Фиксер", "Заказы, связи и рискованные поручения."),
+        "mechanic": ("🔧 Механик", "Машины, ремонт и уличные задания."),
+        "informant": ("🕵️ Информатор", "Слухи о городе и особые задания."),
+    }
+
+    def phone(self,uid):
+        rows=self.db.phone_contacts(uid)
+        if not rows:
+            return "📱 ТЕЛЕФОН\n\nКонтактов пока нет.\nДобавляй игроков через VK ID."
+        return "📱 ТЕЛЕФОН\n\n" + "\n".join(
+            f"👤 {r['nickname']} • VK {r['contact_id']}" for r in rows
+        )
+
+    def phone_add(self,uid,target):
+        target=int(target)
+        u=self.db.user(target)
+        if not u: return "❌ Игрок не найден."
+        return self.db.phone_add(uid,target,u["nickname"])[1]
+
+    def phone_remove(self,uid,target):
+        return "🗑️ Контакт удалён." if self.db.phone_remove(uid,int(target)) else "❌ Контакт не найден."
+
+    def npc_menu(self,uid):
+        return "📱 NPC ГОРОДА\n\n" + "\n".join(
+            f"{title}\n{desc}\nНажми на NPC, чтобы открыть его действия."
+            for title,desc in self.NPCS.values()
+        )
+
+    def npc(self,uid,code):
+        if code not in self.NPCS: return "❌ NPC не найден."
+        title,desc=self.NPCS[code]
+        progress=self.db.npc_value(uid,code)
+        return f"{title}\n\n{desc}\n\n⭐ Репутация: {progress}\n\n🎯 Доступные действия появятся по мере развития NPC."
+    
     def welcome(self, uid, referral_bonus=None):
         bonus_line = ""
         if referral_bonus:
