@@ -221,6 +221,12 @@ class AdminPanel:
                         cash, xp, max_uses = int(cash), int(xp), int(max_uses)
                     except ValueError:
                         return True, "❌ CASH, XP и MAX_USES должны быть числами.", [["👑 Админ-панель"]]
+                    if not code or not title:
+                        return True, "❌ CODE и TITLE не могут быть пустыми.", [["👑 Админ-панель"]]
+                    if cash < 0 or xp < 0 or max_uses < 0:
+                        return True, "❌ CASH, XP и MAX_USES не могут быть отрицательными.", [["👑 Админ-панель"]]
+                    if slot and slot not in {"hair", "clothes", "pants", "shoes", "head", "accessory", "background"}:
+                        return True, "❌ Недопустимый слот награды.", [["👑 Админ-панель"]]
                     with self._conn() as c:
                         c.execute("INSERT OR REPLACE INTO promo_codes(code,title,reward_cash,reward_xp,reward_item,reward_slot,max_uses,used_count,active) VALUES(?,?,?,?,?,?,?,0,1)", (code.upper(), title, cash, xp, item or None, slot or None, max_uses))
                     self._log(uid, "promo_add", None, code.upper())
@@ -273,6 +279,8 @@ class AdminPanel:
                     return True,msg,rows
                 if st in ("cash","bank","xp","level","stock"):
                     parts=text.split(); target=int(parts[0]); amount=int(parts[1])
+                    if amount < 0:
+                        return True, "❌ Значение не может быть отрицательным.", [["❌ Отмена"], ["👑 Админ-панель"]]
                     if st=="cash": ok=self._set_cash(target,amount); action="set_cash"
                     elif st=="bank": ok=self._set_bank(target,amount); action="set_bank"
                     elif st=="xp": ok=self._set_xp(target,amount); action="set_xp"
@@ -589,6 +597,8 @@ class AdminPanel:
                 target, amount = map(int, text.split()[1:3])
             except ValueError:
                 return True, "❌ Формат: /acash VK_ID SUM", [["👑 Админ-панель"]]
+            if amount < 0:
+                return True, "❌ Сумма не может быть отрицательной.", [["👑 Админ-панель"]]
             cash = text.startswith("/acash")
             ok = self._set_cash(target, amount) if cash else self._set_bank(target, amount)
             self._log(uid, "set_cash" if cash else "set_bank", target, amount)
@@ -637,6 +647,11 @@ class AdminPanel:
                 code, title, cash, xp, max_uses = parts[:5]
                 item = parts[5].strip() if len(parts) == 7 else None
                 slot = parts[6].strip() if len(parts) == 7 else None
+                cash, xp, max_uses = int(cash), int(xp), int(max_uses)
+                if not code.strip() or not title.strip() or cash < 0 or xp < 0 or max_uses < 0:
+                    raise ValueError
+                if slot and slot not in {"hair", "clothes", "pants", "shoes", "head", "accessory", "background"}:
+                    raise ValueError
                 with self._conn() as c:
                     c.execute(
                         "INSERT OR REPLACE INTO promo_codes(code,title,reward_cash,reward_xp,reward_item,reward_slot,max_uses,used_count,active) VALUES(?,?,?,?,?,?,?,0,1)",
