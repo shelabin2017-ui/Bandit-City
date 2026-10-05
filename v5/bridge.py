@@ -46,14 +46,27 @@ def shop_hub():
     return reply("🛒 МАГАЗИН LOS SANTOS\n\nВыбери раздел:",[["🧥 Одежда","🔫 Оружие"],["🚗 Авто","💎 Премиум"],["🛍️ Предметы"],["🎒 Инвентарь"],["🎪 Ивент-дропы"],["🏙️ Главное меню"]])
 def item_shop():
     body=["🛒 ПРЕДМЕТЫ LOS SANTOS","","Постоянный каталог:",""]; buttons=[]
-    for name,price in ITEMS: body += [name,"💵 "+money(price),""]; buttons.append([name+" — "+money(price)])
-    buttons += [["🎒 Инвентарь"],["🛒 Магазин"],["🏙️ Главное меню"]]; return reply("\n".join(body),buttons)
+    item_buttons=[]
+    for name,price in ITEMS:
+        body += [name,"💵 "+money(price),""]
+        item_buttons.append(name+" — "+money(price))
+    # VK default keyboards support at most 10 rows. Pair item buttons.
+    for i in range(0, len(item_buttons), 2):
+        buttons.append(item_buttons[i:i + 2])
+    buttons += [["🎒 Инвентарь"],["🛒 Магазин"],["🏙️ Главное меню"]]
+    return reply("\n".join(body),buttons)
 def inventory(db,vk_id):
     uid=player_id_by_vk(db,vk_id); rows=db.items(uid)
     if not rows: return reply("🎒 ИНВЕНТАРЬ LOS SANTOS\n\nКарман пуст.",[["🛒 Магазин"],["🏙️ Главное меню"]])
-    body=["🎒 ИНВЕНТАРЬ LOS SANTOS",""]; buttons=[]
-    for row in rows: body += ["📦 "+row["name"],"💵 Цена: "+money(row["price"]),""]; buttons.append(["🗑 Продать #"+str(row["id"])])
-    buttons += [["🛒 Магазин"],["🏙️ Главное меню"]]; return reply("\n".join(body),buttons)
+    body=["🎒 ИНВЕНТАРЬ LOS SANTOS",""]; buttons=[]; sell_buttons=[]
+    for row in rows:
+        body += ["📦 "+row["name"],"💵 Цена: "+money(row["price"]),""]
+        sell_buttons.append("🗑 Продать #"+str(row["id"]))
+    # Pair sell buttons so large inventories cannot exceed VK's 10-row limit.
+    for i in range(0, len(sell_buttons), 2):
+        buttons.append(sell_buttons[i:i + 2])
+    buttons += [["🛒 Магазин"],["🏙️ Главное меню"]]
+    return reply("\n".join(body),buttons)
 def clothing_menu():
     return reply("🧥 ОДЕЖДА LOS SANTOS\n\nПостоянные категории. Эксклюзивы выдаются отдельно.",[["🧢 Головные уборы","👕 Верх"],["👖 Брюки","🥾 Обувь"],["💍 Аксессуары","💇 Волосы"],["↩️ В магазин"],["👤 Персонаж","🏙️ Главное меню"]])
 def event_catalog():
