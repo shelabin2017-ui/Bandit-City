@@ -324,6 +324,24 @@ def process_input(uid, text):
     return False
 
 
+def execute_broadcast(uid, message):
+    last = BROADCAST_LAST.get(uid, 0)
+    remaining = BROADCAST_COOLDOWN - (time.time() - last)
+    if remaining > 0:
+        send(uid, "⏳ Повтори рассылку через {} сек.".format(int(remaining) + 1), [[role_ui.main_button(uid) or "👑 Админ-панель"]])
+        return
+    BROADCAST_LAST[uid] = time.time()
+    with db.connect() as c:
+        targets = [r["vk_id"] for r in c.execute("SELECT vk_id FROM users WHERE banned=0").fetchall()]
+    sent = 0
+    for target in targets:
+        try:
+            vk.messages.send(user_id=target, random_id=random.randint(1, 2_147_483_647), message="📢 BANDIT CITY\\n\\n" + message)
+            sent += 1
+            time.sleep(0.08)
+        except Exception:
+            logging.exception("Broadcast failed for %s", target)
+    send(uid, "✅ Рассылка завершена. Отправлено: {}/{}".format(sent, len(targets)), [[role_ui.main_button(uid) or "👑 Админ-панель"]])
 def process(uid, text):
     text = text.strip()
     low = text.lower()
@@ -570,6 +588,8 @@ def process(uid, text):
         if text in ("👑 Центр владельца", "⚙️ Панель администратора", "🛡 Панель модератора"):
             handled, response, rows = admin.handle(uid, text)
             if handled:
+                if response.startswith("__BROADCAST_EXEC__|"):
+                    execute_broadcast(uid, response.split("|", 1)[1]); return
                 if response == "__MAIN__":
                     send_card(uid, "🏙 Главное меню", main_kb(uid)); return
                 send_card(uid, response, rows); return
@@ -617,6 +637,8 @@ def process(uid, text):
             admin.state[uid] = state
         handled, response, rows = admin.handle(uid, text)
         if handled:
+            if response.startswith("__BROADCAST_EXEC__|"):
+                execute_broadcast(uid, response.split("|", 1)[1]); return
             if response == "__MAIN__":
                 send_card(uid, "🏙 Главное меню", kb_main(True)); return
             send_card(uid, response, rows); return
