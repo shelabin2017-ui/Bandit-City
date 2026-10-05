@@ -5,6 +5,7 @@ import unittest
 from catalog import EVENT_EXCLUSIVES, public_catalog, active_events
 from db import Database
 from admin_panel import AdminPanel
+from roles import Role, RoleManager
 
 
 class BanditCoreTest(unittest.TestCase):
@@ -88,6 +89,24 @@ class BanditCoreTest(unittest.TestCase):
         panel = AdminPanel(self.db, None, {999})
         self.assertTrue(panel.is_admin(999))
         self.assertFalse(panel.is_admin(998))
+
+
+    def test_role_hierarchy_and_protection(self):
+        roles = RoleManager(self.db)
+        owner, admin, moderator, player = 9001, 9002, 9003, 9004
+        roles.bootstrap_owner(owner)
+        ok, _ = roles.set_role(owner, admin, Role.ADMIN)
+        self.assertTrue(ok)
+        ok, _ = roles.set_role(owner, moderator, Role.MODERATOR)
+        self.assertTrue(ok)
+        self.assertTrue(roles.has(owner, "owner.manage"))
+        self.assertTrue(roles.has(admin, "economy.manage"))
+        self.assertTrue(roles.has(moderator, "moderation.ban"))
+        self.assertFalse(roles.has(moderator, "economy.manage"))
+        ok, _ = roles.set_role(admin, player, Role.ADMIN)
+        self.assertFalse(ok)
+        ok, _ = roles.revoke(admin, owner)
+        self.assertFalse(ok)
 
     def test_attack_runtime(self):
         a = self.db.get_or_create_user(100002)
