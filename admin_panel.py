@@ -408,7 +408,7 @@ class AdminPanel:
         if text == "🔄 Переключить промокод":
             self.state[uid] = "promo_toggle"
             return True, "🔄 Введи код промокода.", [["❌ Отмена"], ["👑 Админ-панель"]]
-        if text == "⚙️ Настройки":
+        if text in ("⚙️ Настройки", "⚙️ Технический режим"):
             with self._conn() as c:
                 row = c.execute("SELECT value FROM settings WHERE key='maintenance_mode'").fetchone()
             mode = row["value"] if row else "0"
