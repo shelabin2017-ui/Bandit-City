@@ -212,6 +212,20 @@ class Database:
                 profit INTEGER NOT NULL DEFAULT 0,
                 updated_at INTEGER NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS phone_contacts(
+                user_id INTEGER NOT NULL,
+                contact_id INTEGER NOT NULL,
+                nickname TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                PRIMARY KEY(user_id, contact_id)
+            );
+            CREATE TABLE IF NOT EXISTS npc_state(
+                user_id INTEGER NOT NULL,
+                npc_code TEXT NOT NULL,
+                value INTEGER NOT NULL DEFAULT 0,
+                updated_at INTEGER NOT NULL,
+                PRIMARY KEY(user_id, npc_code)
+            );
             """)
             self.add_column(c, "users", "ref_code", "TEXT")
             self.add_column(c, "users", "referred_by", "INTEGER")
@@ -480,6 +494,10 @@ class Database:
     def user(self, user_id):
         with self.connect() as c:
             return c.execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone()
+
+    def user_by_vk(self, vk_id):
+        with self.connect() as c:
+            return c.execute("SELECT * FROM users WHERE vk_id=?", (int(vk_id),)).fetchone()
 
     def add_money(self, user_id, delta):
         with self.connect() as c:

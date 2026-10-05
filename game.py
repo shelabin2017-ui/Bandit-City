@@ -53,14 +53,16 @@ class Game:
             f"👤 {r['nickname']} • VK {r['contact_id']}" for r in rows
         )
 
-    def phone_add(self,uid,target):
-        target=int(target)
-        u=self.db.user(target)
-        if not u: return "❌ Игрок не найден."
-        return self.db.phone_add(uid,target,u["nickname"])[1]
+    def phone_add(self,user_id,target_vk):
+        target = self.db.user_by_vk(int(target_vk))
+        if not target:
+            return "❌ Игрок с таким VK ID не найден."
+        if int(target["id"]) == int(user_id):
+            return "❌ Нельзя добавить самого себя."
+        return self.db.phone_add(int(user_id), int(target["vk_id"]), target["nickname"])[1]
 
-    def phone_remove(self,uid,target):
-        return "🗑️ Контакт удалён." if self.db.phone_remove(uid,int(target)) else "❌ Контакт не найден."
+    def phone_remove(self,user_id,target_vk):
+        return "🗑️ Контакт удалён." if self.db.phone_remove(int(user_id), int(target_vk)) else "❌ Контакт не найден."
 
     def npc_menu(self,uid):
         return "📱 NPC ГОРОДА\n\n" + "\n".join(

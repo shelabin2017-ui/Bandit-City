@@ -315,10 +315,10 @@ def process_input(uid, text):
             return True
 
         if st["mode"] == "phone_add":
-            msg=game.phone_add(uid,int(text.replace(" ","")))
+            msg=game.phone_add(db.get_or_create_user(uid)["id"], int(text.replace(" ","")))
             clear_state(uid); send(uid,msg,kb_phone()); return True
         if st["mode"] == "phone_remove":
-            msg=game.phone_remove(uid,int(text.replace(" ","")))
+            msg=game.phone_remove(db.get_or_create_user(uid)["id"], int(text.replace(" ","")))
             clear_state(uid); send(uid,msg,kb_phone()); return True
         if st["mode"] == "stock":
             amount = int(text.replace(" ", ""))
