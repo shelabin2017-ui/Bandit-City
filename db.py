@@ -408,9 +408,16 @@ class Database:
 
     def phone_add(self,user_id,contact_id,nickname):
         with self.connect() as c:
-            if int(contact_id)==int(user_id): return False,"❌ Нельзя добавить самого себя."
+            owner = c.execute("SELECT vk_id FROM users WHERE id=?", (int(user_id),)).fetchone()
+            if owner and int(contact_id) == int(owner["vk_id"]):
+                return False,"❌ Нельзя добавить самого себя."
+            if not str(nickname or "").strip():
+                target = c.execute("SELECT nickname FROM users WHERE vk_id=?", (int(contact_id),)).fetchone()
+                nickname = target["nickname"] if target else None
+            if not str(nickname or "").strip():
+                return False,"❌ У контакта нет игрового ника."
             c.execute("INSERT OR REPLACE INTO phone_contacts(user_id,contact_id,nickname,created_at) VALUES(?,?,?,?)",
-                      (user_id,contact_id,nickname,int(time.time())))
+                      (int(user_id),int(contact_id),str(nickname).strip(),int(time.time())))
         return True,"📱 Контакт добавлен."
 
     def phone_remove(self,user_id,contact_id):
