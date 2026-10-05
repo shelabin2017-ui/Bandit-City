@@ -158,6 +158,8 @@ def send_card(user_id, text, rows=None):
 
 
 def kb_main(is_admin=False, panel_label="👑 Админ-панель"):
+    # VK default keyboard supports at most 10 rows. Keep the main screen
+    # within that limit and move secondary sections into a separate page.
     rows = [
         ["👤 Профиль", "💼 Работа"],
         ["🚗 Авто", "🛒 Магазин"],
@@ -167,14 +169,19 @@ def kb_main(is_admin=False, panel_label="👑 Админ-панель"):
         ["🏆 Достижения", "🎯 Миссии"],
         ["📊 Мой статус", "🌆 События города"],
         ["📱 Телефон", "📩 СМС"],
+        ["⚙️ Настройки", "❓ Помощь"],
+        ["📚 Ещё", panel_label] if is_admin else ["📚 Ещё"],
+    ]
+    return rows
+
+
+def kb_more():
+    return [
         ["📖 Сюжет", "🎓 Обучение"],
         ["🏆 Ачивки", "🎟 Промокод"],
-        ["⚙️ Настройки", "👑 О создателе"],
-        ["❓ Помощь"],
+        ["👑 О создателе"],
+        ["🏙️ Главное меню"],
     ]
-    if is_admin:
-        rows.append([panel_label])
-    return rows
 
 
 def has_admin_access(uid):
@@ -373,6 +380,10 @@ def process(uid, text):
         send_card(uid, game.profile(user["id"]), main_kb(uid))
         return
         return
+    if text == "📚 Ещё":
+        send_card(uid, "📚 ДОПОЛНИТЕЛЬНО\n\nВыбери нужный раздел:", kb_more())
+        return
+
     if text == "⚙️ Настройки":
         if has_admin_access(uid):
             handled, admin_text, admin_rows = admin.handle(uid, text)
