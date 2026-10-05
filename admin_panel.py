@@ -24,6 +24,18 @@ class AdminPanel:
     def is_moderator(self, uid):
         return self.role(uid) >= Role.MODERATOR
 
+    def _moderator_allowed(self, text):
+        if self.role(self._home_uid) >= Role.ADMIN:
+            return True
+        allowed = {
+            "🛡 Панель модератора",
+            "👥 Игроки",
+            "🛡 Безопасность",
+            "🧾 Журнал",
+            "🏙️ Главное меню",
+        }
+        return text in allowed or text.startswith("/aban ") or text.startswith("/aunban ") or text.startswith("/aplayer ") or text == "/adminlogs"
+
     def home(self):
         if self.role_ui is not None:
             return self.role_ui.home(self._home_uid)
@@ -163,6 +175,8 @@ class AdminPanel:
             return False, "", []
         self._home_uid = int(uid)
         text = text.strip()
+        if not self._moderator_allowed(text):
+            return False, "", []
 
         if text in ("👑 Центр владельца", "⚙️ Панель администратора", "🛡 Панель модератора"):
             return True, *self.role_ui.home(uid)
@@ -290,7 +304,8 @@ class AdminPanel:
                     role_map = {"admin": Role.ADMIN, "moderator": Role.MODERATOR, "player": Role.PLAYER}
                     result = self.roles.set_role(uid, target, role_map[parts[1].lower()])
                 self.state.pop(uid, None)
-                return True, result, [["👑 Центр владельца"]]
+                ok, message = result
+                return True, message, [["👑 Центр владельца"]]
             except (ValueError, IndexError):
                 return True, "❌ Формат: VK_ID admin|moderator|player", [["👑 Центр владельца"]]
 
