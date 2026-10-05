@@ -343,8 +343,10 @@ def process(uid, text):
             parts = text.split(maxsplit=1)
             if len(parts) == 2:
                 referral_bonus = bool(game.apply_referral(user["id"], parts[1]))
-        db.complete_onboarding(user["id"])
-        send_card(uid, game.welcome(user["id"], referral_bonus), main_kb(uid))
+        send_card(uid, game.welcome(user["id"], referral_bonus), [["🎓 Начать обучение"]])
+        return
+    if text == "🎓 Начать обучение":
+        send(uid, game.tutorial(user["id"]), [["▶️ Далее"]])
         return
 
     if low.startswith("/start") or low in ("/menu", "меню", "🏙️ главное меню"):
