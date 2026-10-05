@@ -186,6 +186,10 @@ def main_kb(uid):
     return kb_main(False)
 
 
+def has_staff_access(uid):
+    return bool(role_ui.main_button(uid)) or has_admin_access(uid)
+
+
 def kb_bank():
     return [["💵 Положить $10k", "💸 Снять $10k"], ["💵 Внести сумму", "💸 Снять сумму"], ["🏙️ Главное меню"]]
 
@@ -311,7 +315,7 @@ def process(uid, text):
         return
 
     user = db.get_or_create_user(uid)
-    if maintenance_enabled() and not role_ui.main_button(uid):
+    if maintenance_enabled() and not has_staff_access(uid):
         send_card(uid, "🏙️ BANDIT CITY\n\n🚧 ТЕХНИЧЕСКИЕ РАБОТЫ\n\nГород временно закрыт на обслуживание.\n\n🛠️ Мы обновляем систему, исправляем ошибки\nи готовим новые возможности.\n\n⏳ Совсем скоро город снова откроется.\n\n🖤 Спасибо за ожидание.")
         return
     if db.is_banned(uid):
