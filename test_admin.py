@@ -95,6 +95,7 @@ class AdminWorkflowTests(unittest.TestCase):
         self.assertTrue(handled)
         self.assertIn("не может быть отрицательным", message)
         self.assertEqual(self.db.user(self.db.get_or_create_user(self.player)["id"])["balance"], 100000)
+        self.panel.handle(self.admin, "❌ Отмена")
 
         # Promo rewards and limits must reject negative values.
         handled, _, _ = self.panel.handle(self.admin, "🎟 Промокоды")
