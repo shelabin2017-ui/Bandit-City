@@ -164,7 +164,8 @@ def kb_main(is_admin=False, panel_label="👑 Админ-панель"):
         ["🏢 Бизнес", "🏦 Банк"],
         ["🎰 Казино", "🎁 Бонус"],
         ["👥 Игроки", "🏆 Рейтинг"],
-        ["🏆 Достижения", "🎟 Промокод"],
+        ["🏆 Достижения", "🎯 Миссии"],
+        ["📱 Телефон", "🎟 Промокод"],
         ["⚙️ Настройки", "👑 О создателе"],
         ["❓ Помощь"],
     ]
@@ -207,7 +208,13 @@ def kb_auto():
 
 
 def kb_casino():
-    return [["🎲 Кости", "🎰 Слоты"], ["🎯 Рулетка", "🃏 Blackjack"], ["🏙️ Главное меню"]]
+    return [["🎲 Кости", "🎰 Слоты"], ["🎯 Рулетка", "🃏 Blackjack"], ["📊 Статистика казино"], ["🏙️ Главное меню"]]
+
+def kb_phone():
+    return [["👥 Контакты", "➕ Добавить контакт"], ["➖ Удалить контакт"], ["🤝 NPC города"], ["🏙️ Главное меню"]]
+
+def kb_npc():
+    return [["💰 Дилер", "🕴️ Фиксер"], ["🔧 Механик", "🕵️ Информатор"], ["📱 Телефон"], ["🏙️ Главное меню"]]
 
 
 def kb_settings():
@@ -297,6 +304,12 @@ def process_input(uid, text):
                 send(uid, message, [["❌ Отмена"]])
             return True
 
+        if st["mode"] == "phone_add":
+            msg=game.phone_add(uid,int(text.replace(" ","")))
+            clear_state(uid); send(uid,msg,kb_phone()); return True
+        if st["mode"] == "phone_remove":
+            msg=game.phone_remove(uid,int(text.replace(" ","")))
+            clear_state(uid); send(uid,msg,kb_phone()); return True
         if st["mode"] == "stock":
             amount = int(text.replace(" ", ""))
             clear_state(uid)
@@ -473,6 +486,25 @@ def process(uid, text):
 
     if text == "🎰 Казино":
         send(uid, "🎰 КАЗИНО\n\nМинимальная ставка $10 000.", kb_casino()); return
+    if text == "📊 Статистика казино":
+        send(uid, game.casino_info(user["id"]), kb_casino()); return
+    if text == "🎯 Миссии":
+        send(uid, game.missions(user["id"]), [["🎁 Забрать миссию"], ["🏙️ Главное меню"]]); return
+    if text == "📱 Телефон":
+        send(uid, game.phone(user["id"]), kb_phone()); return
+    if text == "👥 Контакты":
+        send(uid, game.phone(user["id"]), kb_phone()); return
+    if text == "➕ Добавить контакт":
+        set_state(uid, "phone_add")
+        send(uid, "➕ Введи VK ID игрока, которого хочешь добавить в телефон.", [["❌ Отмена"]]); return
+    if text == "➖ Удалить контакт":
+        set_state(uid, "phone_remove")
+        send(uid, "➖ Введи VK ID контакта для удаления.", [["❌ Отмена"]]); return
+    if text == "🤝 NPC города":
+        send(uid, game.npc_menu(user["id"]), kb_npc()); return
+    npc_map={"💰 Дилер":"dealer","🕴️ Фиксер":"fixer","🔧 Механик":"mechanic","🕵️ Информатор":"informant"}
+    if text in npc_map:
+        send(uid, game.npc(user["id"],npc_map[text]),kb_npc()); return
     if text in ("🎲 Кости", "🎰 Слоты", "🎯 Рулетка", "🃏 Blackjack"):
         send(uid, game.casino(user["id"], text), kb_casino()); return
 
