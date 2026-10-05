@@ -103,7 +103,7 @@ class AdminWorkflowTests(unittest.TestCase):
         self.assertTrue(handled)
         handled, message, _ = self.panel.handle(self.admin, "BAD|Bad|-1|0|10")
         self.assertTrue(handled)
-        self.assertIn("не может быть отрицательным", message)
+        self.assertIn("не могут быть отрицательными", message)
 
         handled, message, _ = self.panel.handle(self.admin, "GOOD|Good|100|10|-1")
         self.assertTrue(handled)
