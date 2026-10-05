@@ -131,10 +131,3 @@ def find_event_item(item_id):
         if item["id"] == item_id:
             return item
     return None
-
-
-def find_event_item(item_id):
-    for item in EVENT_EXCLUSIVES:
-        if item["id"] == item_id:
-            return item
-    return None

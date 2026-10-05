@@ -50,8 +50,11 @@ def item_shop():
     for name,price in ITEMS:
         body += [name,"💵 "+money(price),""]
         item_buttons.append(name+" — "+money(price))
-    # VK default keyboards support at most 10 rows. Pair item buttons.
+    # Reserve 3 rows for navigation; VK default keyboards support at most 10 rows.
+    # The catalog itself may therefore use at most 7 rows.
     for i in range(0, len(item_buttons), 2):
+        if len(buttons) >= 7:
+            break
         buttons.append(item_buttons[i:i + 2])
     buttons += [["🎒 Инвентарь"],["🛒 Магазин"],["🏙️ Главное меню"]]
     return reply("\n".join(body),buttons)
@@ -62,8 +65,10 @@ def inventory(db,vk_id):
     for row in rows:
         body += ["📦 "+row["name"],"💵 Цена: "+money(row["price"]),""]
         sell_buttons.append("🗑 Продать #"+str(row["id"]))
-    # Pair sell buttons so large inventories cannot exceed VK's 10-row limit.
+    # Reserve 3 rows for navigation; keep inventory actions within 7 rows.
     for i in range(0, len(sell_buttons), 2):
+        if len(buttons) >= 7:
+            break
         buttons.append(sell_buttons[i:i + 2])
     buttons += [["🛒 Магазин"],["🏙️ Главное меню"]]
     return reply("\n".join(body),buttons)
