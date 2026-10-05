@@ -184,6 +184,15 @@ class AdminPanel:
         st = self.state.get(uid)
         if st:
             try:
+                if st == "broadcast_text":
+                    self.state[uid] = ("broadcast_confirm", text.strip())
+                    return True, "📢 ПРЕДПРОСМОТР\n\n" + text.strip(), [["✅ Отправить","❌ Отмена"],["👑 Админ-панель"]]
+                if isinstance(st, tuple) and st[0] == "broadcast_confirm":
+                    if text == "❌ Отмена":
+                        self.state.pop(uid, None)
+                        return True, "❌ Отменено.", [["👑 Админ-панель"]]
+                    if text == "✅ Отправить":
+                        return True, "__BROADCAST_EXEC__", [["👑 Админ-панель"]]
                 if st == "player_lookup":
                     target=int(text); self.state.pop(uid,None); r=self._find(target)
                     if not r: return True,"❌ Игрок не найден.",[["👥 Игроки"],["👑 Админ-панель"]]
