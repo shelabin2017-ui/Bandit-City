@@ -74,6 +74,66 @@ class Game:
         progress=self.db.npc_value(uid,code)
         return f"{title}\n\n{desc}\n\n⭐ Репутация: {progress}\n\n🎯 Доступные действия появятся по мере развития NPC."
     
+    SMS_TASKS = {
+        "first_job": ("💼 Первое дело", "Найди работу и выполни первую смену.", 25000, 20),
+        "first_car": ("🚗 Первая машина", "Купи свою первую машину.", 50000, 30),
+        "first_business": ("🏢 Свой бизнес", "Купи первый бизнес.", 100000, 50),
+    }
+
+    STORY = [
+        ("ГЛАВА 1 • НОВИЧОК", "Ты приехал в Los Santos с пустыми карманами. Город никого не ждёт — его нужно брать самому."),
+        ("ГЛАВА 2 • ПЕРВЫЕ СВЯЗИ", "Работа приносит деньги, но настоящие возможности появляются через людей. Телефон становится твоим главным инструментом."),
+        ("ГЛАВА 3 • ТЕНЬ ГОРОДА", "Ты начинаешь замечать, что за обычными заказами скрывается большая игра. Кто-то следит за твоими шагами."),
+    ]
+
+    TUTORIAL = [
+        ("👋 Добро пожаловать", "Это Bandit City. Здесь ты начинаешь с нуля и сам строишь свою историю."),
+        ("💼 Работа", "Открой «Работа», выбери профессию и выполни первую смену."),
+        ("🏦 Деньги", "Часть денег держи в банке, а наличные используй для покупок и действий."),
+        ("🚗 Машины", "Открой «Авто», выбери машину и постепенно собирай свой гараж."),
+        ("📱 Телефон", "Через телефон можно хранить контакты и общаться с NPC."),
+        ("🎰 Казино", "Казино — рискованный способ заработать. Следи за балансом и ставками."),
+        ("🎯 Миссии", "Выполняй миссии, чтобы получать дополнительные деньги и XP."),
+        ("🏆 Ачивки", "Ачивки фиксируют важные достижения и показывают прогресс."),
+    ]
+
+    def sms(self,uid):
+        rows=self.db.sms_list(uid)
+        if not rows:
+            return "📩 СМС\n\nПока сообщений нет."
+        return "📩 СМС\n\n" + "\n\n".join(
+            f"{'🔵' if not r['read'] else '⚪'} {r['sender']}\n{r['text']}"
+            for r in rows
+        )
+
+    def tutorial(self,uid):
+        r=self.db.tutorial(uid)
+        step=min(int(r["step"]),len(self.TUTORIAL)-1)
+        title,text=self.TUTORIAL[step]
+        if r["completed"]:
+            return "🎓 ОБУЧЕНИЕ\n\n✅ Обучение завершено. Ты готов к городу."
+        return f"🎓 ОБУЧЕНИЕ\n\n{step+1}/{len(self.TUTORIAL)}\n{title}\n\n{text}"
+
+    def tutorial_next(self,uid):
+        r=self.db.tutorial(uid)
+        step=int(r["step"])+1
+        if step>=len(self.TUTORIAL):
+            self.db.tutorial_set(uid,len(self.TUTORIAL),True)
+            return "🎓 ОБУЧЕНИЕ ЗАВЕРШЕНО\n\n🏙️ Город открыт. Удачи."
+        self.db.tutorial_set(uid,step,False)
+        title,text=self.TUTORIAL[step]
+        return f"🎓 ОБУЧЕНИЕ\n\n{step+1}/{len(self.TUTORIAL)}\n{title}\n\n{text}"
+
+    def story(self,uid):
+        r=self.db.story(uid)
+        chapter=max(1,min(int(r["chapter"]),len(self.STORY)))
+        title,text=self.STORY[chapter-1]
+        return f"📖 СЮЖЕТ\n\n{title}\n\n{text}\n\n📍 Глава {chapter}/{len(self.STORY)}"
+
+    def achievements_full(self,uid):
+        base=self.db.achievements(uid)
+        return "🏆 АЧИВКИ\n\n"+str(base)
+
     def welcome(self, uid, referral_bonus=None):
         bonus_line = ""
         if referral_bonus:
