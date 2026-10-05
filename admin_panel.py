@@ -27,6 +27,8 @@ class AdminPanel:
     def _moderator_allowed(self, text):
         if self.role(self._home_uid) >= Role.ADMIN:
             return True
+        if self.state.get(self._home_uid):
+            return True
         allowed = {
             "🛡 Панель модератора",
             "👥 Игроки",
@@ -177,6 +179,50 @@ class AdminPanel:
         text = text.strip()
         if not self._moderator_allowed(text):
             return False, "", []
+
+
+        st = self.state.get(uid)
+        if st:
+            try:
+                if st == "player_lookup":
+                    target=int(text); self.state.pop(uid,None); r=self._find(target)
+                    if not r: return True,"❌ Игрок не найден.",[["👥 Игроки"],["👑 Админ-панель"]]
+                    msg=("👤 ИГРОК {}\n\n💵 {}\n🏦 {}\n⭐ Уровень {}\n✨ XP {}\n⛔ Бан: {}").format(target,r["balance"],r["bank"],r["level"],r["xp"],"да" if r["banned"] else "нет").replace(","," ")
+                    return True,msg,[["💵 Изменить наличные","🏦 Изменить банк"],["⭐ Изменить XP","🎚 Изменить уровень"],["⛔ Заблокировать","✅ Разблокировать"],["👥 Игроки"],["👑 Админ-панель"]]
+                if st in ("cash","bank","xp","level","stock"):
+                    parts=text.split(); target=int(parts[0]); amount=int(parts[1])
+                    if st=="cash": ok=self._set_cash(target,amount); action="set_cash"
+                    elif st=="bank": ok=self._set_bank(target,amount); action="set_bank"
+                    elif st=="xp": ok=self._set_xp(target,amount); action="set_xp"
+                    elif st=="level": ok=self._set_level(target,amount); action="set_level"
+                    else: ok=self._set_stock(target,amount); action="set_stock"
+                    self._log(uid,action,target,amount); self.state.pop(uid,None)
+                    return True,"✅ Изменено." if ok else "❌ Игрок или бизнес не найден.",[["👥 Игроки"],["👑 Админ-панель"]]
+                if st in ("ban","unban"):
+                    target=int(text); ok=self._toggle_ban(target,st=="ban"); self._log(uid,st,target); self.state.pop(uid,None)
+                    return True,("⛔ Игрок заблокирован." if st=="ban" else "✅ Игрок разблокирован.") if ok else "❌ Игрок не найден.",[["👥 Игроки"],["👑 Админ-панель"]]
+                if st=="car_list":
+                    target=int(text); self.state.pop(uid,None); rows=self._cars(target)
+                    if rows is None: return True,"❌ Игрок не найден.",[["🚗 Машины"],["👑 Админ-панель"]]
+                    body=["🚗 МАШИНЫ VK "+str(target)]+["#{} • {} • {} • ⚡{} • {}".format(r["id"],r["model"],r["category"],r["speed"],r["price"]).replace(","," ") for r in rows]
+                    return True,"\n".join(body),[["🗑 Удалить машину"],["🚗 Машины"],["👑 Админ-панель"]]
+                if st=="car_delete":
+                    target,car_id=map(int,text.split()[:2])
+                    with self._conn() as c: cur=c.execute("DELETE FROM cars WHERE id=? AND user_id=(SELECT id FROM users WHERE vk_id=?)",(car_id,target))
+                    self._log(uid,"car_delete",target,car_id); self.state.pop(uid,None)
+                    return True,"✅ Машина удалена." if cur.rowcount else "❌ Машина не найдена.",[["🚗 Машины"],["👑 Админ-панель"]]
+                if st=="item_list":
+                    target=int(text); self.state.pop(uid,None); rows=self._items(target)
+                    if rows is None: return True,"❌ Игрок не найден.",[["🎒 Вещи"],["👑 Админ-панель"]]
+                    body=["🎒 ВЕЩИ VK "+str(target)]+["#{} • {} • {}".format(r["id"],r["name"],r["price"]).replace(","," ") for r in rows]
+                    return True,"\n".join(body),[["🗑 Удалить вещь"],["🎒 Вещи"],["👑 Админ-панель"]]
+                if st=="item_delete":
+                    target,item_id=map(int,text.split()[:2])
+                    with self._conn() as c: cur=c.execute("DELETE FROM items WHERE id=? AND user_id=(SELECT id FROM users WHERE vk_id=?)",(item_id,target))
+                    self._log(uid,"item_delete",target,item_id); self.state.pop(uid,None)
+                    return True,"✅ Вещь удалена." if cur.rowcount else "❌ Вещь не найдена.",[["🎒 Вещи"],["👑 Админ-панель"]]
+            except (ValueError,IndexError):
+                return True,"❌ Неверный формат. Попробуй ещё раз.",[["👑 Админ-панель"]]
 
         if text in ("👑 Центр владельца", "⚙️ Панель администратора", "🛡 Панель модератора"):
             return True, *self.role_ui.home(uid)
