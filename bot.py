@@ -535,7 +535,7 @@ def process(uid, text):
                 return
 
     clothing_choice = None
-    for category, rows in v5.CLOTHING.items():
+    for category, rows in list(v5.CLOTHING.items()) + list(v5.EVENT_CLOTHING.items()):
         for name, _, _ in rows:
             if text.endswith(name) or text.startswith("🛒 " + name) or text.startswith("✅ " + name):
                 clothing_choice = (category, name); break
