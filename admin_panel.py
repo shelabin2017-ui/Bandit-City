@@ -183,6 +183,9 @@ class AdminPanel:
 
         st = self.state.get(uid)
         if st:
+            if text in ("❌ Отмена", "отмена") and st != "broadcast_confirm":
+                self.state.pop(uid, None)
+                return True, "❌ Операция отменена.", [["👑 Админ-панель"]]
             try:
                 if st == "promo_toggle":
                     code = text.strip().upper()
