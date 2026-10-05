@@ -1,19 +1,32 @@
 import time
+from roles import Role
 
 
 class AdminPanel:
     """Inline admin console. It uses the existing SQLite schema and adds no external dependency."""
-    def __init__(self, db, game, admin_ids, keyboard_factory=None):
+    def __init__(self, db, game, admin_ids, keyboard_factory=None, roles=None, role_ui=None):
         self.db = db
         self.game = game
         self.admin_ids = set(admin_ids)
         self.keyboard_factory = keyboard_factory
+        self.roles = roles
+        self.role_ui = role_ui
         self.state = {}
 
+    def role(self, uid):
+        if self.roles is None:
+            return Role.ADMIN if int(uid) in self.admin_ids else Role.PLAYER
+        return self.roles.role(uid)
+
     def is_admin(self, uid):
-        return int(uid) in self.admin_ids
+        return int(uid) in self.admin_ids or self.role(uid) >= Role.ADMIN
+
+    def is_moderator(self, uid):
+        return self.role(uid) >= Role.MODERATOR
 
     def home(self):
+        if self.role_ui is not None:
+            return self.role_ui.home(self._home_uid)
         return (
             "👑 BANDIT CITY • ЦЕНТР УПРАВЛЕНИЯ\n\n"
             "Здесь можно управлять экономикой, игроками, XP, бизнесом, машинами, вещами, безопасностью, промокодами и городом.\n\n"
@@ -146,9 +159,36 @@ class AdminPanel:
             u=c.execute("SELECT id FROM users WHERE vk_id=?", (int(vk_id),)).fetchone()
             return None if not u else c.execute("SELECT id,name,price FROM items WHERE user_id=? ORDER BY id DESC", (u["id"],)).fetchall()
     def handle(self, uid, text):
-        if not self.is_admin(uid):
+        if not self.is_admin(uid) and not self.is_moderator(uid):
             return False, "", []
+        self._home_uid = int(uid)
         text = text.strip()
+
+        if text in ("👑 Центр владельца", "⚙️ Панель администратора", "🛡 Панель модератора"):
+            return True, *self.role_ui.home(uid)
+
+        if text == "📋 Список персонала":
+            if self.role(uid) < Role.OWNER:
+                return True, "⛔ Доступ только владельцу.", [["🏙️ Главное меню"]]
+            return True, self.role_ui.staff_list(), [["👑 Центр владельца"]]
+
+        if text in ("➕ Выдать роль", "🔄 Изменить роль", "➖ Снять роль"):
+            if self.role(uid) < Role.OWNER:
+                return True, "⛔ Доступ только владельцу.", [["🏙️ Главное меню"]]
+            if text == "➕ Выдать роль":
+                self.state[uid] = "grant_role"
+                return True, "➕ ВЫДАТЬ РОЛЬ\n\nВведи: VK_ID РОЛЬ\nРоли: admin, moderator, player", [["👑 Центр владельца"]]
+            if text == "🔄 Изменить роль":
+                self.state[uid] = "change_role"
+                return True, "🔄 ИЗМЕНИТЬ РОЛЬ\n\nВведи: VK_ID РОЛЬ\nРоли: admin, moderator, player", [["👑 Центр владельца"]]
+            self.state[uid] = "revoke_role"
+            return True, "➖ СНЯТЬ РОЛЬ\n\nВведи VK_ID", [["👑 Центр владельца"]]
+
+        if text == "🧾 Журнал ролей":
+            if self.role(uid) < Role.OWNER:
+                return True, "⛔ Доступ только владельцу.", [["🏙️ Главное меню"]]
+            return True, self.roles.logs_text(), [["👑 Центр владельца"]]
+
         if text in ("👑 Админ-панель", "👑 Админка"):
             self.state.pop(uid, None)
             return True, *self.home()
@@ -232,6 +272,27 @@ class AdminPanel:
                 ["🟢 Включить техрежим"],
                 ["👑 Админ-панель"],
             ]
+
+
+        st = self.state.get(uid)
+        if st in ("grant_role", "change_role", "revoke_role"):
+            if self.role(uid) < Role.OWNER:
+                self.state.pop(uid, None)
+                return True, "⛔ Доступ только владельцу.", [["🏙️ Главное меню"]]
+            try:
+                parts = text.split()
+                target = int(parts[0])
+                if st == "revoke_role":
+                    result = self.roles.revoke(uid, target)
+                else:
+                    if len(parts) != 2 or parts[1].lower() not in ("admin", "moderator", "player"):
+                        raise ValueError
+                    role_map = {"admin": Role.ADMIN, "moderator": Role.MODERATOR, "player": Role.PLAYER}
+                    result = self.roles.set_role(uid, target, role_map[parts[1].lower()])
+                self.state.pop(uid, None)
+                return True, result, [["👑 Центр владельца"]]
+            except (ValueError, IndexError):
+                return True, "❌ Формат: VK_ID admin|moderator|player", [["👑 Центр владельца"]]
 
         st = self.state.get(uid)
         if st in ("cash", "bank"):
