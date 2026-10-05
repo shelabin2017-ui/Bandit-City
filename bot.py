@@ -274,7 +274,7 @@ def process_input(uid, text):
             p = text.split()
             target, amount = int(p[0]), int(p[1])
             clear_state(uid)
-            send(uid, game.transfer(db.get_or_create_user(uid)["id"], target, amount), kb_main(uid in ADMIN_IDS))
+            send(uid, game.transfer(db.get_or_create_user(uid)["id"], target, amount), main_kb(uid))
             return True
         if st["mode"] == "nickname":
             import re
@@ -329,14 +329,14 @@ def process(uid, text):
             if len(parts) == 2:
                 referral_bonus = bool(game.apply_referral(user["id"], parts[1]))
         db.complete_onboarding(user["id"])
-        send_card(uid, game.welcome(user["id"], referral_bonus), kb_main(uid in ADMIN_IDS))
+        send_card(uid, game.welcome(user["id"], referral_bonus), main_kb(uid))
         return
 
     if low.startswith("/start") or low in ("/menu", "меню", "🏙️ главное меню"):
-        send_card(uid, "🏙 Главное меню", kb_main(uid in ADMIN_IDS))
+        send_card(uid, "🏙 Главное меню", main_kb(uid))
         return
     if low in ("/info", "инфо", "👤 профиль"):
-        send_card(uid, game.profile(user["id"]), kb_main(uid in ADMIN_IDS))
+        send_card(uid, game.profile(user["id"]), main_kb(uid))
         return
     if text == "⚙️ Настройки":
         if has_admin_access(uid):
@@ -354,7 +354,7 @@ def process(uid, text):
         return
 
     if text == "❓ Помощь":
-        send_card(uid, help_text(), kb_main(uid in ADMIN_IDS))
+        send_card(uid, help_text(), main_kb(uid))
         return
     if text == "👑 О создателе":
         send_card(uid, creator_text(), [["🏙️ Главное меню"]])
@@ -488,23 +488,23 @@ def process(uid, text):
             p = text.split(); send(uid, game.bank(user["id"], "deposit" if p[1] in ("in", "deposit") else "withdraw", int(p[2])), kb_bank())
         except (ValueError, IndexError): send(uid, "Использование: /bank in SUM или /bank out SUM", kb_bank())
         return
-    if text == "🎁 Бонус" or low == "/daily": send(uid, game.daily(user["id"]), kb_main(uid in ADMIN_IDS)); return
-    if text == "🏆 Достижения" or low == "/achievements": send(uid, game.achievements(user["id"]), kb_main(uid in ADMIN_IDS)); return
+    if text == "🎁 Бонус" or low == "/daily": send(uid, game.daily(user["id"]), main_kb(uid)); return
+    if text == "🏆 Достижения" or low == "/achievements": send(uid, game.achievements(user["id"]), main_kb(uid)); return
 
     if text == "👥 Игроки":
         send(uid, "👥 ИГРОКИ\n\n💸 Перевод — отправь VK ID и сумму\n/scam VK_ID — скам\n/rob VK_ID — ограбление\n/ref — реферальная ссылка\n/top — рейтинг", [["💸 Перевод", "/ref"], ["🏆 Рейтинг", "🏙️ Главное меню"]]); return
     if text == "💸 Перевод": set_state(uid, "pay"); send(uid, "💸 Введи двумя числами: VK_ID СУММА\n\nПример: 123456789 37500", [["❌ Отмена"]]); return
-    if low == "/ref": send(uid, game.ref_link(user["id"]), kb_main(uid in ADMIN_IDS)); return
-    if low == "/top" or text == "🏆 Рейтинг": send(uid, game.top(), kb_main(uid in ADMIN_IDS)); return
+    if low == "/ref": send(uid, game.ref_link(user["id"]), main_kb(uid)); return
+    if low == "/top" or text == "🏆 Рейтинг": send(uid, game.top(), main_kb(uid)); return
     if low.startswith("/pay "):
         try:
-            p = text.split(); send(uid, game.transfer(user["id"], int(p[1]), int(p[2])), kb_main(uid in ADMIN_IDS))
-        except (ValueError, IndexError): send(uid, "Использование: /pay VK_ID SUM", kb_main(uid in ADMIN_IDS))
+            p = text.split(); send(uid, game.transfer(user["id"], int(p[1]), int(p[2])), main_kb(uid))
+        except (ValueError, IndexError): send(uid, "Использование: /pay VK_ID SUM", main_kb(uid))
         return
     if low.startswith("/scam ") or low.startswith("/rob "):
         try:
-            p = text.split(); send(uid, game.attack(user["id"], int(p[1]), "scam" if low.startswith("/scam") else "rob"), kb_main(uid in ADMIN_IDS))
-        except (ValueError, IndexError): send(uid, "Использование: /scam VK_ID или /rob VK_ID", kb_main(uid in ADMIN_IDS))
+            p = text.split(); send(uid, game.attack(user["id"], int(p[1]), "scam" if low.startswith("/scam") else "rob"), main_kb(uid))
+        except (ValueError, IndexError): send(uid, "Использование: /scam VK_ID или /rob VK_ID", main_kb(uid))
         return
 
     if role_ui.main_button(uid):
@@ -528,7 +528,7 @@ def process(uid, text):
                 last = BROADCAST_LAST.get(uid, 0)
                 remaining = BROADCAST_COOLDOWN - (time.time() - last)
                 if remaining > 0:
-                    send(uid, f"⏳ Повтори рассылку через {int(remaining) + 1} сек.", [["👑 Админ-панель"]])
+                    send(uid, f"⏳ Повтори рассылку через {int(remaining) + 1} сек.", [[role_ui.main_button(uid) or "👑 Админ-панель"]])
                     return
                 admin.state[uid] = ("broadcast", payload)
                 send(uid, f"📢 ПРЕДПРОСМОТР РАССЫЛКИ\n\n{payload}\n\nОтправить всем игрокам?", [["✅ Отправить", "❌ Отмена"]])
@@ -536,12 +536,12 @@ def process(uid, text):
         if admin.state.get(uid) and isinstance(admin.state.get(uid), tuple) and admin.state[uid][0] == "broadcast":
             state = admin.state.pop(uid)
             if text == "❌ Отмена":
-                send(uid, "Рассылка отменена.", [["👑 Админ-панель"]]); return
+                send(uid, "Рассылка отменена.", [[role_ui.main_button(uid) or "👑 Админ-панель"]]); return
             if text == "✅ Отправить":
                 last = BROADCAST_LAST.get(uid, 0)
                 remaining = BROADCAST_COOLDOWN - (time.time() - last)
                 if remaining > 0:
-                    send(uid, f"⏳ Повтори рассылку через {int(remaining) + 1} сек.", [["👑 Админ-панель"]]); return
+                    send(uid, f"⏳ Повтори рассылку через {int(remaining) + 1} сек.", [[role_ui.main_button(uid) or "👑 Админ-панель"]]); return
                 BROADCAST_LAST[uid] = time.time()
                 message = state[1]
                 with db.connect() as c:
@@ -554,7 +554,7 @@ def process(uid, text):
                         time.sleep(0.08)
                     except Exception:
                         logging.exception("Broadcast failed for %s", target)
-                send(uid, f"✅ Рассылка завершена. Отправлено: {sent}/{len(targets)}", [["👑 Админ-панель"]]); return
+                send(uid, f"✅ Рассылка завершена. Отправлено: {sent}/{len(targets)}", [[role_ui.main_button(uid) or "👑 Админ-панель"]]); return
             admin.state[uid] = state
         handled, response, rows = admin.handle(uid, text)
         if handled:
