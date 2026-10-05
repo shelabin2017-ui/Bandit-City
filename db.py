@@ -149,6 +149,23 @@ class Database:
                 redeemed_at INTEGER NOT NULL,
                 PRIMARY KEY(user_id, code)
             );
+            CREATE TABLE IF NOT EXISTS mission_progress(
+                user_id INTEGER NOT NULL,
+                code TEXT NOT NULL,
+                progress INTEGER NOT NULL DEFAULT 0,
+                claimed INTEGER NOT NULL DEFAULT 0,
+                updated_at INTEGER NOT NULL,
+                PRIMARY KEY(user_id, code)
+            );
+            CREATE TABLE IF NOT EXISTS casino_stats(
+                user_id INTEGER PRIMARY KEY,
+                plays INTEGER NOT NULL DEFAULT 0,
+                wins INTEGER NOT NULL DEFAULT 0,
+                losses INTEGER NOT NULL DEFAULT 0,
+                wagered INTEGER NOT NULL DEFAULT 0,
+                profit INTEGER NOT NULL DEFAULT 0,
+                updated_at INTEGER NOT NULL
+            );
             """)
             self.add_column(c, "users", "ref_code", "TEXT")
             self.add_column(c, "users", "referred_by", "INTEGER")
@@ -525,6 +542,58 @@ class Database:
             c.execute("DELETE FROM items WHERE id=?",(item_id,))
             c.execute("UPDATE users SET balance=balance+? WHERE id=?",(payout,user_id))
             return f"📦 Продано. Получено {money(payout)}"
+
+
+    def mission_add(self, user_id, code, amount=1):
+        now = int(time.time())
+        with self.connect() as c:
+            c.execute(
+                "INSERT INTO mission_progress(user_id,code,progress,claimed,updated_at) VALUES(?,?,?,?,?) "
+                "ON CONFLICT(user_id,code) DO UPDATE SET progress=progress+excluded.progress,updated_at=excluded.updated_at",
+                (user_id, code, max(0, int(amount)), 0, now)
+            )
+
+    def mission_rows(self, user_id, codes):
+        with self.connect() as c:
+            rows = c.execute(
+                "SELECT code,progress,claimed FROM mission_progress WHERE user_id=? AND code IN (%s)"
+                % ",".join("?" for _ in codes),
+                [user_id, *codes]
+            ).fetchall()
+        return {r["code"]: r for r in rows}
+
+    def mission_claim(self, user_id, code, reward_cash, reward_xp, target):
+        with self.connect() as c:
+            row = c.execute(
+                "SELECT progress,claimed FROM mission_progress WHERE user_id=? AND code=?",
+                (user_id, code)
+            ).fetchone()
+            if not row or row["claimed"]:
+                return False, "❌ Награда уже получена или миссия ещё не выполнена."
+            if row["progress"] < target:
+                return False, "⏳ Миссия ещё не выполнена."
+            c.execute("UPDATE mission_progress SET claimed=1,updated_at=? WHERE user_id=? AND code=?",
+                      (int(time.time()), user_id, code))
+            c.execute("UPDATE users SET balance=balance+?,xp=xp+? WHERE id=?",
+                      (reward_cash, reward_xp, user_id))
+            xp = c.execute("SELECT xp FROM users WHERE id=?", (user_id,)).fetchone()["xp"]
+            c.execute("UPDATE users SET level=? WHERE id=?", (xp // 100 + 1, user_id))
+            return True, f"🎉 МИССИЯ ВЫПОЛНЕНА\n\n💵 +{money(reward_cash)}\n✨ +{reward_xp} XP"
+
+    def casino_record(self, user_id, wager, profit, won):
+        now = int(time.time())
+        with self.connect() as c:
+            c.execute(
+                "INSERT INTO casino_stats(user_id,plays,wins,losses,wagered,profit,updated_at) VALUES(?,?,?,?,?,?,?) "
+                "ON CONFLICT(user_id) DO UPDATE SET plays=plays+1,wins=wins+excluded.wins,"
+                "losses=losses+excluded.losses,wagered=wagered+excluded.wagered,"
+                "profit=profit+excluded.profit,updated_at=excluded.updated_at",
+                (user_id, 1, 1 if won else 0, 0 if won else 1, wager, profit, now)
+            )
+
+    def casino_stats(self, user_id):
+        with self.connect() as c:
+            return c.execute("SELECT * FROM casino_stats WHERE user_id=?", (user_id,)).fetchone()
 
     def get_nickname(self, user_id):
         with self.connect() as c:
