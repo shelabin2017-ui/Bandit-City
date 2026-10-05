@@ -157,6 +157,14 @@ class Database:
                 updated_at INTEGER NOT NULL,
                 PRIMARY KEY(user_id, code)
             );
+            CREATE TABLE IF NOT EXISTS sms_task_progress(
+                user_id INTEGER NOT NULL,
+                task_code TEXT NOT NULL,
+                completed INTEGER NOT NULL DEFAULT 0,
+                claimed INTEGER NOT NULL DEFAULT 0,
+                updated_at INTEGER NOT NULL,
+                PRIMARY KEY(user_id, task_code)
+            );
             CREATE TABLE IF NOT EXISTS sms_messages(
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL,
