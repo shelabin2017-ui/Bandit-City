@@ -438,7 +438,10 @@ class Database:
                 "INSERT INTO users(vk_id,ref_code,created_at) VALUES(?,?,?)",
                 (vk_id, self.new_ref(), int(time.time()))
             )
-            return c.execute("SELECT * FROM users WHERE vk_id=?", (vk_id,)).fetchone()
+            row = c.execute("SELECT * FROM users WHERE vk_id=?", (vk_id,)).fetchone()
+            nickname = f"Игрок{row['id']}"
+            c.execute("UPDATE users SET nickname=? WHERE id=?", (nickname, row["id"]))
+            return c.execute("SELECT * FROM users WHERE id=?", (row["id"],)).fetchone()
 
     def needs_onboarding(self, user_id):
         with self.connect() as c:
