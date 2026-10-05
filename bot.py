@@ -74,6 +74,11 @@ def build_keyboard(rows):
         row = [str(x)[:40] for x in row if x]
         for i in range(0, len(row), 2):
             clean.append(row[i:i + 2])
+    # VK rejects default keyboards with more than 10 rows.
+    # Keep the bot alive even if a future handler accidentally returns too many.
+    if len(clean) > 10:
+        logging.warning("Keyboard truncated from %s to 10 rows", len(clean))
+        clean = clean[:10]
     for ri, row in enumerate(clean):
         for i, label in enumerate(row):
             low = label.lower()
@@ -393,7 +398,6 @@ def process(uid, text):
         return
     if low in ("/info", "инфо", "👤 профиль"):
         send_card(uid, game.profile(user["id"]), main_kb(uid))
-        return
         return
     if text == "📚 Ещё":
         send_card(uid, "📚 ДОПОЛНИТЕЛЬНО\n\nВыбери нужный раздел:", kb_more())
