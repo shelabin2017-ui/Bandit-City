@@ -73,7 +73,7 @@ EVENT_EXCLUSIVES = [
     {"id":"neon_background","name":"🌌 Neon City Background","slot":"background","event":"neon","promo_only":True},
     {"id":"blackout_chain","name":"⛓ Blackout Chain","slot":"accessory","event":"blackout","promo_only":True},
     {"id":"bandit_legend","name":"🏆 Bandit Legend Outfit","slot":"clothes","event":"anniversary","promo_only":True},
-    {"id":"golden_bullet","name":"🚘 Golden Bullet","slot":"car","event":"anniversary","promo_only":True},
+    {"id":"golden_bullet","name":"🔫 Golden Bullet","slot":"accessory","event":"anniversary","promo_only":True},
 ]
 
 EVENTS = {
