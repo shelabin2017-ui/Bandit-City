@@ -134,6 +134,40 @@ class Game:
         base=self.db.achievements(uid)
         return "🏆 АЧИВКИ\n\n"+str(base)
 
+    MISSIONS = {
+        "work_3": ("💼 Рабочая смена", 3, "Выполни 3 рабочие смены.", 75000, 40),
+        "earn_100k": ("💵 Заработок", 100000, "Заработай $100 000 на работе.", 100000, 60),
+        "casino_3": ("🎰 Азарт", 3, "Сыграй 3 раза в казино.", 50000, 35),
+        "casino_win": ("🍀 Удача", 1, "Выиграй игру в казино.", 80000, 50),
+        "rich": ("💰 Капитал", 1, "Накопи $1 000 000.", 150000, 80),
+        "ref_1": ("🤝 Связи", 1, "Пригласи игрока.", 100000, 70),
+    }
+
+    def missions(self,uid):
+        rows=self.db.mission_rows(uid,list(self.MISSIONS))
+        out=["🎯 МИССИИ",""]
+        for code,(title,target,desc,cash,xp) in self.MISSIONS.items():
+            r=rows.get(code)
+            progress=int(r["progress"]) if r else 0
+            claimed=bool(r["claimed"]) if r else False
+            status="✅ Получено" if claimed else ("🎁 ГОТОВО" if progress>=target else f"{progress}/{target}")
+            out.append(f"{title} — {status}\n{desc}\n🎁 {money(cash)} + {xp} XP")
+        return "\n\n".join(out)
+
+    def claim_mission(self,uid,code):
+        if code not in self.MISSIONS:
+            return "❌ Миссия не найдена."
+        _,target,_,cash,xp=self.MISSIONS[code]
+        return self.db.mission_claim(uid,code,cash,xp,target)[1]
+
+    def casino_info(self,uid):
+        r=self.db.casino_stats(uid)
+        if not r:
+            return "🎰 СТАТИСТИКА КАЗИНО\n\nИгр: 0\nПобед: 0\nПоражений: 0\nОборот: $0\nРезультат: $0"
+        return (f"🎰 СТАТИСТИКА КАЗИНО\n\n🎮 Игр: {r['plays']}\n"
+                f"🏆 Побед: {r['wins']}\n❌ Поражений: {r['losses']}\n"
+                f"💰 Оборот: {money(r['wagered'])}\n📈 Результат: {money(r['profit'])}")
+
     def welcome(self, uid, referral_bonus=None):
         bonus_line = ""
         if referral_bonus:
