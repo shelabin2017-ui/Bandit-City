@@ -387,6 +387,7 @@ class Game:
             elif p==d:
                 self.db.add_money(uid,bet)
                 profit=0
+                won=False
                 result=f"🃏 Ты {p} | Дилер {d}\n🤝 Ничья"
             else:
                 result=f"🃏 Ты {p} | Дилер {d}\n❌ -{money(bet)}"
