@@ -184,6 +184,31 @@ class AdminPanel:
         st = self.state.get(uid)
         if st:
             try:
+                if st == "promo_toggle":
+                    code = text.strip().upper()
+                    with self._conn() as c:
+                        cur = c.execute("UPDATE promo_codes SET active=CASE active WHEN 1 THEN 0 ELSE 1 END WHERE code=?", (code,))
+                    self.state.pop(uid, None)
+                    if not cur.rowcount:
+                        return True, "❌ Промокод не найден.", [["🎟 Промокоды"], ["👑 Админ-панель"]]
+                    self._log(uid, "promo_toggle", None, code)
+                    return True, "✅ Промокод переключён.", [["🎟 Промокоды"], ["👑 Админ-панель"]]
+                if st == "promo_add":
+                    parts = [x.strip() for x in text.split("|")]
+                    if len(parts) not in (5, 7):
+                        return True, "❌ Формат: CODE|TITLE|CASH|XP|MAX_USES[|ITEM|SLOT]", [["👑 Админ-панель"]]
+                    code, title, cash, xp, max_uses = parts[:5]
+                    item = parts[5] if len(parts) == 7 else None
+                    slot = parts[6] if len(parts) == 7 else None
+                    try:
+                        cash, xp, max_uses = int(cash), int(xp), int(max_uses)
+                    except ValueError:
+                        return True, "❌ CASH, XP и MAX_USES должны быть числами.", [["👑 Админ-панель"]]
+                    with self._conn() as c:
+                        c.execute("INSERT OR REPLACE INTO promo_codes(code,title,reward_cash,reward_xp,reward_item,reward_slot,max_uses,used_count,active) VALUES(?,?,?,?,?,?,?,0,1)", (code.upper(), title, cash, xp, item or None, slot or None, max_uses))
+                    self._log(uid, "promo_add", None, code.upper())
+                    self.state.pop(uid, None)
+                    return True, "✅ Промокод создан и активирован.", [["🎟 Промокоды"], ["👑 Админ-панель"]]
                 if st == "broadcast_text":
                     self.state[uid] = ("broadcast_confirm", text.strip())
                     return True, "📢 ПРЕДПРОСМОТР\n\n" + text.strip(), [["✅ Отправить","❌ Отмена"],["👑 Админ-панель"]]
@@ -337,7 +362,22 @@ class AdminPanel:
             self.state[uid] = "broadcast_text"
             return True, "✍️ ВВЕДИ ТЕКСТ РАССЫЛКИ", [["❌ Отмена"], ["👑 Админ-панель"]]
         if text == "🎟 Промокоды":
+            if self.role(uid) < Role.ADMIN:
+                return True, "⛔ Доступ только ADMIN.", [["🏙️ Главное меню"]]
             return True, "🎟 ПРОМОКОДЫ\n\nВыбери действие.", [["➕ Создать промокод", "📋 Список промокодов"], ["🔄 Переключить промокод"], ["👑 Админ-панель"]]
+        if text == "➕ Создать промокод":
+            self.state[uid] = "promo_add"
+            return True, "➕ Формат: CODE|TITLE|CASH|XP|MAX_USES[|ITEM|SLOT]", [["❌ Отмена"], ["👑 Админ-панель"]]
+        if text == "📋 Список промокодов":
+            with self._conn() as c:
+                rows = c.execute("SELECT code,title,reward_cash,reward_xp,used_count,max_uses,active FROM promo_codes ORDER BY code").fetchall()
+            body = ["🎟 СПИСОК ПРОМОКОДОВ", ""]
+            for r in rows:
+                body.append("{} • {} • ${} • +{} XP • {}/{}".format(r["code"], "🟢" if r["active"] else "🔴", str(r["reward_cash"]).replace(","," "), r["reward_xp"], r["used_count"], r["max_uses"] or "∞"))
+            return True, "\n".join(body), [["🎟 Промокоды"], ["👑 Админ-панель"]]
+        if text == "🔄 Переключить промокод":
+            self.state[uid] = "promo_toggle"
+            return True, "🔄 Введи код промокода.", [["❌ Отмена"], ["👑 Админ-панель"]]
         if text == "⚙️ Настройки":
             with self._conn() as c:
                 row = c.execute("SELECT value FROM settings WHERE key='maintenance_mode'").fetchone()
