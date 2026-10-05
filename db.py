@@ -223,6 +223,37 @@ class Database:
     def new_ref():
         return "R" + "".join(secrets.choice(string.ascii_letters + string.digits) for _ in range(8))
 
+    def sms_task_complete(self,user_id,task_code):
+        with self.connect() as c:
+            c.execute(
+                "INSERT INTO sms_task_progress(user_id,task_code,completed,claimed,updated_at) VALUES(?,?,?,?,?) "
+                "ON CONFLICT(user_id,task_code) DO UPDATE SET completed=1,updated_at=excluded.updated_at",
+                (int(user_id),str(task_code),1,0,int(time.time()))
+            )
+
+    def sms_task_rows(self,user_id,codes):
+        if not codes:
+            return {}
+        with self.connect() as c:
+            rows=c.execute(
+                "SELECT task_code,completed,claimed FROM sms_task_progress WHERE user_id=? AND task_code IN (%s)"
+                % ",".join("?" for _ in codes), [int(user_id),*codes]
+            ).fetchall()
+        return {r["task_code"]:r for r in rows}
+
+    def sms_task_claim(self,user_id,task_code,reward_cash,reward_xp):
+        with self.connect() as c:
+            row=c.execute("SELECT completed,claimed FROM sms_task_progress WHERE user_id=? AND task_code=?",(int(user_id),str(task_code))).fetchone()
+            if not row or not row["completed"]:
+                return False,"⏳ Задание ещё не выполнено."
+            if row["claimed"]:
+                return False,"❌ Награда уже получена."
+            now=int(time.time())
+            c.execute("UPDATE sms_task_progress SET claimed=1,updated_at=? WHERE user_id=? AND task_code=?",(now,int(user_id),str(task_code)))
+            c.execute("UPDATE users SET balance=balance+?,xp=xp+? WHERE id=?",(int(reward_cash),int(reward_xp),int(user_id)))
+            xp=c.execute("SELECT xp FROM users WHERE id=?",(int(user_id),)).fetchone()["xp"]
+            c.execute("UPDATE users SET level=? WHERE id=?",(xp//100+1,int(user_id)))
+        return True,f"🎉 ЗАДАНИЕ ВЫПОЛНЕНО\n\n💵 +{money(reward_cash)}\n✨ +{reward_xp} XP"
     def sms_list(self,user_id,limit=20):
         with self.connect() as c:
             return c.execute("SELECT * FROM sms_messages WHERE user_id=? ORDER BY id DESC LIMIT ?",(user_id,int(limit))).fetchall()
