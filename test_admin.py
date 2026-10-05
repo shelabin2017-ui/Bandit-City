@@ -85,6 +85,25 @@ class AdminWorkflowTests(unittest.TestCase):
         handled, _, _ = self.panel.handle(self.player, "💰 Экономика")
         self.assertFalse(handled)
 
+    def test_moderator_lookup_cannot_escalate_to_economy(self):
+        self.roles.set_role(self.owner, self.player, Role.MODERATOR)
+
+        handled, _, rows = self.panel.handle(self.player, "👥 Игроки")
+        self.assertTrue(handled)
+        self.assertIn(["🔎 Карточка игрока"], rows)
+
+        handled, _, _ = self.panel.handle(self.player, "🔎 Карточка игрока")
+        self.assertTrue(handled)
+        handled, message, rows = self.panel.handle(self.player, str(self.admin))
+        self.assertTrue(handled)
+        self.assertIn("ИГРОК", message)
+        self.assertNotIn(["💵 Изменить наличные", "🏦 Изменить банк"], rows)
+
+        # Even while no admin state is active, a moderator cannot enter
+        # an economy mutation state by guessing its button text.
+        handled, _, _ = self.panel.handle(self.player, "💵 Наличные")
+        self.assertFalse(handled)
+
 
 if __name__ == "__main__":
     unittest.main()
