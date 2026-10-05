@@ -138,6 +138,7 @@ class Game:
         step=int(r["step"])+1
         if step>=len(self.TUTORIAL):
             self.db.tutorial_set(uid,len(self.TUTORIAL),True)
+            self.db.complete_onboarding(uid)
             return "🎓 ОБУЧЕНИЕ ЗАВЕРШЕНО\n\n🏙️ Город открыт. Удачи."
         self.db.tutorial_set(uid,step,False)
         title,text=self.TUTORIAL[step]
