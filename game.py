@@ -334,32 +334,66 @@ class Game:
     def casino(self,uid,cmd):
         bet=10_000
         u=self.db.user(uid)
-        if u["balance"]<bet: return "❌ Нужно $10 000."
+        if u["balance"]<bet:
+            return "❌ Нужно $10 000."
         self.db.add_money(uid,-bet)
+        won=False
+        profit=-bet
         if cmd=="🎲 Кости":
             a,b=random.randint(1,6),random.randint(1,6)
             if a+b>=8:
-                self.db.add_money(uid,bet*2)
-                return f"🎲 {a}+{b}={a+b}\n🎉 +{money(bet*2)}"
-            return f"🎲 {a}+{b}={a+b}\n❌ -{money(bet)}"
-        if cmd=="🎰 Слоты":
-            s=[random.choice(["🍒","🍋","💎","7️⃣"]) for _ in range(3)]
-            if len(set(s))==1:
-                self.db.add_money(uid,bet*5); return f"🎰 {' | '.join(s)}\n🎉 ДЖЕКПОТ +{money(bet*5)}"
-            if len(set(s))==2:
-                self.db.add_money(uid,bet*2); return f"🎰 {' | '.join(s)}\n✨ +{money(bet*2)}"
-            return f"🎰 {' | '.join(s)}\n❌ -{money(bet)}"
-        if cmd=="🎯 Рулетка":
+                payout=bet*2
+                self.db.add_money(uid,payout)
+                won=True
+                profit=payout-bet
+                result=f"🎲 {a}+{b}={a+b}\n🎉 +{money(payout)}"
+            else:
+                result=f"🎲 {a}+{b}={a+b}\n❌ -{money(bet)}"
+        elif cmd=="🎰 Слоты":
+            reels=[random.choice(["🍒","🍋","💎","7️⃣"]) for _ in range(3)]
+            if len(set(reels))==1:
+                payout=bet*5
+                self.db.add_money(uid,payout)
+                won=True
+                profit=payout-bet
+                result=f"🎰 {' | '.join(reels)}\n🎉 ДЖЕКПОТ +{money(payout)}"
+            elif len(set(reels))==2:
+                payout=bet*2
+                self.db.add_money(uid,payout)
+                won=True
+                profit=payout-bet
+                result=f"🎰 {' | '.join(reels)}\n✨ +{money(payout)}"
+            else:
+                result=f"🎰 {' | '.join(reels)}\n❌ -{money(bet)}"
+        elif cmd=="🎯 Рулетка":
             n=random.randint(0,36)
             if n and n%2==0:
-                self.db.add_money(uid,bet*2); return f"🎯 {n}\n🎉 +{money(bet*2)}"
-            return f"🎯 {n}\n❌ -{money(bet)}"
-        p,d=random.randint(16,21),random.randint(17,21)
-        if p>d:
-            self.db.add_money(uid,bet*2); return f"🃏 Ты {p} | Дилер {d}\n🎉 +{money(bet*2)}"
-        if p==d:
-            self.db.add_money(uid,bet); return f"🃏 Ты {p} | Дилер {d}\n🤝 Ничья"
-        return f"🃏 Ты {p} | Дилер {d}\n❌ -{money(bet)}"
+                payout=bet*2
+                self.db.add_money(uid,payout)
+                won=True
+                profit=payout-bet
+                result=f"🎯 {n}\n🎉 +{money(payout)}"
+            else:
+                result=f"🎯 {n}\n❌ -{money(bet)}"
+        else:
+            p,d=random.randint(16,21),random.randint(17,21)
+            if p>d:
+                payout=bet*2
+                self.db.add_money(uid,payout)
+                won=True
+                profit=payout-bet
+                result=f"🃏 Ты {p} | Дилер {d}\n🎉 +{money(payout)}"
+            elif p==d:
+                self.db.add_money(uid,bet)
+                profit=0
+                result=f"🃏 Ты {p} | Дилер {d}\n🤝 Ничья"
+            else:
+                result=f"🃏 Ты {p} | Дилер {d}\n❌ -{money(bet)}"
+        self.db.casino_record(uid,bet,profit,won)
+        self.db.mission_add(uid,"casino_3",1)
+        if won:
+            self.db.mission_add(uid,"casino_win",1)
+        return result
 
     def top(self):
         return self.db.top()
