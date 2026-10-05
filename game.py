@@ -208,6 +208,19 @@ class Game:
             "👇 Выбирай, с чего начать!"
         )
 
+    def status(self,uid):
+        r=self.db.status(uid)
+        wanted="🟢 Низкая" if r["heat"]<25 else ("🟡 Внимание" if r["heat"]<60 else ("🟠 Розыск" if r["heat"]<85 else "🔴 Особо разыскивается"))
+        rep="Нейтральная" if r["reputation"]==0 else ("Уважаемый" if r["reputation"]>0 else "Опасный")
+        return f"📊 СТАТУС\n\n⚡ Энергия: {r['energy']}/100\n🚨 Розыск: {r['heat']}/100 — {wanted}\n⭐ Репутация: {r['reputation']} — {rep}"
+
+    def city_events(self,uid):
+        self.db.city_event_seed()
+        rows=self.db.city_event_list()
+        if not rows:
+            return "🌆 СОБЫТИЯ\n\nСегодня город спокоен."
+        return "🌆 СОБЫТИЯ ГОРОДА\n\n"+"\n\n".join(f"{r['title']}\n{r['description']}" for r in rows)
+
     def profile(self, uid):
         u=self.db.user(uid)
         cars=len(self.db.cars(uid))
@@ -228,6 +241,10 @@ class Game:
         last=self.db.job_last(uid,job)
         if now-last<60:
             return f"⏳ Подожди {60-(now-last)} сек."
+        status=self.db.status(uid)
+        if int(status["energy"])<10:
+            return "😴 Ты вымотан. Подожди, пока восстановится энергия."
+        self.db.status_change(uid,energy=-10,heat=2,reputation=1)
         self.db.add_money(uid,reward)
         self.db.xp(uid,xp)
         self.db.job_set(uid,job)
