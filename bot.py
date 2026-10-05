@@ -492,8 +492,17 @@ def process(uid, text):
         msg, buttons = v5.item_shop(); send(uid, msg, buttons); return
     if text == "🎒 Инвентарь":
         msg, buttons = v5.inventory(db, uid); send(uid, msg, buttons); return
-    if text == "🧥 Одежда":
+    if text in ("🧥 Одежда", "👕 Одежда"):
         msg, buttons = v5.clothing_menu(); send(uid, msg, buttons); return
+    character_category_map = {
+        "🧢 Головной убор": "🧢 Головные уборы",
+        "💇 Волосы": "💇 Волосы",
+        "💍 Аксессуары": "💍 Аксессуары",
+        "👖 Брюки": "👖 Брюки",
+        "🥾 Обувь": "🥾 Обувь",
+    }
+    if text in character_category_map:
+        msg, buttons = v5.clothing_catalog(db, uid, character_category_map[text]); send(uid, msg, buttons); return
     if text == "🎪 Ивент-дропы":
         msg, buttons = v5.event_catalog(); send(uid, msg, buttons); return
     if text in v5.CLOTHING:
