@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+from pathlib import Path
 
 from db import Database
 from roles import Role, RoleManager
@@ -58,6 +59,18 @@ class RoleTests(unittest.TestCase):
         ok, _ = self.roles.revoke(self.owner, self.admin)
         self.assertTrue(ok)
         self.assertEqual(self.roles.role(self.admin), Role.PLAYER)
+
+
+    def test_bot_and_panel_are_role_wired(self):
+        root = Path(__file__).resolve().parent
+        bot = (root / "bot.py").read_text(encoding="utf-8")
+        panel = (root / "admin_panel.py").read_text(encoding="utf-8")
+        self.assertIn("RoleManager(db)", bot)
+        self.assertIn("RoleUI(roles)", bot)
+        self.assertIn("roles=roles", bot)
+        self.assertIn("def _moderator_allowed", panel)
+        self.assertIn("self.roles.set_role", panel)
+        self.assertIn("self.roles.revoke", panel)
 
     def test_staff_listing(self):
         staff = {r.vk_id: r.role for r in self.roles.staff()}
