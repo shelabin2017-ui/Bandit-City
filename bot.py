@@ -364,6 +364,21 @@ def process(uid, text):
         return
 
     if db.needs_onboarding(user["id"]):
+        # Handle tutorial navigation before the generic welcome branch.
+        # Otherwise every "▶️ Далее" hits needs_onboarding() again and
+        # returns to step 1 forever.
+        if text == "▶️ Далее":
+            message = game.tutorial_next(user["id"])
+            if "ЗАВЕРШЕНО" in message:
+                send_card(uid, message, main_kb(uid))
+            else:
+                send(uid, message, [["▶️ Далее"]])
+            return
+
+        if text == "🎓 Обучение":
+            send(uid, game.tutorial(user["id"]), [["▶️ Далее"]])
+            return
+
         referral_bonus = False
         if low.startswith("/start"):
             parts = text.split(maxsplit=1)
