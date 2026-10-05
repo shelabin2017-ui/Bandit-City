@@ -38,7 +38,7 @@ class AdminWorkflowTests(unittest.TestCase):
         self.assertTrue(handled)
         handled, message, _ = self.panel.handle(self.owner, f"{self.player} moderator")
         self.assertTrue(handled)
-        self.assertIn("MODERATOR", message)
+        self.assertIn("Модератор", message)
 
     def test_admin_promo_buttons(self):
         handled, _, _ = self.panel.handle(self.admin, "🎟 Промокоды")
