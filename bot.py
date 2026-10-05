@@ -496,7 +496,10 @@ def process(uid, text):
     if text in mission_map:
         send(uid, game.claim_mission(user["id"],mission_map[text]), [["🎯 Миссии"], ["🏙️ Главное меню"]]); return
     if text == "📩 СМС":
-        send(uid, game.sms(user["id"]), [["🏙️ Главное меню"]]); return
+        send(uid, game.sms(user["id"]), [["💼 Первое дело","🚗 Первая машина"],["🏢 Свой бизнес"],["🏙️ Главное меню"]]); return
+    sms_task_map={"💼 Первое дело":"first_job","🚗 Первая машина":"first_car","🏢 Свой бизнес":"first_business"}
+    if text in sms_task_map:
+        send(uid, game.complete_sms_task(user["id"],sms_task_map[text]), [["📩 СМС"],["🏙️ Главное меню"]]); return
     if text == "📖 Сюжет":
         send(uid, game.story(user["id"]), [["📖 Следующая глава"], ["🏙️ Главное меню"]]); return
     if text == "📖 Следующая глава":
