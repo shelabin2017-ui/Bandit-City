@@ -149,6 +149,69 @@ class Database:
                 redeemed_at INTEGER NOT NULL,
                 PRIMARY KEY(user_id, code)
             );
+            CREATE TABLE IF NOT EXISTS mission_progress(
+                user_id INTEGER NOT NULL,
+                code TEXT NOT NULL,
+                progress INTEGER NOT NULL DEFAULT 0,
+                claimed INTEGER NOT NULL DEFAULT 0,
+                updated_at INTEGER NOT NULL,
+                PRIMARY KEY(user_id, code)
+            );
+            CREATE TABLE IF NOT EXISTS sms_task_progress(
+                user_id INTEGER NOT NULL,
+                task_code TEXT NOT NULL,
+                completed INTEGER NOT NULL DEFAULT 0,
+                claimed INTEGER NOT NULL DEFAULT 0,
+                updated_at INTEGER NOT NULL,
+                PRIMARY KEY(user_id, task_code)
+            );
+            CREATE TABLE IF NOT EXISTS sms_messages(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                sender TEXT NOT NULL,
+                text TEXT NOT NULL,
+                task_code TEXT,
+                reward_cash INTEGER NOT NULL DEFAULT 0,
+                reward_xp INTEGER NOT NULL DEFAULT 0,
+                read INTEGER NOT NULL DEFAULT 0,
+                created_at INTEGER NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS story_progress(
+                user_id INTEGER PRIMARY KEY,
+                chapter INTEGER NOT NULL DEFAULT 1,
+                step INTEGER NOT NULL DEFAULT 0,
+                updated_at INTEGER NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS tutorial_progress(
+                user_id INTEGER PRIMARY KEY,
+                step INTEGER NOT NULL DEFAULT 0,
+                completed INTEGER NOT NULL DEFAULT 0,
+                updated_at INTEGER NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS player_status(
+                user_id INTEGER PRIMARY KEY,
+                heat INTEGER NOT NULL DEFAULT 0,
+                reputation INTEGER NOT NULL DEFAULT 0,
+                energy INTEGER NOT NULL DEFAULT 100,
+                last_update INTEGER NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS city_events(
+                code TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                description TEXT NOT NULL,
+                reward_cash INTEGER NOT NULL DEFAULT 0,
+                reward_xp INTEGER NOT NULL DEFAULT 0,
+                active INTEGER NOT NULL DEFAULT 1
+            );
+            CREATE TABLE IF NOT EXISTS casino_stats(
+                user_id INTEGER PRIMARY KEY,
+                plays INTEGER NOT NULL DEFAULT 0,
+                wins INTEGER NOT NULL DEFAULT 0,
+                losses INTEGER NOT NULL DEFAULT 0,
+                wagered INTEGER NOT NULL DEFAULT 0,
+                profit INTEGER NOT NULL DEFAULT 0,
+                updated_at INTEGER NOT NULL
+            );
             """)
             self.add_column(c, "users", "ref_code", "TEXT")
             self.add_column(c, "users", "referred_by", "INTEGER")
@@ -182,6 +245,76 @@ class Database:
     @staticmethod
     def new_ref():
         return "R" + "".join(secrets.choice(string.ascii_letters + string.digits) for _ in range(8))
+
+    def sms_task_complete(self,user_id,task_code):
+        with self.connect() as c:
+            c.execute(
+                "INSERT INTO sms_task_progress(user_id,task_code,completed,claimed,updated_at) VALUES(?,?,?,?,?) "
+                "ON CONFLICT(user_id,task_code) DO UPDATE SET completed=1,updated_at=excluded.updated_at",
+                (int(user_id),str(task_code),1,0,int(time.time()))
+            )
+
+    def sms_task_rows(self,user_id,codes):
+        if not codes:
+            return {}
+        with self.connect() as c:
+            rows=c.execute(
+                "SELECT task_code,completed,claimed FROM sms_task_progress WHERE user_id=? AND task_code IN (%s)"
+                % ",".join("?" for _ in codes), [int(user_id),*codes]
+            ).fetchall()
+        return {r["task_code"]:r for r in rows}
+
+    def sms_task_claim(self,user_id,task_code,reward_cash,reward_xp):
+        with self.connect() as c:
+            row=c.execute("SELECT completed,claimed FROM sms_task_progress WHERE user_id=? AND task_code=?",(int(user_id),str(task_code))).fetchone()
+            if not row or not row["completed"]:
+                return False,"⏳ Задание ещё не выполнено."
+            if row["claimed"]:
+                return False,"❌ Награда уже получена."
+            now=int(time.time())
+            c.execute("UPDATE sms_task_progress SET claimed=1,updated_at=? WHERE user_id=? AND task_code=?",(now,int(user_id),str(task_code)))
+            c.execute("UPDATE users SET balance=balance+?,xp=xp+? WHERE id=?",(int(reward_cash),int(reward_xp),int(user_id)))
+            xp=c.execute("SELECT xp FROM users WHERE id=?",(int(user_id),)).fetchone()["xp"]
+            c.execute("UPDATE users SET level=? WHERE id=?",(xp//100+1,int(user_id)))
+        return True,f"🎉 ЗАДАНИЕ ВЫПОЛНЕНО\n\n💵 +{money(reward_cash)}\n✨ +{reward_xp} XP"
+    def sms_list(self,user_id,limit=20):
+        with self.connect() as c:
+            return c.execute("SELECT * FROM sms_messages WHERE user_id=? ORDER BY id DESC LIMIT ?",(user_id,int(limit))).fetchall()
+
+    def sms_add(self,user_id,sender,text,task_code=None,reward_cash=0,reward_xp=0):
+        with self.connect() as c:
+            c.execute("INSERT INTO sms_messages(user_id,sender,text,task_code,reward_cash,reward_xp,created_at) VALUES(?,?,?,?,?,?,?)",
+                      (user_id,sender,text,task_code,int(reward_cash),int(reward_xp),int(time.time())))
+
+    def sms_read(self,user_id,message_id):
+        with self.connect() as c:
+            c.execute("UPDATE sms_messages SET read=1 WHERE id=? AND user_id=?",(int(message_id),user_id))
+
+    def story(self,user_id):
+        with self.connect() as c:
+            r=c.execute("SELECT * FROM story_progress WHERE user_id=?",(user_id,)).fetchone()
+            if r: return r
+            c.execute("INSERT INTO story_progress(user_id,chapter,step,updated_at) VALUES(?,?,?,?)",(user_id,1,0,int(time.time())))
+            return c.execute("SELECT * FROM story_progress WHERE user_id=?",(user_id,)).fetchone()
+
+    def story_set(self,user_id,chapter,step):
+        with self.connect() as c:
+            c.execute("INSERT INTO story_progress(user_id,chapter,step,updated_at) VALUES(?,?,?,?) "
+                      "ON CONFLICT(user_id) DO UPDATE SET chapter=excluded.chapter,step=excluded.step,updated_at=excluded.updated_at",
+                      (user_id,int(chapter),int(step),int(time.time())))
+
+    def tutorial(self,user_id):
+        with self.connect() as c:
+            r=c.execute("SELECT * FROM tutorial_progress WHERE user_id=?",(user_id,)).fetchone()
+            if r: return r
+            c.execute("INSERT INTO tutorial_progress(user_id,step,completed,updated_at) VALUES(?,?,?,?)",(user_id,0,0,int(time.time())))
+            return c.execute("SELECT * FROM tutorial_progress WHERE user_id=?",(user_id,)).fetchone()
+
+    def tutorial_set(self,user_id,step,completed=False):
+        with self.connect() as c:
+            c.execute("INSERT INTO tutorial_progress(user_id,step,completed,updated_at) VALUES(?,?,?,?) "
+                      "ON CONFLICT(user_id) DO UPDATE SET step=excluded.step,completed=excluded.completed,updated_at=excluded.updated_at",
+                      (user_id,int(step),1 if completed else 0,int(time.time())))
 
     def appearance(self, user_id):
         with self.connect() as c:
@@ -255,6 +388,33 @@ class Database:
                 f"✨ {promo['title']}\n💵 +{cash}\n⭐ +{promo['reward_xp']} XP\n" +
                 f"🎁 {promo['reward_item'] or 'Эксклюзивный бонус'}")
 
+    def phone_contacts(self,user_id):
+        with self.connect() as c:
+            return c.execute("SELECT * FROM phone_contacts WHERE user_id=? ORDER BY nickname",(user_id,)).fetchall()
+
+    def phone_add(self,user_id,contact_id,nickname):
+        with self.connect() as c:
+            if int(contact_id)==int(user_id): return False,"❌ Нельзя добавить самого себя."
+            c.execute("INSERT OR REPLACE INTO phone_contacts(user_id,contact_id,nickname,created_at) VALUES(?,?,?,?)",
+                      (user_id,contact_id,nickname,int(time.time())))
+        return True,"📱 Контакт добавлен."
+
+    def phone_remove(self,user_id,contact_id):
+        with self.connect() as c:
+            cur=c.execute("DELETE FROM phone_contacts WHERE user_id=? AND contact_id=?",(user_id,contact_id))
+        return bool(cur.rowcount)
+
+    def npc_value(self,user_id,npc_code):
+        with self.connect() as c:
+            r=c.execute("SELECT value FROM npc_state WHERE user_id=? AND npc_code=?",(user_id,npc_code)).fetchone()
+        return int(r["value"]) if r else 0
+
+    def npc_set(self,user_id,npc_code,value):
+        with self.connect() as c:
+            c.execute("INSERT INTO npc_state(user_id,npc_code,value,updated_at) VALUES(?,?,?,?) "
+                      "ON CONFLICT(user_id,npc_code) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at",
+                      (user_id,npc_code,int(value),int(time.time())))
+
     def get_or_create_user(self, vk_id):
         with self.connect() as c:
             row = c.execute("SELECT * FROM users WHERE vk_id=?", (vk_id,)).fetchone()
@@ -279,6 +439,43 @@ class Database:
         with self.connect() as c:
             r = c.execute("SELECT banned FROM users WHERE vk_id=?", (vk_id,)).fetchone()
             return bool(r and r["banned"])
+
+    def status(self,user_id):
+        now=int(time.time())
+        with self.connect() as c:
+            r=c.execute("SELECT * FROM player_status WHERE user_id=?",(user_id,)).fetchone()
+            if not r:
+                c.execute("INSERT INTO player_status(user_id,heat,reputation,energy,last_update) VALUES(?,?,?,?,?)",(user_id,0,0,100,now))
+                return c.execute("SELECT * FROM player_status WHERE user_id=?",(user_id,)).fetchone()
+            elapsed=max(0,now-int(r["last_update"]))
+            energy=min(100,int(r["energy"])+elapsed//60*5)
+            heat=max(0,int(r["heat"])-elapsed//300)
+            c.execute("UPDATE player_status SET energy=?,heat=?,last_update=? WHERE user_id=?",(energy,heat,now,user_id))
+            return c.execute("SELECT * FROM player_status WHERE user_id=?",(user_id,)).fetchone()
+
+    def status_change(self,user_id,heat=0,reputation=0,energy=0):
+        r=self.status(user_id)
+        now=int(time.time())
+        h=max(0,min(100,int(r["heat"])+int(heat)))
+        rep=max(-1000,min(1000,int(r["reputation"])+int(reputation)))
+        en=max(0,min(100,int(r["energy"])+int(energy)))
+        with self.connect() as c:
+            c.execute("UPDATE player_status SET heat=?,reputation=?,energy=?,last_update=? WHERE user_id=?",(h,rep,en,now,user_id))
+        return self.status(user_id)
+
+    def city_event_list(self):
+        with self.connect() as c:
+            return c.execute("SELECT * FROM city_events WHERE active=1 ORDER BY code").fetchall()
+
+    def city_event_seed(self):
+        events=[
+            ("double_work","⚡ Двойная смена","Сегодня работа приносит повышенную награду.",0,0),
+            ("street_rush","🔥 Уличная жара","Рискованные действия дают больше репутации.",0,0),
+            ("black_market","🕶️ Чёрный рынок","Особые сделки доступны сегодня.",0,0),
+        ]
+        with self.connect() as c:
+            for row in events:
+                c.execute("INSERT OR IGNORE INTO city_events(code,title,description,reward_cash,reward_xp,active) VALUES(?,?,?,?,?,1)",row)
 
     def user(self, user_id):
         with self.connect() as c:
@@ -525,6 +722,58 @@ class Database:
             c.execute("DELETE FROM items WHERE id=?",(item_id,))
             c.execute("UPDATE users SET balance=balance+? WHERE id=?",(payout,user_id))
             return f"📦 Продано. Получено {money(payout)}"
+
+
+    def mission_add(self, user_id, code, amount=1):
+        now = int(time.time())
+        with self.connect() as c:
+            c.execute(
+                "INSERT INTO mission_progress(user_id,code,progress,claimed,updated_at) VALUES(?,?,?,?,?) "
+                "ON CONFLICT(user_id,code) DO UPDATE SET progress=progress+excluded.progress,updated_at=excluded.updated_at",
+                (user_id, code, max(0, int(amount)), 0, now)
+            )
+
+    def mission_rows(self, user_id, codes):
+        with self.connect() as c:
+            rows = c.execute(
+                "SELECT code,progress,claimed FROM mission_progress WHERE user_id=? AND code IN (%s)"
+                % ",".join("?" for _ in codes),
+                [user_id, *codes]
+            ).fetchall()
+        return {r["code"]: r for r in rows}
+
+    def mission_claim(self, user_id, code, reward_cash, reward_xp, target):
+        with self.connect() as c:
+            row = c.execute(
+                "SELECT progress,claimed FROM mission_progress WHERE user_id=? AND code=?",
+                (user_id, code)
+            ).fetchone()
+            if not row or row["claimed"]:
+                return False, "❌ Награда уже получена или миссия ещё не выполнена."
+            if row["progress"] < target:
+                return False, "⏳ Миссия ещё не выполнена."
+            c.execute("UPDATE mission_progress SET claimed=1,updated_at=? WHERE user_id=? AND code=?",
+                      (int(time.time()), user_id, code))
+            c.execute("UPDATE users SET balance=balance+?,xp=xp+? WHERE id=?",
+                      (reward_cash, reward_xp, user_id))
+            xp = c.execute("SELECT xp FROM users WHERE id=?", (user_id,)).fetchone()["xp"]
+            c.execute("UPDATE users SET level=? WHERE id=?", (xp // 100 + 1, user_id))
+            return True, f"🎉 МИССИЯ ВЫПОЛНЕНА\n\n💵 +{money(reward_cash)}\n✨ +{reward_xp} XP"
+
+    def casino_record(self, user_id, wager, profit, won):
+        now = int(time.time())
+        with self.connect() as c:
+            c.execute(
+                "INSERT INTO casino_stats(user_id,plays,wins,losses,wagered,profit,updated_at) VALUES(?,?,?,?,?,?,?) "
+                "ON CONFLICT(user_id) DO UPDATE SET plays=plays+1,wins=wins+excluded.wins,"
+                "losses=losses+excluded.losses,wagered=wagered+excluded.wagered,"
+                "profit=profit+excluded.profit,updated_at=excluded.updated_at",
+                (user_id, 1, 1 if won else 0, 0 if won else 1, wager, profit, now)
+            )
+
+    def casino_stats(self, user_id):
+        with self.connect() as c:
+            return c.execute("SELECT * FROM casino_stats WHERE user_id=?", (user_id,)).fetchone()
 
     def get_nickname(self, user_id):
         with self.connect() as c:

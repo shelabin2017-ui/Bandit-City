@@ -38,6 +38,156 @@ class Game:
         self.db = db
         self.admins = admins
 
+    NPCS = {
+        "dealer": ("💰 Дилер", "Сделки и быстрые деньги."),
+        "fixer": ("🕴️ Фиксер", "Заказы, связи и рискованные поручения."),
+        "mechanic": ("🔧 Механик", "Машины, ремонт и уличные задания."),
+        "informant": ("🕵️ Информатор", "Слухи о городе и особые задания."),
+    }
+
+    def phone(self,uid):
+        rows=self.db.phone_contacts(uid)
+        if not rows:
+            return "📱 ТЕЛЕФОН\n\nКонтактов пока нет.\nДобавляй игроков через VK ID."
+        return "📱 ТЕЛЕФОН\n\n" + "\n".join(
+            f"👤 {r['nickname']} • VK {r['contact_id']}" for r in rows
+        )
+
+    def phone_add(self,uid,target):
+        target=int(target)
+        u=self.db.user(target)
+        if not u: return "❌ Игрок не найден."
+        return self.db.phone_add(uid,target,u["nickname"])[1]
+
+    def phone_remove(self,uid,target):
+        return "🗑️ Контакт удалён." if self.db.phone_remove(uid,int(target)) else "❌ Контакт не найден."
+
+    def npc_menu(self,uid):
+        return "📱 NPC ГОРОДА\n\n" + "\n".join(
+            f"{title}\n{desc}\nНажми на NPC, чтобы открыть его действия."
+            for title,desc in self.NPCS.values()
+        )
+
+    def npc(self,uid,code):
+        if code not in self.NPCS: return "❌ NPC не найден."
+        title,desc=self.NPCS[code]
+        progress=self.db.npc_value(uid,code)
+        return f"{title}\n\n{desc}\n\n⭐ Репутация: {progress}\n\n🎯 Доступные действия появятся по мере развития NPC."
+    
+    SMS_TASKS = {
+        "first_job": ("💼 Первое дело", "Найди работу и выполни первую смену.", 25000, 20),
+        "first_car": ("🚗 Первая машина", "Купи свою первую машину.", 50000, 30),
+        "first_business": ("🏢 Свой бизнес", "Купи первый бизнес.", 100000, 50),
+    }
+
+    STORY = [
+        ("ГЛАВА 1 • НОВИЧОК", "Ты приехал в Los Santos с пустыми карманами. Город никого не ждёт — его нужно брать самому."),
+        ("ГЛАВА 2 • ПЕРВЫЕ СВЯЗИ", "Работа приносит деньги, но настоящие возможности появляются через людей. Телефон становится твоим главным инструментом."),
+        ("ГЛАВА 3 • ТЕНЬ ГОРОДА", "Ты начинаешь замечать, что за обычными заказами скрывается большая игра. Кто-то следит за твоими шагами."),
+    ]
+
+    TUTORIAL = [
+        ("👋 Добро пожаловать", "Это Bandit City. Здесь ты начинаешь с нуля и сам строишь свою историю."),
+        ("💼 Работа", "Открой «Работа», выбери профессию и выполни первую смену."),
+        ("🏦 Деньги", "Часть денег держи в банке, а наличные используй для покупок и действий."),
+        ("🚗 Машины", "Открой «Авто», выбери машину и постепенно собирай свой гараж."),
+        ("📱 Телефон", "Через телефон можно хранить контакты и общаться с NPC."),
+        ("🎰 Казино", "Казино — рискованный способ заработать. Следи за балансом и ставками."),
+        ("🎯 Миссии", "Выполняй миссии, чтобы получать дополнительные деньги и XP."),
+        ("🏆 Ачивки", "Ачивки фиксируют важные достижения и показывают прогресс."),
+    ]
+
+    def sms(self,uid):
+        rows=self.db.sms_list(uid)
+        tasks=self.db.sms_task_rows(uid,list(self.SMS_TASKS))
+        if not rows:
+            body="📩 СМС\n\nПока сообщений нет."
+        else:
+            body="📩 СМС\n\n" + "\n\n".join(
+                f"{'🔵' if not r['read'] else '⚪'} {r['sender']}\n{r['text']}"
+                for r in rows
+            )
+        task_lines=["\n🎯 ЗАДАНИЯ ИЗ СМС"]
+        for code,(title,desc,cash,xp) in self.SMS_TASKS.items():
+            r=tasks.get(code)
+            if r and r["claimed"]:
+                status="✅ Получено"
+            elif r and r["completed"]:
+                status="🎁 ГОТОВО"
+            else:
+                status="⏳ Не выполнено"
+            task_lines.append(f"{title} — {status}\n{desc}\n🎁 {money(cash)} + {xp} XP")
+        return body+"\n"+"\n".join(task_lines)
+
+    def complete_sms_task(self,uid,code):
+        if code not in self.SMS_TASKS:
+            return "❌ СМС-задание не найдено."
+        title,desc,cash,xp=self.SMS_TASKS[code]
+        return self.db.sms_task_claim(uid,code,cash,xp)[1]
+
+    def tutorial(self,uid):
+        r=self.db.tutorial(uid)
+        step=min(int(r["step"]),len(self.TUTORIAL)-1)
+        title,text=self.TUTORIAL[step]
+        if r["completed"]:
+            return "🎓 ОБУЧЕНИЕ\n\n✅ Обучение завершено. Ты готов к городу."
+        return f"🎓 ОБУЧЕНИЕ\n\n{step+1}/{len(self.TUTORIAL)}\n{title}\n\n{text}"
+
+    def tutorial_next(self,uid):
+        r=self.db.tutorial(uid)
+        step=int(r["step"])+1
+        if step>=len(self.TUTORIAL):
+            self.db.tutorial_set(uid,len(self.TUTORIAL),True)
+            self.db.complete_onboarding(uid)
+            return "🎓 ОБУЧЕНИЕ ЗАВЕРШЕНО\n\n🏙️ Город открыт. Удачи."
+        self.db.tutorial_set(uid,step,False)
+        title,text=self.TUTORIAL[step]
+        return f"🎓 ОБУЧЕНИЕ\n\n{step+1}/{len(self.TUTORIAL)}\n{title}\n\n{text}"
+
+    def story(self,uid):
+        r=self.db.story(uid)
+        chapter=max(1,min(int(r["chapter"]),len(self.STORY)))
+        title,text=self.STORY[chapter-1]
+        return f"📖 СЮЖЕТ\n\n{title}\n\n{text}\n\n📍 Глава {chapter}/{len(self.STORY)}"
+
+    def achievements_full(self,uid):
+        base=self.db.achievements(uid)
+        return "🏆 АЧИВКИ\n\n"+str(base)
+
+    MISSIONS = {
+        "work_3": ("💼 Рабочая смена", 3, "Выполни 3 рабочие смены.", 75000, 40),
+        "earn_100k": ("💵 Заработок", 100000, "Заработай $100 000 на работе.", 100000, 60),
+        "casino_3": ("🎰 Азарт", 3, "Сыграй 3 раза в казино.", 50000, 35),
+        "casino_win": ("🍀 Удача", 1, "Выиграй игру в казино.", 80000, 50),
+        "rich": ("💰 Капитал", 1, "Накопи $1 000 000.", 150000, 80),
+        "ref_1": ("🤝 Связи", 1, "Пригласи игрока.", 100000, 70),
+    }
+
+    def missions(self,uid):
+        rows=self.db.mission_rows(uid,list(self.MISSIONS))
+        out=["🎯 МИССИИ",""]
+        for code,(title,target,desc,cash,xp) in self.MISSIONS.items():
+            r=rows.get(code)
+            progress=int(r["progress"]) if r else 0
+            claimed=bool(r["claimed"]) if r else False
+            status="✅ Получено" if claimed else ("🎁 ГОТОВО" if progress>=target else f"{progress}/{target}")
+            out.append(f"{title} — {status}\n{desc}\n🎁 {money(cash)} + {xp} XP")
+        return "\n\n".join(out)
+
+    def claim_mission(self,uid,code):
+        if code not in self.MISSIONS:
+            return "❌ Миссия не найдена."
+        _,target,_,cash,xp=self.MISSIONS[code]
+        return self.db.mission_claim(uid,code,cash,xp,target)[1]
+
+    def casino_info(self,uid):
+        r=self.db.casino_stats(uid)
+        if not r:
+            return "🎰 СТАТИСТИКА КАЗИНО\n\nИгр: 0\nПобед: 0\nПоражений: 0\nОборот: $0\nРезультат: $0"
+        return (f"🎰 СТАТИСТИКА КАЗИНО\n\n🎮 Игр: {r['plays']}\n"
+                f"🏆 Побед: {r['wins']}\n❌ Поражений: {r['losses']}\n"
+                f"💰 Оборот: {money(r['wagered'])}\n📈 Результат: {money(r['profit'])}")
+
     def welcome(self, uid, referral_bonus=None):
         bonus_line = ""
         if referral_bonus:
@@ -57,6 +207,19 @@ class Game:
             "🎁 За приглашение друзей ты тоже получаешь бонусы.\n\n"
             "👇 Выбирай, с чего начать!"
         )
+
+    def status(self,uid):
+        r=self.db.status(uid)
+        wanted="🟢 Низкая" if r["heat"]<25 else ("🟡 Внимание" if r["heat"]<60 else ("🟠 Розыск" if r["heat"]<85 else "🔴 Особо разыскивается"))
+        rep="Нейтральная" if r["reputation"]==0 else ("Уважаемый" if r["reputation"]>0 else "Опасный")
+        return f"📊 СТАТУС\n\n⚡ Энергия: {r['energy']}/100\n🚨 Розыск: {r['heat']}/100 — {wanted}\n⭐ Репутация: {r['reputation']} — {rep}"
+
+    def city_events(self,uid):
+        self.db.city_event_seed()
+        rows=self.db.city_event_list()
+        if not rows:
+            return "🌆 СОБЫТИЯ\n\nСегодня город спокоен."
+        return "🌆 СОБЫТИЯ ГОРОДА\n\n"+"\n\n".join(f"{r['title']}\n{r['description']}" for r in rows)
 
     def profile(self, uid):
         u=self.db.user(uid)
@@ -78,9 +241,18 @@ class Game:
         last=self.db.job_last(uid,job)
         if now-last<60:
             return f"⏳ Подожди {60-(now-last)} сек."
+        status=self.db.status(uid)
+        if int(status["energy"])<10:
+            return "😴 Ты вымотан. Подожди, пока восстановится энергия."
+        self.db.status_change(uid,energy=-10,heat=2,reputation=1)
         self.db.add_money(uid,reward)
         self.db.xp(uid,xp)
         self.db.job_set(uid,job)
+        if not self.db.sms_task_rows(uid,["first_job"]).get("first_job",{}).get("completed",0):
+            self.db.sms_task_complete(uid,"first_job")
+            self.db.sms_add(uid,"📱 Неизвестный номер","Первое дело сделано. Теперь город знает, что ты умеешь работать.","first_job",25000,20)
+        self.db.mission_add(uid,"work_3",1)
+        self.db.mission_add(uid,"earn_100k",reward)
         return f"✅ {name}\n💵 +{money(reward)}\n✨ +{xp} XP"
 
     def business_info(self,uid):
@@ -98,7 +270,12 @@ class Game:
         ).replace(",", " ")
 
     def buy_business(self,uid):
-        return self.db.buy_business(uid)
+        result=self.db.buy_business(uid)
+        if "успеш" in result.lower() or "куплен" in result.lower():
+            if not self.db.sms_task_rows(uid,["first_business"]).get("first_business",{}).get("completed",0):
+                self.db.sms_task_complete(uid,"first_business")
+                self.db.sms_add(uid,"🕴️ Фиксер","Теперь у тебя есть своё дело. Деньги любят тех, кто умеет ими управлять.","first_business",100000,50)
+        return result
 
     def refill_stock(self,uid,amount):
         return self.db.refill(uid,amount)
@@ -140,7 +317,12 @@ class Game:
         return "\n".join(out)
 
     def buy_car(self,uid,model):
-        return self.db.buy_car(uid,model)
+        result=self.db.buy_car(uid,model)
+        if "успеш" in result.lower() or "куплен" in result.lower():
+            if not self.db.sms_task_rows(uid,["first_car"]).get("first_car",{}).get("completed",0):
+                self.db.sms_task_complete(uid,"first_car")
+                self.db.sms_add(uid,"🔧 Механик","Поздравляю с первой машиной. Заезжай, если понадобится ремонт.","first_car",50000,30)
+        return result
 
     def sell_car(self,uid,cid):
         return self.db.sell_car(uid,cid)
@@ -170,32 +352,67 @@ class Game:
     def casino(self,uid,cmd):
         bet=10_000
         u=self.db.user(uid)
-        if u["balance"]<bet: return "❌ Нужно $10 000."
+        if u["balance"]<bet:
+            return "❌ Нужно $10 000."
         self.db.add_money(uid,-bet)
+        won=False
+        profit=-bet
         if cmd=="🎲 Кости":
             a,b=random.randint(1,6),random.randint(1,6)
             if a+b>=8:
-                self.db.add_money(uid,bet*2)
-                return f"🎲 {a}+{b}={a+b}\n🎉 +{money(bet*2)}"
-            return f"🎲 {a}+{b}={a+b}\n❌ -{money(bet)}"
-        if cmd=="🎰 Слоты":
-            s=[random.choice(["🍒","🍋","💎","7️⃣"]) for _ in range(3)]
-            if len(set(s))==1:
-                self.db.add_money(uid,bet*5); return f"🎰 {' | '.join(s)}\n🎉 ДЖЕКПОТ +{money(bet*5)}"
-            if len(set(s))==2:
-                self.db.add_money(uid,bet*2); return f"🎰 {' | '.join(s)}\n✨ +{money(bet*2)}"
-            return f"🎰 {' | '.join(s)}\n❌ -{money(bet)}"
-        if cmd=="🎯 Рулетка":
+                payout=bet*2
+                self.db.add_money(uid,payout)
+                won=True
+                profit=payout-bet
+                result=f"🎲 {a}+{b}={a+b}\n🎉 +{money(payout)}"
+            else:
+                result=f"🎲 {a}+{b}={a+b}\n❌ -{money(bet)}"
+        elif cmd=="🎰 Слоты":
+            reels=[random.choice(["🍒","🍋","💎","7️⃣"]) for _ in range(3)]
+            if len(set(reels))==1:
+                payout=bet*5
+                self.db.add_money(uid,payout)
+                won=True
+                profit=payout-bet
+                result=f"🎰 {' | '.join(reels)}\n🎉 ДЖЕКПОТ +{money(payout)}"
+            elif len(set(reels))==2:
+                payout=bet*2
+                self.db.add_money(uid,payout)
+                won=True
+                profit=payout-bet
+                result=f"🎰 {' | '.join(reels)}\n✨ +{money(payout)}"
+            else:
+                result=f"🎰 {' | '.join(reels)}\n❌ -{money(bet)}"
+        elif cmd=="🎯 Рулетка":
             n=random.randint(0,36)
             if n and n%2==0:
-                self.db.add_money(uid,bet*2); return f"🎯 {n}\n🎉 +{money(bet*2)}"
-            return f"🎯 {n}\n❌ -{money(bet)}"
-        p,d=random.randint(16,21),random.randint(17,21)
-        if p>d:
-            self.db.add_money(uid,bet*2); return f"🃏 Ты {p} | Дилер {d}\n🎉 +{money(bet*2)}"
-        if p==d:
-            self.db.add_money(uid,bet); return f"🃏 Ты {p} | Дилер {d}\n🤝 Ничья"
-        return f"🃏 Ты {p} | Дилер {d}\n❌ -{money(bet)}"
+                payout=bet*2
+                self.db.add_money(uid,payout)
+                won=True
+                profit=payout-bet
+                result=f"🎯 {n}\n🎉 +{money(payout)}"
+            else:
+                result=f"🎯 {n}\n❌ -{money(bet)}"
+        else:
+            p,d=random.randint(16,21),random.randint(17,21)
+            if p>d:
+                payout=bet*2
+                self.db.add_money(uid,payout)
+                won=True
+                profit=payout-bet
+                result=f"🃏 Ты {p} | Дилер {d}\n🎉 +{money(payout)}"
+            elif p==d:
+                self.db.add_money(uid,bet)
+                profit=0
+                won=False
+                result=f"🃏 Ты {p} | Дилер {d}\n🤝 Ничья"
+            else:
+                result=f"🃏 Ты {p} | Дилер {d}\n❌ -{money(bet)}"
+        self.db.casino_record(uid,bet,profit,won)
+        self.db.mission_add(uid,"casino_3",1)
+        if won:
+            self.db.mission_add(uid,"casino_win",1)
+        return result
 
     def top(self):
         return self.db.top()

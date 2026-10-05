@@ -15,6 +15,8 @@ from db import Database
 from game import Game
 from v5 import bridge as v5
 from admin_panel import AdminPanel
+from roles import RoleManager
+from role_ui import RoleUI
 
 load_dotenv()
 TOKEN = os.getenv("VK_TOKEN", "").strip()
@@ -25,8 +27,13 @@ if not TOKEN or not GROUP_ID:
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 db = Database(os.getenv("DB_PATH", "bandit.db"))
+roles = RoleManager(db)
+roles.bootstrap_from_env()
+for _legacy_uid in ADMIN_IDS:
+    roles.ensure_player(_legacy_uid)
+role_ui = RoleUI(roles)
 game = Game(db, ADMIN_IDS)
-admin = AdminPanel(db, game, ADMIN_IDS)
+admin = AdminPanel(db, game, ADMIN_IDS, roles=roles, role_ui=role_ui)
 session = vk_api.VkApi(token=TOKEN)
 vk = session.get_api()
 longpoll = VkLongPoll(session)
@@ -150,20 +157,41 @@ def send_card(user_id, text, rows=None):
     send(user_id, text, rows, upload_card(user_id, card_key(text)))
 
 
-def kb_main(is_admin=False):
+def kb_main(is_admin=False, panel_label="👑 Админ-панель"):
     rows = [
         ["👤 Профиль", "💼 Работа"],
         ["🚗 Авто", "🛒 Магазин"],
         ["🏢 Бизнес", "🏦 Банк"],
         ["🎰 Казино", "🎁 Бонус"],
         ["👥 Игроки", "🏆 Рейтинг"],
-        ["🏆 Достижения", "🎟 Промокод"],
+        ["🏆 Достижения", "🎯 Миссии"],
+        ["📊 Мой статус", "🌆 События города"],
+        ["📱 Телефон", "📩 СМС"],
+        ["📖 Сюжет", "🎓 Обучение"],
+        ["🏆 Ачивки", "🎟 Промокод"],
         ["⚙️ Настройки", "👑 О создателе"],
         ["❓ Помощь"],
     ]
     if is_admin:
-        rows.append(["👑 Админ-панель"])
+        rows.append([panel_label])
     return rows
+
+
+def has_admin_access(uid):
+    return int(uid) in ADMIN_IDS or roles.has(uid, "economy.manage")
+
+
+def main_kb(uid):
+    label = role_ui.main_button(uid)
+    if label:
+        return kb_main(True, label)
+    if has_admin_access(uid):
+        return kb_main(True)
+    return kb_main(False)
+
+
+def has_staff_access(uid):
+    return bool(role_ui.main_button(uid)) or has_admin_access(uid)
 
 
 def kb_bank():
@@ -183,7 +211,13 @@ def kb_auto():
 
 
 def kb_casino():
-    return [["🎲 Кости", "🎰 Слоты"], ["🎯 Рулетка", "🃏 Blackjack"], ["🏙️ Главное меню"]]
+    return [["🎲 Кости", "🎰 Слоты"], ["🎯 Рулетка", "🃏 Blackjack"], ["📊 Статистика казино"], ["🏙️ Главное меню"]]
+
+def kb_phone():
+    return [["👥 Контакты", "➕ Добавить контакт"], ["➖ Удалить контакт"], ["🤝 NPC города"], ["🏙️ Главное меню"]]
+
+def kb_npc():
+    return [["💰 Дилер", "🕴️ Фиксер"], ["🔧 Механик", "🕵️ Информатор"], ["📱 Телефон"], ["🏙️ Главное меню"]]
 
 
 def kb_settings():
@@ -233,7 +267,7 @@ def process_input(uid, text):
     low = text.lower().strip()
     if low in ("отмена", "❌ отмена", "/cancel"):
         clear_state(uid)
-        send_card(uid, "❌ Операция отменена.", kb_main(uid in ADMIN_IDS))
+        send_card(uid, "❌ Операция отменена.", main_kb(uid))
         return True
     try:
         if st["mode"] == "bank_in":
@@ -250,7 +284,7 @@ def process_input(uid, text):
             p = text.split()
             target, amount = int(p[0]), int(p[1])
             clear_state(uid)
-            send(uid, game.transfer(db.get_or_create_user(uid)["id"], target, amount), kb_main(uid in ADMIN_IDS))
+            send(uid, game.transfer(db.get_or_create_user(uid)["id"], target, amount), main_kb(uid))
             return True
         if st["mode"] == "nickname":
             import re
@@ -273,6 +307,12 @@ def process_input(uid, text):
                 send(uid, message, [["❌ Отмена"]])
             return True
 
+        if st["mode"] == "phone_add":
+            msg=game.phone_add(uid,int(text.replace(" ","")))
+            clear_state(uid); send(uid,msg,kb_phone()); return True
+        if st["mode"] == "phone_remove":
+            msg=game.phone_remove(uid,int(text.replace(" ","")))
+            clear_state(uid); send(uid,msg,kb_phone()); return True
         if st["mode"] == "stock":
             amount = int(text.replace(" ", ""))
             clear_state(uid)
@@ -284,6 +324,24 @@ def process_input(uid, text):
     return False
 
 
+def execute_broadcast(uid, message):
+    last = BROADCAST_LAST.get(uid, 0)
+    remaining = BROADCAST_COOLDOWN - (time.time() - last)
+    if remaining > 0:
+        send(uid, "⏳ Повтори рассылку через {} сек.".format(int(remaining) + 1), [[role_ui.main_button(uid) or "👑 Админ-панель"]])
+        return
+    BROADCAST_LAST[uid] = time.time()
+    with db.connect() as c:
+        targets = [r["vk_id"] for r in c.execute("SELECT vk_id FROM users WHERE banned=0").fetchall()]
+    sent = 0
+    for target in targets:
+        try:
+            vk.messages.send(user_id=target, random_id=random.randint(1, 2_147_483_647), message="📢 BANDIT CITY\\n\\n" + message)
+            sent += 1
+            time.sleep(0.08)
+        except Exception:
+            logging.exception("Broadcast failed for %s", target)
+    send(uid, "✅ Рассылка завершена. Отправлено: {}/{}".format(sent, len(targets)), [[role_ui.main_button(uid) or "👑 Админ-панель"]])
 def process(uid, text):
     text = text.strip()
     low = text.lower()
@@ -291,7 +349,7 @@ def process(uid, text):
         return
 
     user = db.get_or_create_user(uid)
-    if maintenance_enabled() and uid not in ADMIN_IDS:
+    if maintenance_enabled() and not has_staff_access(uid):
         send_card(uid, "🏙️ BANDIT CITY\n\n🚧 ТЕХНИЧЕСКИЕ РАБОТЫ\n\nГород временно закрыт на обслуживание.\n\n🛠️ Мы обновляем систему, исправляем ошибки\nи готовим новые возможности.\n\n⏳ Совсем скоро город снова откроется.\n\n🖤 Спасибо за ожидание.")
         return
     if db.is_banned(uid):
@@ -304,18 +362,19 @@ def process(uid, text):
             parts = text.split(maxsplit=1)
             if len(parts) == 2:
                 referral_bonus = bool(game.apply_referral(user["id"], parts[1]))
-        db.complete_onboarding(user["id"])
-        send_card(uid, game.welcome(user["id"], referral_bonus), kb_main(uid in ADMIN_IDS))
+        send_card(uid, game.welcome(user["id"], referral_bonus), [["🎓 Обучение"]])
+        send(uid, game.tutorial(user["id"]), [["▶️ Далее"]])
         return
 
     if low.startswith("/start") or low in ("/menu", "меню", "🏙️ главное меню"):
-        send_card(uid, "🏙 Главное меню", kb_main(uid in ADMIN_IDS))
+        send_card(uid, "🏙 Главное меню", main_kb(uid))
         return
     if low in ("/info", "инфо", "👤 профиль"):
-        send_card(uid, game.profile(user["id"]), kb_main(uid in ADMIN_IDS))
+        send_card(uid, game.profile(user["id"]), main_kb(uid))
+        return
         return
     if text == "⚙️ Настройки":
-        if uid in ADMIN_IDS:
+        if has_admin_access(uid):
             handled, admin_text, admin_rows = admin.handle(uid, text)
             if handled:
                 send(uid, admin_text, admin_rows)
@@ -330,12 +389,16 @@ def process(uid, text):
         return
 
     if text == "❓ Помощь":
-        send_card(uid, help_text(), kb_main(uid in ADMIN_IDS))
+        send_card(uid, help_text(), main_kb(uid))
         return
     if text == "👑 О создателе":
         send_card(uid, creator_text(), [["🏙️ Главное меню"]])
         return
 
+    if text == "📊 Мой статус":
+        send(uid, game.status(user["id"]), [["👤 Профиль"],["🌆 События города"],["🏙️ Главное меню"]]); return
+    if text == "🌆 События города":
+        send(uid, game.city_events(user["id"]), [["📊 Мой статус"],["🏙️ Главное меню"]]); return
     if text == "💼 Работа":
         send(uid, "💼 ВЫБЕРИ РАБОТУ", kb_work())
         return
@@ -449,6 +512,44 @@ def process(uid, text):
 
     if text == "🎰 Казино":
         send(uid, "🎰 КАЗИНО\n\nМинимальная ставка $10 000.", kb_casino()); return
+    if text == "📊 Статистика казино":
+        send(uid, game.casino_info(user["id"]), kb_casino()); return
+    if text == "🎯 Миссии":
+        send(uid, game.missions(user["id"]), [["💼 Рабочая смена"], ["💵 Заработок"], ["🎰 Азарт"], ["🍀 Удача"], ["💰 Капитал"], ["🤝 Связи"], ["🏙️ Главное меню"]]); return
+    mission_map={"💼 Рабочая смена":"work_3","💵 Заработок":"earn_100k","🎰 Азарт":"casino_3","🍀 Удача":"casino_win","💰 Капитал":"rich","🤝 Связи":"ref_1"}
+    if text in mission_map:
+        send(uid, game.claim_mission(user["id"],mission_map[text]), [["🎯 Миссии"], ["🏙️ Главное меню"]]); return
+    if text == "📩 СМС":
+        send(uid, game.sms(user["id"]), [["💼 Первое дело","🚗 Первая машина"],["🏢 Свой бизнес"],["🏙️ Главное меню"]]); return
+    sms_task_map={"💼 Первое дело":"first_job","🚗 Первая машина":"first_car","🏢 Свой бизнес":"first_business"}
+    if text in sms_task_map:
+        send(uid, game.complete_sms_task(user["id"],sms_task_map[text]), [["📩 СМС"],["🏙️ Главное меню"]]); return
+    if text == "📖 Сюжет":
+        send(uid, game.story(user["id"]), [["📖 Следующая глава"], ["🏙️ Главное меню"]]); return
+    if text == "📖 Следующая глава":
+        r=db.story(user["id"]); db.story_set(user["id"], min(int(r["chapter"])+1, len(game.STORY)), 0)
+        send(uid, game.story(user["id"]), [["📖 Следующая глава"], ["🏙️ Главное меню"]]); return
+    if text == "🎓 Обучение":
+        send(uid, game.tutorial(user["id"]), [["▶️ Далее"], ["🏙️ Главное меню"]]); return
+    if text == "▶️ Далее":
+        send(uid, game.tutorial_next(user["id"]), [["▶️ Далее"], ["🏙️ Главное меню"]]); return
+    if text == "🏆 Ачивки":
+        send(uid, game.achievements_full(user["id"]), [["🏙️ Главное меню"]]); return
+    if text == "📱 Телефон":
+        send(uid, game.phone(user["id"]), kb_phone()); return
+    if text == "👥 Контакты":
+        send(uid, game.phone(user["id"]), kb_phone()); return
+    if text == "➕ Добавить контакт":
+        set_state(uid, "phone_add")
+        send(uid, "➕ Введи VK ID игрока, которого хочешь добавить в телефон.", [["❌ Отмена"]]); return
+    if text == "➖ Удалить контакт":
+        set_state(uid, "phone_remove")
+        send(uid, "➖ Введи VK ID контакта для удаления.", [["❌ Отмена"]]); return
+    if text == "🤝 NPC города":
+        send(uid, game.npc_menu(user["id"]), kb_npc()); return
+    npc_map={"💰 Дилер":"dealer","🕴️ Фиксер":"fixer","🔧 Механик":"mechanic","🕵️ Информатор":"informant"}
+    if text in npc_map:
+        send(uid, game.npc(user["id"],npc_map[text]),kb_npc()); return
     if text in ("🎲 Кости", "🎰 Слоты", "🎯 Рулетка", "🃏 Blackjack"):
         send(uid, game.casino(user["id"], text), kb_casino()); return
 
@@ -464,33 +565,49 @@ def process(uid, text):
             p = text.split(); send(uid, game.bank(user["id"], "deposit" if p[1] in ("in", "deposit") else "withdraw", int(p[2])), kb_bank())
         except (ValueError, IndexError): send(uid, "Использование: /bank in SUM или /bank out SUM", kb_bank())
         return
-    if text == "🎁 Бонус" or low == "/daily": send(uid, game.daily(user["id"]), kb_main(uid in ADMIN_IDS)); return
-    if text == "🏆 Достижения" or low == "/achievements": send(uid, game.achievements(user["id"]), kb_main(uid in ADMIN_IDS)); return
+    if text == "🎁 Бонус" or low == "/daily": send(uid, game.daily(user["id"]), main_kb(uid)); return
+    if text == "🏆 Достижения" or low == "/achievements": send(uid, game.achievements(user["id"]), main_kb(uid)); return
 
     if text == "👥 Игроки":
         send(uid, "👥 ИГРОКИ\n\n💸 Перевод — отправь VK ID и сумму\n/scam VK_ID — скам\n/rob VK_ID — ограбление\n/ref — реферальная ссылка\n/top — рейтинг", [["💸 Перевод", "/ref"], ["🏆 Рейтинг", "🏙️ Главное меню"]]); return
     if text == "💸 Перевод": set_state(uid, "pay"); send(uid, "💸 Введи двумя числами: VK_ID СУММА\n\nПример: 123456789 37500", [["❌ Отмена"]]); return
-    if low == "/ref": send(uid, game.ref_link(user["id"]), kb_main(uid in ADMIN_IDS)); return
-    if low == "/top" or text == "🏆 Рейтинг": send(uid, game.top(), kb_main(uid in ADMIN_IDS)); return
+    if low == "/ref": send(uid, game.ref_link(user["id"]), main_kb(uid)); return
+    if low == "/top" or text == "🏆 Рейтинг": send(uid, game.top(), main_kb(uid)); return
     if low.startswith("/pay "):
         try:
-            p = text.split(); send(uid, game.transfer(user["id"], int(p[1]), int(p[2])), kb_main(uid in ADMIN_IDS))
-        except (ValueError, IndexError): send(uid, "Использование: /pay VK_ID SUM", kb_main(uid in ADMIN_IDS))
+            p = text.split(); send(uid, game.transfer(user["id"], int(p[1]), int(p[2])), main_kb(uid))
+        except (ValueError, IndexError): send(uid, "Использование: /pay VK_ID SUM", main_kb(uid))
         return
     if low.startswith("/scam ") or low.startswith("/rob "):
         try:
-            p = text.split(); send(uid, game.attack(user["id"], int(p[1]), "scam" if low.startswith("/scam") else "rob"), kb_main(uid in ADMIN_IDS))
-        except (ValueError, IndexError): send(uid, "Использование: /scam VK_ID или /rob VK_ID", kb_main(uid in ADMIN_IDS))
+            p = text.split(); send(uid, game.attack(user["id"], int(p[1]), "scam" if low.startswith("/scam") else "rob"), main_kb(uid))
+        except (ValueError, IndexError): send(uid, "Использование: /scam VK_ID или /rob VK_ID", main_kb(uid))
         return
 
-    if uid in ADMIN_IDS:
+    if role_ui.main_button(uid):
+        if text in ("👑 Центр владельца", "⚙️ Панель администратора", "🛡 Панель модератора"):
+            handled, response, rows = admin.handle(uid, text)
+            if handled:
+                if response.startswith("__BROADCAST_EXEC__|"):
+                    execute_broadcast(uid, response.split("|", 1)[1]); return
+                if response == "__MAIN__":
+                    send_card(uid, "🏙 Главное меню", main_kb(uid)); return
+                send_card(uid, response, rows); return
+
+        handled, response, rows = admin.handle(uid, text)
+        if handled:
+            if response == "__MAIN__":
+                send_card(uid, "🏙 Главное меню", main_kb(uid)); return
+            send_card(uid, response, rows); return
+
+    if has_admin_access(uid):
         if low.startswith("/broadcast "):
             payload = text.split(maxsplit=1)[1].strip()
             if payload:
                 last = BROADCAST_LAST.get(uid, 0)
                 remaining = BROADCAST_COOLDOWN - (time.time() - last)
                 if remaining > 0:
-                    send(uid, f"⏳ Повтори рассылку через {int(remaining) + 1} сек.", [["👑 Админ-панель"]])
+                    send(uid, f"⏳ Повтори рассылку через {int(remaining) + 1} сек.", [[role_ui.main_button(uid) or "👑 Админ-панель"]])
                     return
                 admin.state[uid] = ("broadcast", payload)
                 send(uid, f"📢 ПРЕДПРОСМОТР РАССЫЛКИ\n\n{payload}\n\nОтправить всем игрокам?", [["✅ Отправить", "❌ Отмена"]])
@@ -498,12 +615,12 @@ def process(uid, text):
         if admin.state.get(uid) and isinstance(admin.state.get(uid), tuple) and admin.state[uid][0] == "broadcast":
             state = admin.state.pop(uid)
             if text == "❌ Отмена":
-                send(uid, "Рассылка отменена.", [["👑 Админ-панель"]]); return
+                send(uid, "Рассылка отменена.", [[role_ui.main_button(uid) or "👑 Админ-панель"]]); return
             if text == "✅ Отправить":
                 last = BROADCAST_LAST.get(uid, 0)
                 remaining = BROADCAST_COOLDOWN - (time.time() - last)
                 if remaining > 0:
-                    send(uid, f"⏳ Повтори рассылку через {int(remaining) + 1} сек.", [["👑 Админ-панель"]]); return
+                    send(uid, f"⏳ Повтори рассылку через {int(remaining) + 1} сек.", [[role_ui.main_button(uid) or "👑 Админ-панель"]]); return
                 BROADCAST_LAST[uid] = time.time()
                 message = state[1]
                 with db.connect() as c:
@@ -516,10 +633,12 @@ def process(uid, text):
                         time.sleep(0.08)
                     except Exception:
                         logging.exception("Broadcast failed for %s", target)
-                send(uid, f"✅ Рассылка завершена. Отправлено: {sent}/{len(targets)}", [["👑 Админ-панель"]]); return
+                send(uid, f"✅ Рассылка завершена. Отправлено: {sent}/{len(targets)}", [[role_ui.main_button(uid) or "👑 Админ-панель"]]); return
             admin.state[uid] = state
         handled, response, rows = admin.handle(uid, text)
         if handled:
+            if response.startswith("__BROADCAST_EXEC__|"):
+                execute_broadcast(uid, response.split("|", 1)[1]); return
             if response == "__MAIN__":
                 send_card(uid, "🏙 Главное меню", kb_main(True)); return
             send_card(uid, response, rows); return
@@ -527,8 +646,8 @@ def process(uid, text):
             send_card(uid, game.admin_command(user["id"], text), [["👑 Админ-панель"], ["🏙️ Главное меню"]]); return
 
     if text in ("◀️ Назад", "🏙️ Главное меню"):
-        send_card(uid, "🏙 Главное меню", kb_main(uid in ADMIN_IDS)); return
-    send(uid, "🤔 Неизвестная команда. Нажми «❓ Помощь» или /menu.", kb_main(uid in ADMIN_IDS))
+        send_card(uid, "🏙 Главное меню", main_kb(uid)); return
+    send(uid, "🤔 Неизвестная команда. Нажми «❓ Помощь» или /menu.", main_kb(uid))
 
 
 def business_worker():

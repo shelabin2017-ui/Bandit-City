@@ -1,19 +1,46 @@
 import time
+from roles import Role
 
 
 class AdminPanel:
     """Inline admin console. It uses the existing SQLite schema and adds no external dependency."""
-    def __init__(self, db, game, admin_ids, keyboard_factory=None):
+    def __init__(self, db, game, admin_ids, keyboard_factory=None, roles=None, role_ui=None):
         self.db = db
         self.game = game
         self.admin_ids = set(admin_ids)
         self.keyboard_factory = keyboard_factory
+        self.roles = roles
+        self.role_ui = role_ui
         self.state = {}
 
+    def role(self, uid):
+        if self.roles is None:
+            return Role.ADMIN if int(uid) in self.admin_ids else Role.PLAYER
+        return self.roles.role(uid)
+
     def is_admin(self, uid):
-        return int(uid) in self.admin_ids
+        return int(uid) in self.admin_ids or self.role(uid) >= Role.ADMIN
+
+    def is_moderator(self, uid):
+        return self.role(uid) >= Role.MODERATOR
+
+    def _moderator_allowed(self, text):
+        if self.role(self._home_uid) >= Role.ADMIN:
+            return True
+        if self.state.get(self._home_uid):
+            return True
+        allowed = {
+            "🛡 Панель модератора",
+            "👥 Игроки",
+            "🛡 Безопасность",
+            "🧾 Журнал",
+            "🏙️ Главное меню",
+        }
+        return text in allowed or text.startswith("/aban ") or text.startswith("/aunban ") or text.startswith("/aplayer ") or text == "/adminlogs"
 
     def home(self):
+        if self.role_ui is not None:
+            return self.role_ui.home(self._home_uid)
         return (
             "👑 BANDIT CITY • ЦЕНТР УПРАВЛЕНИЯ\n\n"
             "Здесь можно управлять экономикой, игроками, XP, бизнесом, машинами, вещами, безопасностью, промокодами и городом.\n\n"
@@ -146,15 +173,193 @@ class AdminPanel:
             u=c.execute("SELECT id FROM users WHERE vk_id=?", (int(vk_id),)).fetchone()
             return None if not u else c.execute("SELECT id,name,price FROM items WHERE user_id=? ORDER BY id DESC", (u["id"],)).fetchall()
     def handle(self, uid, text):
-        if not self.is_admin(uid):
+        if not self.is_admin(uid) and not self.is_moderator(uid):
             return False, "", []
+        self._home_uid = int(uid)
         text = text.strip()
+        if not self._moderator_allowed(text):
+            return False, "", []
+
+
+        st = self.state.get(uid)
+        if st:
+            if text in ("❌ Отмена", "отмена") and st != "broadcast_confirm":
+                self.state.pop(uid, None)
+                return True, "❌ Операция отменена.", [["👑 Админ-панель"]]
+            try:
+                if st == "promo_toggle":
+                    code = text.strip().upper()
+                    with self._conn() as c:
+                        cur = c.execute("UPDATE promo_codes SET active=CASE active WHEN 1 THEN 0 ELSE 1 END WHERE code=?", (code,))
+                    self.state.pop(uid, None)
+                    if not cur.rowcount:
+                        return True, "❌ Промокод не найден.", [["🎟 Промокоды"], ["👑 Админ-панель"]]
+                    self._log(uid, "promo_toggle", None, code)
+                    return True, "✅ Промокод переключён.", [["🎟 Промокоды"], ["👑 Админ-панель"]]
+                if st == "promo_add":
+                    parts = [x.strip() for x in text.split("|")]
+                    if len(parts) not in (5, 7):
+                        return True, "❌ Формат: CODE|TITLE|CASH|XP|MAX_USES[|ITEM|SLOT]", [["👑 Админ-панель"]]
+                    code, title, cash, xp, max_uses = parts[:5]
+                    item = parts[5] if len(parts) == 7 else None
+                    slot = parts[6] if len(parts) == 7 else None
+                    try:
+                        cash, xp, max_uses = int(cash), int(xp), int(max_uses)
+                    except ValueError:
+                        return True, "❌ CASH, XP и MAX_USES должны быть числами.", [["👑 Админ-панель"]]
+                    with self._conn() as c:
+                        c.execute("INSERT OR REPLACE INTO promo_codes(code,title,reward_cash,reward_xp,reward_item,reward_slot,max_uses,used_count,active) VALUES(?,?,?,?,?,?,?,0,1)", (code.upper(), title, cash, xp, item or None, slot or None, max_uses))
+                    self._log(uid, "promo_add", None, code.upper())
+                    self.state.pop(uid, None)
+                    return True, "✅ Промокод создан и активирован.", [["🎟 Промокоды"], ["👑 Админ-панель"]]
+                if st == "appearance_lookup":
+                    target = int(text)
+                    self.state.pop(uid, None)
+                    row = self._find(target)
+                    if not row:
+                        return True, "❌ Игрок не найден.", [["🎨 Внешность"], ["👑 Админ-панель"]]
+                    a = self.db.appearance(row["id"])
+                    msg = "🎨 ВНЕШНОСТЬ VK {}\n\n💇 {}\n👕 {}\n👖 {}\n🥾 {}\n🧢 {}\n💍 {}\n🌆 {}".format(target, a["hair"], a["clothes"], a["pants"], a["shoes"], a["head"], a["accessory"], a["background"])
+                    return True, msg, [["✏️ Изменить внешность"], ["🎨 Внешность"], ["👑 Админ-панель"]]
+                if st == "appearance_set":
+                    parts = text.split(maxsplit=3)
+                    if len(parts) < 3:
+                        return True, "❌ Формат: VK_ID SLOT VALUE", [["🎨 Внешность"], ["👑 Админ-панель"]]
+                    target, slot = int(parts[0]), parts[1]
+                    value = parts[2] if len(parts) == 3 else parts[2] + " " + parts[3]
+                    if slot not in {"hair","clothes","pants","shoes","head","accessory","background"} or not value.strip():
+                        return True, "❌ Недопустимый слот.", [["🎨 Внешность"], ["👑 Админ-панель"]]
+                    row = self._find(target)
+                    if not row:
+                        self.state.pop(uid, None)
+                        return True, "❌ Игрок не найден.", [["🎨 Внешность"], ["👑 Админ-панель"]]
+                    self.db.set_appearance(row["id"], **{slot: value.strip()})
+                    self._log(uid, "appearance_set", target, slot + "=" + value.strip())
+                    self.state.pop(uid, None)
+                    return True, "✅ Внешность изменена.", [["🎨 Внешность"], ["👑 Админ-панель"]]
+                if st == "broadcast_text":
+                    self.state[uid] = ("broadcast_confirm", text.strip())
+                    return True, "📢 ПРЕДПРОСМОТР\n\n" + text.strip(), [["✅ Отправить","❌ Отмена"],["👑 Админ-панель"]]
+                if isinstance(st, tuple) and st[0] == "broadcast_confirm":
+                    if text == "❌ Отмена":
+                        self.state.pop(uid, None)
+                        return True, "❌ Отменено.", [["👑 Админ-панель"]]
+                    if text == "✅ Отправить":
+                        payload = st[1]
+                        self.state.pop(uid, None)
+                        return True, "__BROADCAST_EXEC__|" + payload, [["👑 Админ-панель"]]
+                if st == "player_lookup":
+                    target=int(text); self.state.pop(uid,None); r=self._find(target)
+                    if not r: return True,"❌ Игрок не найден.",[["👥 Игроки"],["👑 Админ-панель"]]
+                    msg=("👤 ИГРОК {}\n\n💵 {}\n🏦 {}\n⭐ Уровень {}\n✨ XP {}\n⛔ Бан: {}").format(target,r["balance"],r["bank"],r["level"],r["xp"],"да" if r["banned"] else "нет").replace(","," ")
+                    return True,msg,[["💵 Изменить наличные","🏦 Изменить банк"],["⭐ Изменить XP","🎚 Изменить уровень"],["⛔ Заблокировать","✅ Разблокировать"],["👥 Игроки"],["👑 Админ-панель"]]
+                if st in ("cash","bank","xp","level","stock"):
+                    parts=text.split(); target=int(parts[0]); amount=int(parts[1])
+                    if st=="cash": ok=self._set_cash(target,amount); action="set_cash"
+                    elif st=="bank": ok=self._set_bank(target,amount); action="set_bank"
+                    elif st=="xp": ok=self._set_xp(target,amount); action="set_xp"
+                    elif st=="level": ok=self._set_level(target,amount); action="set_level"
+                    else: ok=self._set_stock(target,amount); action="set_stock"
+                    self._log(uid,action,target,amount); self.state.pop(uid,None)
+                    return True,"✅ Изменено." if ok else "❌ Игрок или бизнес не найден.",[["👥 Игроки"],["👑 Админ-панель"]]
+                if st in ("ban","unban"):
+                    target=int(text); ok=self._toggle_ban(target,st=="ban"); self._log(uid,st,target); self.state.pop(uid,None)
+                    return True,("⛔ Игрок заблокирован." if st=="ban" else "✅ Игрок разблокирован.") if ok else "❌ Игрок не найден.",[["👥 Игроки"],["👑 Админ-панель"]]
+                if st=="car_list":
+                    target=int(text); self.state.pop(uid,None); rows=self._cars(target)
+                    if rows is None: return True,"❌ Игрок не найден.",[["🚗 Машины"],["👑 Админ-панель"]]
+                    body=["🚗 МАШИНЫ VK "+str(target)]+["#{} • {} • {} • ⚡{} • {}".format(r["id"],r["model"],r["category"],r["speed"],r["price"]).replace(","," ") for r in rows]
+                    return True,"\n".join(body),[["🗑 Удалить машину"],["🚗 Машины"],["👑 Админ-панель"]]
+                if st=="car_delete":
+                    target,car_id=map(int,text.split()[:2])
+                    with self._conn() as c: cur=c.execute("DELETE FROM cars WHERE id=? AND user_id=(SELECT id FROM users WHERE vk_id=?)",(car_id,target))
+                    self._log(uid,"car_delete",target,car_id); self.state.pop(uid,None)
+                    return True,"✅ Машина удалена." if cur.rowcount else "❌ Машина не найдена.",[["🚗 Машины"],["👑 Админ-панель"]]
+                if st=="item_list":
+                    target=int(text); self.state.pop(uid,None); rows=self._items(target)
+                    if rows is None: return True,"❌ Игрок не найден.",[["🎒 Вещи"],["👑 Админ-панель"]]
+                    body=["🎒 ВЕЩИ VK "+str(target)]+["#{} • {} • {}".format(r["id"],r["name"],r["price"]).replace(","," ") for r in rows]
+                    return True,"\n".join(body),[["🗑 Удалить вещь"],["🎒 Вещи"],["👑 Админ-панель"]]
+                if st=="item_delete":
+                    target,item_id=map(int,text.split()[:2])
+                    with self._conn() as c: cur=c.execute("DELETE FROM items WHERE id=? AND user_id=(SELECT id FROM users WHERE vk_id=?)",(item_id,target))
+                    self._log(uid,"item_delete",target,item_id); self.state.pop(uid,None)
+                    return True,"✅ Вещь удалена." if cur.rowcount else "❌ Вещь не найдена.",[["🎒 Вещи"],["👑 Админ-панель"]]
+            except (ValueError,IndexError):
+                return True,"❌ Неверный формат. Попробуй ещё раз.",[["👑 Админ-панель"]]
+
+        if text in ("👑 Центр владельца", "⚙️ Панель администратора", "🛡 Панель модератора"):
+            return True, *self.role_ui.home(uid)
+
+        if text == "📋 Список персонала":
+            if self.role(uid) < Role.OWNER:
+                return True, "⛔ Доступ только владельцу.", [["🏙️ Главное меню"]]
+            return True, self.role_ui.staff_list(), [["👑 Центр владельца"]]
+
+        if text in ("➕ Выдать роль", "🔄 Изменить роль", "➖ Снять роль"):
+            if self.role(uid) < Role.OWNER:
+                return True, "⛔ Доступ только владельцу.", [["🏙️ Главное меню"]]
+            if text == "➕ Выдать роль":
+                self.state[uid] = "grant_role"
+                return True, "➕ ВЫДАТЬ РОЛЬ\n\nВведи: VK_ID РОЛЬ\nРоли: admin, moderator, player", [["👑 Центр владельца"]]
+            if text == "🔄 Изменить роль":
+                self.state[uid] = "change_role"
+                return True, "🔄 ИЗМЕНИТЬ РОЛЬ\n\nВведи: VK_ID РОЛЬ\nРоли: admin, moderator, player", [["👑 Центр владельца"]]
+            self.state[uid] = "revoke_role"
+            return True, "➖ СНЯТЬ РОЛЬ\n\nВведи VK_ID", [["👑 Центр владельца"]]
+
+        if text == "🧾 Журнал ролей":
+            if self.role(uid) < Role.OWNER:
+                return True, "⛔ Доступ только владельцу.", [["🏙️ Главное меню"]]
+            return True, self.roles.logs_text(), [["👑 Центр владельца"]]
+
         if text in ("👑 Админ-панель", "👑 Админка"):
             self.state.pop(uid, None)
             return True, *self.home()
         if text == "🏙️ Главное меню":
             self.state.pop(uid, None)
             return True, "__MAIN__", []
+
+        if text=="🔎 Найти игрока":
+            self.state[uid]="player_lookup"
+            return True,"🔎 Введи VK ID игрока.",[["👑 Админ-панель"]]
+        if text=="💵 Наличные":
+            self.state[uid]="cash"
+            return True,"💵 Введи: VK_ID СУММА",[["👑 Админ-панель"]]
+        if text=="🏦 Банк":
+            self.state[uid]="bank"
+            return True,"🏦 Введи: VK_ID СУММА",[["👑 Админ-панель"]]
+        if text=="⭐ XP":
+            self.state[uid]="xp"
+            return True,"⭐ Введи: VK_ID XP",[["👑 Админ-панель"]]
+        if text=="🎚 Уровень":
+            self.state[uid]="level"
+            return True,"🎚 Введи: VK_ID УРОВЕНЬ",[["👑 Админ-панель"]]
+        if text=="📦 Изменить склад":
+            self.state[uid]="stock"
+            return True,"📦 Введи: VK_ID КОЛИЧЕСТВО",[["👑 Админ-панель"]]
+        if text=="📋 Машины игрока":
+            self.state[uid]="car_list"
+            return True,"🚗 Введи VK ID игрока.",[["👑 Админ-панель"]]
+        if text=="🗑 Удалить машину":
+            self.state[uid]="car_delete"
+            return True,"🗑 Введи: VK_ID ID_МАШИНЫ",[["👑 Админ-панель"]]
+        if text=="📋 Вещи игрока":
+            self.state[uid]="item_list"
+            return True,"🎒 Введи VK ID игрока.",[["👑 Админ-панель"]]
+        if text=="🗑 Удалить вещь":
+            self.state[uid]="item_delete"
+            return True,"🗑 Введи: VK_ID ID_ВЕЩИ",[["👑 Админ-панель"]]
+        if text=="🔎 Карточка игрока":
+            self.state[uid]="player_lookup"
+            return True,"🔎 Введи VK ID игрока.",[["👑 Админ-панель"]]
+        if text=="⛔ Заблокировать":
+            self.state[uid]="ban"
+            return True,"⛔ Введи VK ID игрока.",[["👑 Админ-панель"]]
+        if text=="✅ Разблокировать":
+            self.state[uid]="unban"
+            return True,"✅ Введи VK ID игрока.",[["👑 Админ-панель"]]
+
         if text == "📊 Статистика":
             return True, self._stats(), [["👑 Админ-панель"], ["🏙️ Главное меню"]]
         if text == "👥 Игроки":
@@ -162,27 +367,47 @@ class AdminPanel:
             body = ["👥 ИГРОКИ • TOP"]
             for i, r in enumerate(rows, 1):
                 body.append(f"{i}. VK {r['vk_id']} • 💵 {r['balance']:,} • 🏦 {r['bank']:,} • ⭐{r['level']}".replace(",", " "))
-            body.append("\nКоманда: /aplayer VK_ID")
+            body.append("\n🔎 Нажми «Найти игрока» для управления.")
             return True, "\n".join(body), [["👑 Админ-панель"], ["🏙️ Главное меню"]]
         if text == "💰 Экономика":
-            return True, "💰 ЭКОНОМИКА\n\n/acash VK_ID SUM — установить наличные\n/abank VK_ID SUM — установить банк", [["💵 Наличные", "🏦 Банк"], ["👑 Админ-панель"]]
+            return True, "💰 ЭКОНОМИКА\n\nВыбери действие.", [["💵 Наличные", "🏦 Банк"], ["👑 Админ-панель"]]
         if text in ("💵 Наличные", "🏦 Банк"):
             self.state[uid] = "cash" if text == "💵 Наличные" else "bank"
             return True, "Введи: VK_ID СУММА\nПример: 123456789 37500\n\nДля отмены: отмена", [["👑 Админ-панель"]]
         if text == "⭐ XP / Уровень":
-            return True, "⭐ XP / УРОВЕНЬ\n\n/axp VK_ID XP — установить XP\n/alevel VK_ID LEVEL — установить уровень", [["👑 Админ-панель"]]
+            return True, "⭐ XP / УРОВЕНЬ\n\nВыбери действие.", [["⭐ XP", "🎚 Уровень"], ["👑 Админ-панель"]]
         if text == "🏢 Бизнес":
-            return True, "🏢 БИЗНЕС\n\n/astock VK_ID AMOUNT — установить сырьё", [["👑 Админ-панель"]]
+            return True, "🏢 БИЗНЕС\n\nВыбери действие.", [["📦 Изменить склад"], ["👑 Админ-панель"]]
         if text == "🚗 Машины":
-            return True, "🚗 МАШИНЫ\n\n/apcars VK_ID — список машин\n/acardel VK_ID CAR_ID — удалить машину", [["👑 Админ-панель"]]
+            return True, "🚗 МАШИНЫ\n\nВыбери действие.", [["📋 Машины игрока", "🗑 Удалить машину"], ["👑 Админ-панель"]]
         if text == "🎒 Вещи":
-            return True, "🎒 ВЕЩИ\n\n/apitems VK_ID — список вещей\n/aitemdel VK_ID ITEM_ID — удалить вещь", [["👑 Админ-панель"]]
+            return True, "🎒 ВЕЩИ\n\nВыбери действие.", [["📋 Вещи игрока", "🗑 Удалить вещь"], ["👑 Админ-панель"]]
         if text == "🛡 Безопасность":
-            return True, "🛡 БЕЗОПАСНОСТЬ\n\n/aban VK_ID — бан\n/aunban VK_ID — разбан\n/aplayer VK_ID — карточка игрока", [["👑 Админ-панель"]]
+            return True, "🛡 БЕЗОПАСНОСТЬ\n\nВыбери действие.", [["🔎 Карточка игрока"], ["⛔ Заблокировать", "✅ Разблокировать"], ["👑 Админ-панель"]]
         if text == "📢 Рассылка":
-            return True, "📢 РАССЫЛКА\n\n/broadcast ТЕКСТ\n\nПеред отправкой бот покажет подтверждение.", [["👑 Админ-панель"]]
+            if self.role(uid) < Role.ADMIN:
+                return True, "⛔ Доступ только ADMIN.", [["🏙️ Главное меню"]]
+            return True, "📢 РАССЫЛКА\n\nСоздай сообщение и подтверди отправку.", [["✍️ Создать рассылку"], ["👑 Админ-панель"]]
+        if text == "✍️ Создать рассылку":
+            self.state[uid] = "broadcast_text"
+            return True, "✍️ ВВЕДИ ТЕКСТ РАССЫЛКИ", [["❌ Отмена"], ["👑 Админ-панель"]]
         if text == "🎟 Промокоды":
-            return True, "🎟 ПРОМОКОДЫ\n\n/promoadd CODE|TITLE|CASH|XP|MAX_USES\n/promodel CODE\n/promolist", [["👑 Админ-панель"]]
+            if self.role(uid) < Role.ADMIN:
+                return True, "⛔ Доступ только ADMIN.", [["🏙️ Главное меню"]]
+            return True, "🎟 ПРОМОКОДЫ\n\nВыбери действие.", [["➕ Создать промокод", "📋 Список промокодов"], ["🔄 Переключить промокод"], ["👑 Админ-панель"]]
+        if text == "➕ Создать промокод":
+            self.state[uid] = "promo_add"
+            return True, "➕ Формат: CODE|TITLE|CASH|XP|MAX_USES[|ITEM|SLOT]", [["❌ Отмена"], ["👑 Админ-панель"]]
+        if text == "📋 Список промокодов":
+            with self._conn() as c:
+                rows = c.execute("SELECT code,title,reward_cash,reward_xp,used_count,max_uses,active FROM promo_codes ORDER BY code").fetchall()
+            body = ["🎟 СПИСОК ПРОМОКОДОВ", ""]
+            for r in rows:
+                body.append("{} • {} • ${} • +{} XP • {}/{}".format(r["code"], "🟢" if r["active"] else "🔴", str(r["reward_cash"]).replace(","," "), r["reward_xp"], r["used_count"], r["max_uses"] or "∞"))
+            return True, "\n".join(body), [["🎟 Промокоды"], ["👑 Админ-панель"]]
+        if text == "🔄 Переключить промокод":
+            self.state[uid] = "promo_toggle"
+            return True, "🔄 Введи код промокода.", [["❌ Отмена"], ["👑 Админ-панель"]]
         if text == "⚙️ Настройки":
             with self._conn() as c:
                 row = c.execute("SELECT value FROM settings WHERE key='maintenance_mode'").fetchone()
@@ -233,6 +458,28 @@ class AdminPanel:
                 ["👑 Админ-панель"],
             ]
 
+
+        st = self.state.get(uid)
+        if st in ("grant_role", "change_role", "revoke_role"):
+            if self.role(uid) < Role.OWNER:
+                self.state.pop(uid, None)
+                return True, "⛔ Доступ только владельцу.", [["🏙️ Главное меню"]]
+            try:
+                parts = text.split()
+                target = int(parts[0])
+                if st == "revoke_role":
+                    result = self.roles.revoke(uid, target)
+                else:
+                    if len(parts) != 2 or parts[1].lower() not in ("admin", "moderator", "player"):
+                        raise ValueError
+                    role_map = {"admin": Role.ADMIN, "moderator": Role.MODERATOR, "player": Role.PLAYER}
+                    result = self.roles.set_role(uid, target, role_map[parts[1].lower()])
+                self.state.pop(uid, None)
+                ok, message = result
+                return True, message, [["👑 Центр владельца"]]
+            except (ValueError, IndexError):
+                return True, "❌ Формат: VK_ID admin|moderator|player", [["👑 Центр владельца"]]
+
         st = self.state.get(uid)
         if st in ("cash", "bank"):
             if text.lower() == "отмена":
@@ -250,7 +497,15 @@ class AdminPanel:
         if text == "🧾 Журнал":
             return True, self._logs(), [["👑 Админ-панель"]]
         if text == "🎨 Внешность":
-            return True, "🎨 ВНЕШНОСТЬ\n\n/aappearance VK_ID — показать\n/asetappearance VK_ID SLOT VALUE — изменить\n\nSLOT: hair, clothes, pants, shoes, head, accessory, background", [["👑 Админ-панель"]]
+            if self.role(uid) < Role.ADMIN:
+                return True, "⛔ Доступ только ADMIN.", [["🏙️ Главное меню"]]
+            return True, "🎨 ВНЕШНОСТЬ\n\nВыбери действие.", [["🔎 Посмотреть внешность", "✏️ Изменить внешность"], ["👑 Админ-панель"]]
+        if text == "🔎 Посмотреть внешность":
+            self.state[uid] = "appearance_lookup"
+            return True, "🔎 Введи VK ID игрока.", [["❌ Отмена"], ["🎨 Внешность"]]
+        if text == "✏️ Изменить внешность":
+            self.state[uid] = "appearance_set"
+            return True, "✏️ Формат: VK_ID SLOT VALUE", [["❌ Отмена"], ["🎨 Внешность"]]
         if text == "🎪 Ивенты":
             from catalog import EVENTS, active_events
             active = active_events()
