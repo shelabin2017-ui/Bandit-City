@@ -245,7 +245,9 @@ class AdminPanel:
                         self.state.pop(uid, None)
                         return True, "❌ Отменено.", [["👑 Админ-панель"]]
                     if text == "✅ Отправить":
-                        return True, "__BROADCAST_EXEC__", [["👑 Админ-панель"]]
+                        payload = st[1]
+                        self.state.pop(uid, None)
+                        return True, "__BROADCAST_EXEC__|" + payload, [["👑 Админ-панель"]]
                 if st == "player_lookup":
                     target=int(text); self.state.pop(uid,None); r=self._find(target)
                     if not r: return True,"❌ Игрок не найден.",[["👥 Игроки"],["👑 Админ-панель"]]
