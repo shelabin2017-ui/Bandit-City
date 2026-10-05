@@ -353,6 +353,7 @@ def process(uid, text):
     if low in ("/info", "инфо", "👤 профиль"):
         send_card(uid, game.profile(user["id"]), main_kb(uid))
         return
+        return
     if text == "⚙️ Настройки":
         if has_admin_access(uid):
             handled, admin_text, admin_rows = admin.handle(uid, text)
@@ -375,6 +376,10 @@ def process(uid, text):
         send_card(uid, creator_text(), [["🏙️ Главное меню"]])
         return
 
+    if text == "📊 Мой статус":
+        send(uid, game.status(user["id"]), [["👤 Профиль"],["🌆 События города"],["🏙️ Главное меню"]]); return
+    if text == "🌆 События города":
+        send(uid, game.city_events(user["id"]), [["📊 Мой статус"],["🏙️ Главное меню"]]); return
     if text == "💼 Работа":
         send(uid, "💼 ВЫБЕРИ РАБОТУ", kb_work())
         return
