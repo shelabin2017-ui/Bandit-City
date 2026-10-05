@@ -165,7 +165,9 @@ def kb_main(is_admin=False, panel_label="👑 Админ-панель"):
         ["🎰 Казино", "🎁 Бонус"],
         ["👥 Игроки", "🏆 Рейтинг"],
         ["🏆 Достижения", "🎯 Миссии"],
-        ["📱 Телефон", "🎟 Промокод"],
+        ["📱 Телефон", "📩 СМС"],
+        ["📖 Сюжет", "🎓 Обучение"],
+        ["🏆 Ачивки", "🎟 Промокод"],
         ["⚙️ Настройки", "👑 О создателе"],
         ["❓ Помощь"],
     ]
@@ -489,7 +491,23 @@ def process(uid, text):
     if text == "📊 Статистика казино":
         send(uid, game.casino_info(user["id"]), kb_casino()); return
     if text == "🎯 Миссии":
-        send(uid, game.missions(user["id"]), [["🎁 Забрать миссию"], ["🏙️ Главное меню"]]); return
+        send(uid, game.missions(user["id"]), [["💼 Рабочая смена"], ["💵 Заработок"], ["🎰 Азарт"], ["🍀 Удача"], ["💰 Капитал"], ["🤝 Связи"], ["🏙️ Главное меню"]]); return
+    mission_map={"💼 Рабочая смена":"work_3","💵 Заработок":"earn_100k","🎰 Азарт":"casino_3","🍀 Удача":"casino_win","💰 Капитал":"rich","🤝 Связи":"ref_1"}
+    if text in mission_map:
+        send(uid, game.claim_mission(user["id"],mission_map[text]), [["🎯 Миссии"], ["🏙️ Главное меню"]]); return
+    if text == "📩 СМС":
+        send(uid, game.sms(user["id"]), [["🏙️ Главное меню"]]); return
+    if text == "📖 Сюжет":
+        send(uid, game.story(user["id"]), [["📖 Следующая глава"], ["🏙️ Главное меню"]]); return
+    if text == "📖 Следующая глава":
+        r=db.story(user["id"]); db.story_set(user["id"], min(int(r["chapter"])+1, len(game.STORY)), 0)
+        send(uid, game.story(user["id"]), [["📖 Следующая глава"], ["🏙️ Главное меню"]]); return
+    if text == "🎓 Обучение":
+        send(uid, game.tutorial(user["id"]), [["▶️ Далее"], ["🏙️ Главное меню"]]); return
+    if text == "▶️ Далее":
+        send(uid, game.tutorial_next(user["id"]), [["▶️ Далее"], ["🏙️ Главное меню"]]); return
+    if text == "🏆 Ачивки":
+        send(uid, game.achievements_full(user["id"]), [["🏙️ Главное меню"]]); return
     if text == "📱 Телефон":
         send(uid, game.phone(user["id"]), kb_phone()); return
     if text == "👥 Контакты":
