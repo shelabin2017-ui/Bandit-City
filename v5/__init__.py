@@ -17,7 +17,7 @@ try:
         ("ANNIVERSARY-2026", "Anniversary Event Drop", 1000000, 1500, "🏆 Bandit Legend Outfit", "clothes", 0),
         ("NIGHTFALL-X", "Nightfall Secret Drop", 300000, 600, "🎭 Nightfall Mask", "head", 0),
         ("PRIME-2026", "Prime Secret Drop", 750000, 1200, "👑 Prime Hair", "hair", 0),
-        ("GOLDEN-2026", "Golden Bullet Secret Drop", 1250000, 1800, "🔫 Golden Bullet", "weapon", 0),
+        ("GOLDEN-2026", "Golden Bullet Secret Drop", 1250000, 1800, "🔫 Golden Bullet", "accessory", 0),
     ]
 
     def _seed_promos_with_events(self):
