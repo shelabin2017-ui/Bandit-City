@@ -15,3 +15,4 @@ jobs:
       - run: python -m py_compile bot.py admin_panel.py roles.py role_ui.py
       - run: python -m unittest -v test_roles.py
       - run: python -m unittest -v selftest.py
+      - run: python -m unittest -v test_progression.py
