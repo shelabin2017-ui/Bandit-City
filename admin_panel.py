@@ -27,16 +27,28 @@ class AdminPanel:
     def _moderator_allowed(self, text):
         if self.role(self._home_uid) >= Role.ADMIN:
             return True
-        if self.state.get(self._home_uid):
-            return True
+
+        # Moderators may inspect players and perform moderation actions only.
+        # Never let an active admin state make arbitrary input reachable by a moderator.
+        st = self.state.get(self._home_uid)
+        if st in {"player_lookup", "ban", "unban"}:
+            return text.strip().isdigit()
+
         allowed = {
             "🛡 Панель модератора",
             "👥 Игроки",
+            "🔎 Карточка игрока",
             "🛡 Безопасность",
             "🧾 Журнал",
             "🏙️ Главное меню",
         }
-        return text in allowed or text.startswith("/aban ") or text.startswith("/aunban ") or text.startswith("/aplayer ") or text == "/adminlogs"
+        return (
+            text in allowed
+            or text.startswith("/aban ")
+            or text.startswith("/aunban ")
+            or text.startswith("/aplayer ")
+            or text == "/adminlogs"
+        )
 
     def home(self):
         if self.role_ui is not None:
@@ -252,7 +264,11 @@ class AdminPanel:
                     target=int(text); self.state.pop(uid,None); r=self._find(target)
                     if not r: return True,"❌ Игрок не найден.",[["👥 Игроки"],["👑 Админ-панель"]]
                     msg=("👤 ИГРОК {}\n\n💵 {}\n🏦 {}\n⭐ Уровень {}\n✨ XP {}\n⛔ Бан: {}").format(target,r["balance"],r["bank"],r["level"],r["xp"],"да" if r["banned"] else "нет").replace(","," ")
-                    return True,msg,[["💵 Изменить наличные","🏦 Изменить банк"],["⭐ Изменить XP","🎚 Изменить уровень"],["⛔ Заблокировать","✅ Разблокировать"],["👥 Игроки"],["👑 Админ-панель"]]
+                    if self.role(uid) < Role.ADMIN:
+                        rows=[["⛔ Заблокировать","✅ Разблокировать"],["👥 Игроки"],["🛡 Панель модератора"]]
+                    else:
+                        rows=[["💵 Изменить наличные","🏦 Изменить банк"],["⭐ Изменить XP","🎚 Изменить уровень"],["⛔ Заблокировать","✅ Разблокировать"],["👥 Игроки"],["👑 Админ-панель"]]
+                    return True,msg,rows
                 if st in ("cash","bank","xp","level","stock"):
                     parts=text.split(); target=int(parts[0]); amount=int(parts[1])
                     if st=="cash": ok=self._set_cash(target,amount); action="set_cash"
@@ -352,7 +368,8 @@ class AdminPanel:
             return True,"🗑 Введи: VK_ID ID_ВЕЩИ",[["👑 Админ-панель"]]
         if text=="🔎 Карточка игрока":
             self.state[uid]="player_lookup"
-            return True,"🔎 Введи VK ID игрока.",[["👑 Админ-панель"]]
+            home = "🛡 Панель модератора" if self.role(uid) < Role.ADMIN else "👑 Админ-панель"
+            return True,"🔎 Введи VK ID игрока.",[[home]]
         if text=="⛔ Заблокировать":
             self.state[uid]="ban"
             return True,"⛔ Введи VK ID игрока.",[["👑 Админ-панель"]]
@@ -367,8 +384,9 @@ class AdminPanel:
             body = ["👥 ИГРОКИ • TOP"]
             for i, r in enumerate(rows, 1):
                 body.append(f"{i}. VK {r['vk_id']} • 💵 {r['balance']:,} • 🏦 {r['bank']:,} • ⭐{r['level']}".replace(",", " "))
-            body.append("\n🔎 Нажми «Найти игрока» для управления.")
-            return True, "\n".join(body), [["👑 Админ-панель"], ["🏙️ Главное меню"]]
+            body.append("\n🔎 Нажми «🔎 Карточка игрока» для поиска.")
+            home = "🛡 Панель модератора" if self.role(uid) < Role.ADMIN else "👑 Админ-панель"
+            return True, "\n".join(body), [["🔎 Карточка игрока"], [home], ["🏙️ Главное меню"]]
         if text == "💰 Экономика":
             return True, "💰 ЭКОНОМИКА\n\nВыбери действие.", [["💵 Наличные", "🏦 Банк"], ["👑 Админ-панель"]]
         if text in ("💵 Наличные", "🏦 Банк"):
