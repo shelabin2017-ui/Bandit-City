@@ -72,6 +72,26 @@ class RoleTests(unittest.TestCase):
         self.assertIn("self.roles.set_role", panel)
         self.assertIn("self.roles.revoke", panel)
 
+    def test_legacy_admin_ids_bootstrap(self):
+        old_owner = os.environ.get("OWNER_VK_ID")
+        old_admins = os.environ.get("ADMIN_IDS")
+        try:
+            os.environ.pop("OWNER_VK_ID", None)
+            os.environ["ADMIN_IDS"] = str(self.admin)
+            changes = self.roles.bootstrap_from_env()
+            self.assertEqual(changes, 1)
+            self.assertEqual(self.roles.role(self.admin), Role.ADMIN)
+            self.assertTrue(self.roles.has(self.admin, "economy.manage"))
+        finally:
+            if old_owner is None:
+                os.environ.pop("OWNER_VK_ID", None)
+            else:
+                os.environ["OWNER_VK_ID"] = old_owner
+            if old_admins is None:
+                os.environ.pop("ADMIN_IDS", None)
+            else:
+                os.environ["ADMIN_IDS"] = old_admins
+
     def test_staff_listing(self):
         staff = {r.vk_id: r.role for r in self.roles.staff()}
         self.assertEqual(staff[self.owner], Role.OWNER)
