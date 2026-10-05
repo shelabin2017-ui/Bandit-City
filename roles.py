@@ -196,12 +196,42 @@ class RoleManager:
             )
 
     def bootstrap_from_env(self) -> int:
-        """Bootstrap OWNER_VK_ID if configured; return number of changes."""
-        raw = os.getenv("OWNER_VK_ID", "").strip()
-        if not raw.isdigit():
-            return 0
-        self.bootstrap_owner(int(raw))
-        return 1
+        """Bootstrap owner/admin roles from trusted environment configuration.
+
+        OWNER_VK_ID always wins and is protected as OWNER. Legacy ADMIN_IDS are
+        promoted to ADMIN for compatibility with the pre-role-system config.
+        Existing OWNER roles are never downgraded by ADMIN_IDS.
+        """
+        changes = 0
+
+        raw_owner = os.getenv("OWNER_VK_ID", "").strip()
+        if raw_owner.isdigit():
+            self.bootstrap_owner(int(raw_owner))
+            changes += 1
+
+        legacy_admins = self.parse_ids(os.getenv("ADMIN_IDS"))
+        for admin_vk in legacy_admins:
+            current = self.role(admin_vk)
+            if current >= Role.OWNER:
+                continue
+            now = self._now()
+            with self.db.connect() as c:
+                c.execute(
+                    "INSERT INTO user_roles(vk_id,role,assigned_by,assigned_at) VALUES(?,?,?,?) "
+                    "ON CONFLICT(vk_id) DO UPDATE SET role=?, assigned_by=?, assigned_at=?",
+                    (
+                        admin_vk,
+                        int(Role.ADMIN),
+                        admin_vk,
+                        now,
+                        int(Role.ADMIN),
+                        admin_vk,
+                        now,
+                    ),
+                )
+            changes += 1
+
+        return changes
 
 
     def logs_text(self, limit: int = 20) -> str:
