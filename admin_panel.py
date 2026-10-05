@@ -255,6 +255,47 @@ class AdminPanel:
         if text == "🏙️ Главное меню":
             self.state.pop(uid, None)
             return True, "__MAIN__", []
+
+        if text=="🔎 Найти игрока":
+            self.state[uid]="player_lookup"
+            return True,"🔎 Введи VK ID игрока.",[["👑 Админ-панель"]]
+        if text=="💵 Наличные":
+            self.state[uid]="cash"
+            return True,"💵 Введи: VK_ID СУММА",[["👑 Админ-панель"]]
+        if text=="🏦 Банк":
+            self.state[uid]="bank"
+            return True,"🏦 Введи: VK_ID СУММА",[["👑 Админ-панель"]]
+        if text=="⭐ XP":
+            self.state[uid]="xp"
+            return True,"⭐ Введи: VK_ID XP",[["👑 Админ-панель"]]
+        if text=="🎚 Уровень":
+            self.state[uid]="level"
+            return True,"🎚 Введи: VK_ID УРОВЕНЬ",[["👑 Админ-панель"]]
+        if text=="📦 Изменить склад":
+            self.state[uid]="stock"
+            return True,"📦 Введи: VK_ID КОЛИЧЕСТВО",[["👑 Админ-панель"]]
+        if text=="📋 Машины игрока":
+            self.state[uid]="car_list"
+            return True,"🚗 Введи VK ID игрока.",[["👑 Админ-панель"]]
+        if text=="🗑 Удалить машину":
+            self.state[uid]="car_delete"
+            return True,"🗑 Введи: VK_ID ID_МАШИНЫ",[["👑 Админ-панель"]]
+        if text=="📋 Вещи игрока":
+            self.state[uid]="item_list"
+            return True,"🎒 Введи VK ID игрока.",[["👑 Админ-панель"]]
+        if text=="🗑 Удалить вещь":
+            self.state[uid]="item_delete"
+            return True,"🗑 Введи: VK_ID ID_ВЕЩИ",[["👑 Админ-панель"]]
+        if text=="🔎 Карточка игрока":
+            self.state[uid]="player_lookup"
+            return True,"🔎 Введи VK ID игрока.",[["👑 Админ-панель"]]
+        if text=="⛔ Заблокировать":
+            self.state[uid]="ban"
+            return True,"⛔ Введи VK ID игрока.",[["👑 Админ-панель"]]
+        if text=="✅ Разблокировать":
+            self.state[uid]="unban"
+            return True,"✅ Введи VK ID игрока.",[["👑 Админ-панель"]]
+
         if text == "📊 Статистика":
             return True, self._stats(), [["👑 Админ-панель"], ["🏙️ Главное меню"]]
         if text == "👥 Игроки":
