@@ -209,6 +209,31 @@ class AdminPanel:
                     self._log(uid, "promo_add", None, code.upper())
                     self.state.pop(uid, None)
                     return True, "✅ Промокод создан и активирован.", [["🎟 Промокоды"], ["👑 Админ-панель"]]
+                if st == "appearance_lookup":
+                    target = int(text)
+                    self.state.pop(uid, None)
+                    row = self._find(target)
+                    if not row:
+                        return True, "❌ Игрок не найден.", [["🎨 Внешность"], ["👑 Админ-панель"]]
+                    a = self.db.appearance(row["id"])
+                    msg = "🎨 ВНЕШНОСТЬ VK {}\n\n💇 {}\n👕 {}\n👖 {}\n🥾 {}\n🧢 {}\n💍 {}\n🌆 {}".format(target, a["hair"], a["clothes"], a["pants"], a["shoes"], a["head"], a["accessory"], a["background"])
+                    return True, msg, [["✏️ Изменить внешность"], ["🎨 Внешность"], ["👑 Админ-панель"]]
+                if st == "appearance_set":
+                    parts = text.split(maxsplit=3)
+                    if len(parts) < 3:
+                        return True, "❌ Формат: VK_ID SLOT VALUE", [["🎨 Внешность"], ["👑 Админ-панель"]]
+                    target, slot = int(parts[0]), parts[1]
+                    value = parts[2] if len(parts) == 3 else parts[2] + " " + parts[3]
+                    if slot not in {"hair","clothes","pants","shoes","head","accessory","background"} or not value.strip():
+                        return True, "❌ Недопустимый слот.", [["🎨 Внешность"], ["👑 Админ-панель"]]
+                    row = self._find(target)
+                    if not row:
+                        self.state.pop(uid, None)
+                        return True, "❌ Игрок не найден.", [["🎨 Внешность"], ["👑 Админ-панель"]]
+                    self.db.set_appearance(row["id"], **{slot: value.strip()})
+                    self._log(uid, "appearance_set", target, slot + "=" + value.strip())
+                    self.state.pop(uid, None)
+                    return True, "✅ Внешность изменена.", [["🎨 Внешность"], ["👑 Админ-панель"]]
                 if st == "broadcast_text":
                     self.state[uid] = ("broadcast_confirm", text.strip())
                     return True, "📢 ПРЕДПРОСМОТР\n\n" + text.strip(), [["✅ Отправить","❌ Отмена"],["👑 Админ-панель"]]
@@ -467,7 +492,15 @@ class AdminPanel:
         if text == "🧾 Журнал":
             return True, self._logs(), [["👑 Админ-панель"]]
         if text == "🎨 Внешность":
+            if self.role(uid) < Role.ADMIN:
+                return True, "⛔ Доступ только ADMIN.", [["🏙️ Главное меню"]]
             return True, "🎨 ВНЕШНОСТЬ\n\nВыбери действие.", [["🔎 Посмотреть внешность", "✏️ Изменить внешность"], ["👑 Админ-панель"]]
+        if text == "🔎 Посмотреть внешность":
+            self.state[uid] = "appearance_lookup"
+            return True, "🔎 Введи VK ID игрока.", [["❌ Отмена"], ["🎨 Внешность"]]
+        if text == "✏️ Изменить внешность":
+            self.state[uid] = "appearance_set"
+            return True, "✏️ Формат: VK_ID SLOT VALUE", [["❌ Отмена"], ["🎨 Внешность"]]
         if text == "🎪 Ивенты":
             from catalog import EVENTS, active_events
             active = active_events()
