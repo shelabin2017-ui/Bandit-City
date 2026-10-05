@@ -467,7 +467,13 @@ def process(uid, text):
         send(uid, game.garage(user["id"]), kb_auto())
         return
     if low.startswith("/buycar "):
-        send(uid, game.buy_car(user["id"], text.split(maxsplit=1)[1]), kb_auto())
+        try:
+            model = text.split(maxsplit=1)[1].strip()
+            if not model:
+                raise ValueError
+            send(uid, game.buy_car(user["id"], model), kb_auto())
+        except (ValueError, IndexError):
+            send(uid, "Использование: /buycar МОДЕЛЬ", kb_auto())
         return
     if low.startswith("/sellcar "):
         try:
@@ -534,7 +540,13 @@ def process(uid, text):
         send(uid, "🎟 UNDERGROUND PASS\n\nИспользование: /promo КОД\n\nСекретные дропы появляются во время событий.", [["🏙️ Главное меню"]])
         return
     if low.startswith("/promo "):
-        ok, msg = db.redeem_promo(user["id"], text.split(maxsplit=1)[1]); send(uid, msg, [["🎟 Промокод"], ["🏙️ Главное меню"]]); return
+        parts = text.split(maxsplit=1)
+        if len(parts) < 2 or not parts[1].strip():
+            send(uid, "Использование: /promo КОД", [["🎟 Промокод"], ["🏙️ Главное меню"]])
+            return
+        ok, msg = db.redeem_promo(user["id"], parts[1].strip())
+        send(uid, msg, [["🎟 Промокод"], ["🏙️ Главное меню"]])
+        return
 
     if text == "🎰 Казино":
         send(uid, "🎰 КАЗИНО\n\nМинимальная ставка $10 000.", kb_casino()); return
@@ -588,8 +600,16 @@ def process(uid, text):
     if text == "💸 Снять сумму": set_state(uid, "bank_out"); send(uid, "💸 Введи сумму для снятия из банка:\n\nПример: 37500", [["❌ Отмена"]]); return
     if low.startswith("/bank "):
         try:
-            p = text.split(); send(uid, game.bank(user["id"], "deposit" if p[1] in ("in", "deposit") else "withdraw", int(p[2])), kb_bank())
-        except (ValueError, IndexError): send(uid, "Использование: /bank in SUM или /bank out SUM", kb_bank())
+            p = text.split()
+            if len(p) != 3 or p[1] not in ("in", "deposit", "out", "withdraw"):
+                raise ValueError
+            action = "deposit" if p[1] in ("in", "deposit") else "withdraw"
+            amount = int(p[2].replace(" ", ""))
+            if amount <= 0:
+                raise ValueError
+            send(uid, game.bank(user["id"], action, amount), kb_bank())
+        except (ValueError, IndexError):
+            send(uid, "Использование: /bank in SUM или /bank out SUM", kb_bank())
         return
     if text == "🎁 Бонус" or low == "/daily": send(uid, game.daily(user["id"]), main_kb(uid)); return
     if text == "🏆 Достижения" or low == "/achievements": send(uid, game.achievements(user["id"]), main_kb(uid)); return
