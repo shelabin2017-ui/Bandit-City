@@ -157,6 +157,29 @@ class Database:
                 updated_at INTEGER NOT NULL,
                 PRIMARY KEY(user_id, code)
             );
+            CREATE TABLE IF NOT EXISTS sms_messages(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                sender TEXT NOT NULL,
+                text TEXT NOT NULL,
+                task_code TEXT,
+                reward_cash INTEGER NOT NULL DEFAULT 0,
+                reward_xp INTEGER NOT NULL DEFAULT 0,
+                read INTEGER NOT NULL DEFAULT 0,
+                created_at INTEGER NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS story_progress(
+                user_id INTEGER PRIMARY KEY,
+                chapter INTEGER NOT NULL DEFAULT 1,
+                step INTEGER NOT NULL DEFAULT 0,
+                updated_at INTEGER NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS tutorial_progress(
+                user_id INTEGER PRIMARY KEY,
+                step INTEGER NOT NULL DEFAULT 0,
+                completed INTEGER NOT NULL DEFAULT 0,
+                updated_at INTEGER NOT NULL
+            );
             CREATE TABLE IF NOT EXISTS casino_stats(
                 user_id INTEGER PRIMARY KEY,
                 plays INTEGER NOT NULL DEFAULT 0,
@@ -199,6 +222,45 @@ class Database:
     @staticmethod
     def new_ref():
         return "R" + "".join(secrets.choice(string.ascii_letters + string.digits) for _ in range(8))
+
+    def sms_list(self,user_id,limit=20):
+        with self.connect() as c:
+            return c.execute("SELECT * FROM sms_messages WHERE user_id=? ORDER BY id DESC LIMIT ?",(user_id,int(limit))).fetchall()
+
+    def sms_add(self,user_id,sender,text,task_code=None,reward_cash=0,reward_xp=0):
+        with self.connect() as c:
+            c.execute("INSERT INTO sms_messages(user_id,sender,text,task_code,reward_cash,reward_xp,created_at) VALUES(?,?,?,?,?,?,?)",
+                      (user_id,sender,text,task_code,int(reward_cash),int(reward_xp),int(time.time())))
+
+    def sms_read(self,user_id,message_id):
+        with self.connect() as c:
+            c.execute("UPDATE sms_messages SET read=1 WHERE id=? AND user_id=?",(int(message_id),user_id))
+
+    def story(self,user_id):
+        with self.connect() as c:
+            r=c.execute("SELECT * FROM story_progress WHERE user_id=?",(user_id,)).fetchone()
+            if r: return r
+            c.execute("INSERT INTO story_progress(user_id,chapter,step,updated_at) VALUES(?,?,?,?)",(user_id,1,0,int(time.time())))
+            return c.execute("SELECT * FROM story_progress WHERE user_id=?",(user_id,)).fetchone()
+
+    def story_set(self,user_id,chapter,step):
+        with self.connect() as c:
+            c.execute("INSERT INTO story_progress(user_id,chapter,step,updated_at) VALUES(?,?,?,?) "
+                      "ON CONFLICT(user_id) DO UPDATE SET chapter=excluded.chapter,step=excluded.step,updated_at=excluded.updated_at",
+                      (user_id,int(chapter),int(step),int(time.time())))
+
+    def tutorial(self,user_id):
+        with self.connect() as c:
+            r=c.execute("SELECT * FROM tutorial_progress WHERE user_id=?",(user_id,)).fetchone()
+            if r: return r
+            c.execute("INSERT INTO tutorial_progress(user_id,step,completed,updated_at) VALUES(?,?,?,?)",(user_id,0,0,int(time.time())))
+            return c.execute("SELECT * FROM tutorial_progress WHERE user_id=?",(user_id,)).fetchone()
+
+    def tutorial_set(self,user_id,step,completed=False):
+        with self.connect() as c:
+            c.execute("INSERT INTO tutorial_progress(user_id,step,completed,updated_at) VALUES(?,?,?,?) "
+                      "ON CONFLICT(user_id) DO UPDATE SET step=excluded.step,completed=excluded.completed,updated_at=excluded.updated_at",
+                      (user_id,int(step),1 if completed else 0,int(time.time())))
 
     def appearance(self, user_id):
         with self.connect() as c:
