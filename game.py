@@ -99,12 +99,31 @@ class Game:
 
     def sms(self,uid):
         rows=self.db.sms_list(uid)
+        tasks=self.db.sms_task_rows(uid,list(self.SMS_TASKS))
         if not rows:
-            return "📩 СМС\n\nПока сообщений нет."
-        return "📩 СМС\n\n" + "\n\n".join(
-            f"{'🔵' if not r['read'] else '⚪'} {r['sender']}\n{r['text']}"
-            for r in rows
-        )
+            body="📩 СМС\n\nПока сообщений нет."
+        else:
+            body="📩 СМС\n\n" + "\n\n".join(
+                f"{'🔵' if not r['read'] else '⚪'} {r['sender']}\n{r['text']}"
+                for r in rows
+            )
+        task_lines=["\n🎯 ЗАДАНИЯ ИЗ СМС"]
+        for code,(title,desc,cash,xp) in self.SMS_TASKS.items():
+            r=tasks.get(code)
+            if r and r["claimed"]:
+                status="✅ Получено"
+            elif r and r["completed"]:
+                status="🎁 ГОТОВО"
+            else:
+                status="⏳ Не выполнено"
+            task_lines.append(f"{title} — {status}\n{desc}\n🎁 {money(cash)} + {xp} XP")
+        return body+"\n"+"\n".join(task_lines)
+
+    def complete_sms_task(self,uid,code):
+        if code not in self.SMS_TASKS:
+            return "❌ СМС-задание не найдено."
+        title,desc,cash,xp=self.SMS_TASKS[code]
+        return self.db.sms_task_claim(uid,code,cash,xp)[1]
 
     def tutorial(self,uid):
         r=self.db.tutorial(uid)
@@ -211,6 +230,11 @@ class Game:
         self.db.add_money(uid,reward)
         self.db.xp(uid,xp)
         self.db.job_set(uid,job)
+        if not self.db.sms_task_rows(uid,["first_job"]).get("first_job",{}).get("completed",0):
+            self.db.sms_task_complete(uid,"first_job")
+            self.db.sms_add(uid,"📱 Неизвестный номер","Первое дело сделано. Теперь город знает, что ты умеешь работать.","first_job",25000,20)
+        self.db.mission_add(uid,"work_3",1)
+        self.db.mission_add(uid,"earn_100k",reward)
         return f"✅ {name}\n💵 +{money(reward)}\n✨ +{xp} XP"
 
     def business_info(self,uid):
@@ -228,7 +252,12 @@ class Game:
         ).replace(",", " ")
 
     def buy_business(self,uid):
-        return self.db.buy_business(uid)
+        result=self.db.buy_business(uid)
+        if "успеш" in result.lower() or "куплен" in result.lower():
+            if not self.db.sms_task_rows(uid,["first_business"]).get("first_business",{}).get("completed",0):
+                self.db.sms_task_complete(uid,"first_business")
+                self.db.sms_add(uid,"🕴️ Фиксер","Теперь у тебя есть своё дело. Деньги любят тех, кто умеет ими управлять.","first_business",100000,50)
+        return result
 
     def refill_stock(self,uid,amount):
         return self.db.refill(uid,amount)
@@ -270,7 +299,12 @@ class Game:
         return "\n".join(out)
 
     def buy_car(self,uid,model):
-        return self.db.buy_car(uid,model)
+        result=self.db.buy_car(uid,model)
+        if "успеш" in result.lower() or "куплен" in result.lower():
+            if not self.db.sms_task_rows(uid,["first_car"]).get("first_car",{}).get("completed",0):
+                self.db.sms_task_complete(uid,"first_car")
+                self.db.sms_add(uid,"🔧 Механик","Поздравляю с первой машиной. Заезжай, если понадобится ремонт.","first_car",50000,30)
+        return result
 
     def sell_car(self,uid,cid):
         return self.db.sell_car(uid,cid)
