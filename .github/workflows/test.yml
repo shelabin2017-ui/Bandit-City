@@ -16,3 +16,4 @@ jobs:
       - run: python -m unittest -v test_roles.py
       - run: python -m unittest -v selftest.py
       - run: python -m unittest -v test_progression.py
+      - run: python -m unittest -v test_status.py
