@@ -203,6 +203,26 @@ class RoleManager:
         self.bootstrap_owner(int(raw))
         return 1
 
+
+    def logs_text(self, limit: int = 20) -> str:
+        with self.db.connect() as c:
+            rows = c.execute(
+                "SELECT actor_vk,target_vk,action,old_role,new_role,created_at "
+                "FROM role_logs ORDER BY id DESC LIMIT ?",
+                (int(limit),),
+            ).fetchall()
+        if not rows:
+            return "🧾 ЖУРНАЛ РОЛЕЙ\n\nПока пусто."
+        lines = ["🧾 ЖУРНАЛ РОЛЕЙ", ""]
+        for row in rows:
+            old = ROLE_LABELS.get(Role(int(row["old_role"])), "—") if row["old_role"] is not None else "—"
+            new = ROLE_LABELS.get(Role(int(row["new_role"])), "—") if row["new_role"] is not None else "—"
+            lines.append(
+                f"👤 {row['actor_vk']} → {row['target_vk'] or '—'}\n"
+                f"   {row['action']}: {old} → {new}"
+            )
+        return "\n".join(lines)
+
     def is_admin_compat(self, vk_id: int, legacy_admin_ids: Iterable[int]) -> bool:
         """Compatibility helper while old ADMIN_IDS handlers are migrated."""
         return self.role(vk_id) >= Role.ADMIN or int(vk_id) in {int(x) for x in legacy_admin_ids}
