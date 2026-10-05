@@ -69,6 +69,14 @@ class BanditCoreTest(unittest.TestCase):
         }
         self.assertNotIn("🧥 Founder Jacket", public_names)
 
+    def test_event_exclusive_buttons_are_rendered(self):
+        from v5 import bridge as v5
+        user = self.db.get_or_create_user(100005)
+        self.db.redeem_promo(user["id"], "FOUNDER-2026")
+        message, buttons = v5.clothing_catalog(self.db, user["vk_id"], "🎪 Ивент • Эксклюзивы")
+        self.assertIn("Founder Jacket", message)
+        self.assertIn(["✅ 🧥 Founder Jacket"], buttons)
+
     def test_event_catalog_is_separate(self):
         self.assertEqual(len(EVENT_EXCLUSIVES), 7)
         self.assertGreaterEqual(len(active_events()), 1)
