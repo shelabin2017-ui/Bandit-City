@@ -180,6 +180,21 @@ class Database:
                 completed INTEGER NOT NULL DEFAULT 0,
                 updated_at INTEGER NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS player_status(
+                user_id INTEGER PRIMARY KEY,
+                heat INTEGER NOT NULL DEFAULT 0,
+                reputation INTEGER NOT NULL DEFAULT 0,
+                energy INTEGER NOT NULL DEFAULT 100,
+                last_update INTEGER NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS city_events(
+                code TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                description TEXT NOT NULL,
+                reward_cash INTEGER NOT NULL DEFAULT 0,
+                reward_xp INTEGER NOT NULL DEFAULT 0,
+                active INTEGER NOT NULL DEFAULT 1
+            );
             CREATE TABLE IF NOT EXISTS casino_stats(
                 user_id INTEGER PRIMARY KEY,
                 plays INTEGER NOT NULL DEFAULT 0,
@@ -416,6 +431,43 @@ class Database:
         with self.connect() as c:
             r = c.execute("SELECT banned FROM users WHERE vk_id=?", (vk_id,)).fetchone()
             return bool(r and r["banned"])
+
+    def status(self,user_id):
+        now=int(time.time())
+        with self.connect() as c:
+            r=c.execute("SELECT * FROM player_status WHERE user_id=?",(user_id,)).fetchone()
+            if not r:
+                c.execute("INSERT INTO player_status(user_id,heat,reputation,energy,last_update) VALUES(?,?,?,?,?)",(user_id,0,0,100,now))
+                return c.execute("SELECT * FROM player_status WHERE user_id=?",(user_id,)).fetchone()
+            elapsed=max(0,now-int(r["last_update"]))
+            energy=min(100,int(r["energy"])+elapsed//60*5)
+            heat=max(0,int(r["heat"])-elapsed//300)
+            c.execute("UPDATE player_status SET energy=?,heat=?,last_update=? WHERE user_id=?",(energy,heat,now,user_id))
+            return c.execute("SELECT * FROM player_status WHERE user_id=?",(user_id,)).fetchone()
+
+    def status_change(self,user_id,heat=0,reputation=0,energy=0):
+        r=self.status(user_id)
+        now=int(time.time())
+        h=max(0,min(100,int(r["heat"])+int(heat)))
+        rep=max(-1000,min(1000,int(r["reputation"])+int(reputation)))
+        en=max(0,min(100,int(r["energy"])+int(energy)))
+        with self.connect() as c:
+            c.execute("UPDATE player_status SET heat=?,reputation=?,energy=?,last_update=? WHERE user_id=?",(h,rep,en,now,user_id))
+        return self.status(user_id)
+
+    def city_event_list(self):
+        with self.connect() as c:
+            return c.execute("SELECT * FROM city_events WHERE active=1 ORDER BY code").fetchall()
+
+    def city_event_seed(self):
+        events=[
+            ("double_work","⚡ Двойная смена","Сегодня работа приносит повышенную награду.",0,0),
+            ("street_rush","🔥 Уличная жара","Рискованные действия дают больше репутации.",0,0),
+            ("black_market","🕶️ Чёрный рынок","Особые сделки доступны сегодня.",0,0),
+        ]
+        with self.connect() as c:
+            for row in events:
+                c.execute("INSERT OR IGNORE INTO city_events(code,title,description,reward_cash,reward_xp,active) VALUES(?,?,?,?,?,1)",row)
 
     def user(self, user_id):
         with self.connect() as c:
