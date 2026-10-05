@@ -15,6 +15,8 @@ from db import Database
 from game import Game
 from v5 import bridge as v5
 from admin_panel import AdminPanel
+from roles import RoleManager
+from role_ui import RoleUI
 
 load_dotenv()
 TOKEN = os.getenv("VK_TOKEN", "").strip()
@@ -25,8 +27,13 @@ if not TOKEN or not GROUP_ID:
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 db = Database(os.getenv("DB_PATH", "bandit.db"))
+roles = RoleManager(db)
+roles.bootstrap_from_env()
+for _legacy_uid in ADMIN_IDS:
+    roles.ensure_player(_legacy_uid)
+role_ui = RoleUI(roles)
 game = Game(db, ADMIN_IDS)
-admin = AdminPanel(db, game, ADMIN_IDS)
+admin = AdminPanel(db, game, ADMIN_IDS, roles=roles, role_ui=role_ui)
 session = vk_api.VkApi(token=TOKEN)
 vk = session.get_api()
 longpoll = VkLongPoll(session)
@@ -150,7 +157,7 @@ def send_card(user_id, text, rows=None):
     send(user_id, text, rows, upload_card(user_id, card_key(text)))
 
 
-def kb_main(is_admin=False):
+def kb_main(is_admin=False, panel_label="👑 Админ-панель"):
     rows = [
         ["👤 Профиль", "💼 Работа"],
         ["🚗 Авто", "🛒 Магазин"],
@@ -162,8 +169,21 @@ def kb_main(is_admin=False):
         ["❓ Помощь"],
     ]
     if is_admin:
-        rows.append(["👑 Админ-панель"])
+        rows.append([panel_label])
     return rows
+
+
+def has_admin_access(uid):
+    return int(uid) in ADMIN_IDS or roles.has(uid, "economy.manage")
+
+
+def main_kb(uid):
+    label = role_ui.main_button(uid)
+    if label:
+        return kb_main(True, label)
+    if has_admin_access(uid):
+        return kb_main(True)
+    return kb_main(False)
 
 
 def kb_bank():
@@ -233,7 +253,7 @@ def process_input(uid, text):
     low = text.lower().strip()
     if low in ("отмена", "❌ отмена", "/cancel"):
         clear_state(uid)
-        send_card(uid, "❌ Операция отменена.", kb_main(uid in ADMIN_IDS))
+        send_card(uid, "❌ Операция отменена.", main_kb(uid))
         return True
     try:
         if st["mode"] == "bank_in":
@@ -291,7 +311,7 @@ def process(uid, text):
         return
 
     user = db.get_or_create_user(uid)
-    if maintenance_enabled() and uid not in ADMIN_IDS:
+    if maintenance_enabled() and not role_ui.main_button(uid):
         send_card(uid, "🏙️ BANDIT CITY\n\n🚧 ТЕХНИЧЕСКИЕ РАБОТЫ\n\nГород временно закрыт на обслуживание.\n\n🛠️ Мы обновляем систему, исправляем ошибки\nи готовим новые возможности.\n\n⏳ Совсем скоро город снова откроется.\n\n🖤 Спасибо за ожидание.")
         return
     if db.is_banned(uid):
@@ -315,7 +335,7 @@ def process(uid, text):
         send_card(uid, game.profile(user["id"]), kb_main(uid in ADMIN_IDS))
         return
     if text == "⚙️ Настройки":
-        if uid in ADMIN_IDS:
+        if has_admin_access(uid):
             handled, admin_text, admin_rows = admin.handle(uid, text)
             if handled:
                 send(uid, admin_text, admin_rows)
@@ -483,7 +503,21 @@ def process(uid, text):
         except (ValueError, IndexError): send(uid, "Использование: /scam VK_ID или /rob VK_ID", kb_main(uid in ADMIN_IDS))
         return
 
-    if uid in ADMIN_IDS:
+    if role_ui.main_button(uid):
+        if text in ("👑 Центр владельца", "⚙️ Панель администратора", "🛡 Панель модератора"):
+            handled, response, rows = admin.handle(uid, text)
+            if handled:
+                if response == "__MAIN__":
+                    send_card(uid, "🏙 Главное меню", main_kb(uid)); return
+                send_card(uid, response, rows); return
+
+        handled, response, rows = admin.handle(uid, text)
+        if handled:
+            if response == "__MAIN__":
+                send_card(uid, "🏙 Главное меню", main_kb(uid)); return
+            send_card(uid, response, rows); return
+
+    if has_admin_access(uid):
         if low.startswith("/broadcast "):
             payload = text.split(maxsplit=1)[1].strip()
             if payload:
@@ -527,8 +561,8 @@ def process(uid, text):
             send_card(uid, game.admin_command(user["id"], text), [["👑 Админ-панель"], ["🏙️ Главное меню"]]); return
 
     if text in ("◀️ Назад", "🏙️ Главное меню"):
-        send_card(uid, "🏙 Главное меню", kb_main(uid in ADMIN_IDS)); return
-    send(uid, "🤔 Неизвестная команда. Нажми «❓ Помощь» или /menu.", kb_main(uid in ADMIN_IDS))
+        send_card(uid, "🏙 Главное меню", main_kb(uid)); return
+    send(uid, "🤔 Неизвестная команда. Нажми «❓ Помощь» или /menu.", main_kb(uid))
 
 
 def business_worker():
