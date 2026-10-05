@@ -20,7 +20,7 @@ class AdminWorkflowTests(unittest.TestCase):
         for uid in (self.owner, self.admin, self.player):
             self.db.get_or_create_user(uid)
         self.roles = RoleManager(self.db)
-        self.roles.set_role(self.owner, self.owner, Role.OWNER)
+        self.roles.bootstrap_owner(self.owner)
         self.roles.set_role(self.owner, self.admin, Role.ADMIN)
         self.panel = AdminPanel(
             self.db,
