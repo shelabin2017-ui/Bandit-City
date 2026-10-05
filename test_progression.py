@@ -48,5 +48,36 @@ class ProgressionTests(unittest.TestCase):
         self.assertEqual(self.db.mission_rows(self.uid,["casino_3"])["casino_3"]["progress"],1)
 
 
+    def test_phone_and_npc_runtime(self):
+        target = self.db.get_or_create_user(700003)
+        message = self.game.phone_add(self.uid, target["vk_id"])
+        self.assertIn("Контакт добавлен", message)
+        contacts = self.db.phone_contacts(self.uid)
+        self.assertEqual(len(contacts), 1)
+        self.assertEqual(contacts[0]["contact_id"], target["vk_id"])
+        self.assertEqual(contacts[0]["nickname"], target["nickname"])
+
+        message = self.game.phone_remove(self.uid, target["vk_id"])
+        self.assertIn("Контакт удалён", message)
+        self.assertEqual(self.db.phone_contacts(self.uid), [])
+
+        self.assertIn("NPC ГОРОДА", self.game.npc_menu(self.uid))
+        self.assertIn("Дилер", self.game.npc(self.uid, "dealer"))
+
+    def test_auxiliary_schema_exists(self):
+        expected = {
+            "mission_progress", "sms_task_progress", "sms_messages",
+            "story_progress", "tutorial_progress", "player_status",
+            "city_events", "casino_stats", "phone_contacts", "npc_state",
+        }
+        with self.db.connect() as c:
+            tables = {
+                r[0] for r in c.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ).fetchall()
+            }
+        self.assertTrue(expected.issubset(tables), expected - tables)
+
+
 if __name__=="__main__":
     unittest.main(verbosity=2)
