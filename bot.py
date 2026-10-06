@@ -344,18 +344,62 @@ def execute_broadcast(uid, message):
     if remaining > 0:
         send(uid, "⏳ Повтори рассылку через {} сек.".format(int(remaining) + 1), [[role_ui.main_button(uid) or "👑 Админ-панель"]])
         return
+
     BROADCAST_LAST[uid] = time.time()
     with db.connect() as c:
-        targets = [r["vk_id"] for r in c.execute("SELECT vk_id FROM users WHERE banned=0").fetchall()]
+        targets = [int(r["vk_id"]) for r in c.execute(
+            "SELECT vk_id FROM users WHERE banned=0 ORDER BY id"
+        ).fetchall()]
+
+    logging.info("Broadcast start: admin=%s targets=%s", uid, targets)
     sent = 0
+    skipped = 0
+    failed = 0
+
     for target in targets:
         try:
-            vk.messages.send(user_id=target, random_id=random.randint(1, 2_147_483_647), message="📢 BANDIT CITY\\n\\n" + message)
+            allowed = True
+            try:
+                check = vk.messages.isMessagesFromGroupAllowed(
+                    group_id=GROUP_ID,
+                    user_id=target,
+                )
+                allowed = bool(check.get("is_allowed", 0))
+            except Exception:
+                # Older/limited VK API wrappers may not expose the check.
+                # In that case try the actual send and log the VK response/error.
+                logging.warning("Broadcast permission check unavailable for %s", target)
+
+            if not allowed:
+                skipped += 1
+                logging.warning("Broadcast skipped for %s: messages from group are not allowed", target)
+                continue
+
+            result = vk.messages.send(
+                user_id=target,
+                random_id=random.randint(1, 2_147_483_647),
+                message="📢 BANDIT CITY\\n\\n" + str(message),
+            )
             sent += 1
+            logging.info("Broadcast sent: target=%s message_id=%s", target, result)
             time.sleep(0.08)
-        except Exception:
-            logging.exception("Broadcast failed for %s", target)
-    send(uid, "✅ Рассылка завершена. Отправлено: {}/{}".format(sent, len(targets)), [[role_ui.main_button(uid) or "👑 Админ-панель"]])
+        except Exception as exc:
+            failed += 1
+            logging.exception("Broadcast failed for %s: %s", target, exc)
+
+    logging.info(
+        "Broadcast finished: admin=%s sent=%s skipped=%s failed=%s total=%s",
+        uid, sent, skipped, failed, len(targets)
+    )
+    send(
+        uid,
+        "📢 Результат рассылки\\n\\n"
+        "✅ Отправлено: {}\\n"
+        "⏭️ Пропущено: {}\\n"
+        "❌ Ошибок: {}\\n"
+        "👥 Всего игроков: {}".format(sent, skipped, failed, len(targets)),
+        [[role_ui.main_button(uid) or "👑 Админ-панель"]],
+    )
 def process(uid, text):
     text = text.strip()
     low = text.lower()
