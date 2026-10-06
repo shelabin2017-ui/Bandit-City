@@ -78,7 +78,7 @@ class BanditCoreTest(unittest.TestCase):
         self.assertIn(["✅ 🧥 Founder Jacket"], buttons)
 
     def test_event_catalog_is_separate(self):
-        self.assertEqual(len(EVENT_EXCLUSIVES), 7)
+        self.assertEqual(len(EVENT_EXCLUSIVES), 8)
         self.assertGreaterEqual(len(active_events()), 1)
 
     def test_schema_columns_and_admin_import(self):
