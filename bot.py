@@ -125,6 +125,8 @@ def card_key(text):
         return "garage"
     if "промокод" in t:
         return "promo"
+    if "ивент" in t or "midnight" in t or "midnight run" in t or "событ" in t:
+        return "event"
     return "main"
 
 
@@ -530,8 +532,8 @@ def process(uid, text):
         title = text[3:].strip()
         for key, event in v5.EVENTS.items():
             if event["title"] == title and key in __import__("catalog").active_events():
-                msg, buttons = v5.clothing_catalog(db, uid, "🎪 Ивент • Эксклюзивы")
-                send(uid, msg, buttons)
+                msg, buttons = v5.participate_event(db, uid, key)
+                send_card(uid, msg, buttons)
                 return
 
     clothing_choice = None
