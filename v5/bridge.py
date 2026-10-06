@@ -76,7 +76,7 @@ def clothing_menu():
     return reply("🧥 ОДЕЖДА LOS SANTOS\n\nПостоянные категории. Эксклюзивы выдаются отдельно.",[["🧢 Головные уборы","👕 Верх"],["👖 Брюки","🥾 Обувь"],["💍 Аксессуары","💇 Волосы"],["↩️ В магазин"],["👤 Персонаж","🏙️ Главное меню"]])
 def event_catalog():
     active=active_events()
-    body=["🎪 ИВЕНТ-ДРОПЫ","","🔒 Не продаются за обычные деньги.","Выдаются событиями или секретными промокодами.",""]
+    body=["🎪 ИВЕНТ-ДРОПЫ","","🔒 Не продаются за обычные деньги.","Участие сохраняется в профиле игрока.", ""]
     buttons=[]
     for key,event in EVENTS.items():
         is_active=key in active
@@ -86,6 +86,48 @@ def event_catalog():
     if not buttons: body.append("⏳ Сейчас активных ивентов нет.")
     buttons += [["↩️ В магазин"],["🏙️ Главное меню"]]
     return reply("\n".join(body),buttons)
+
+def participate_event(db,vk_id,event_key):
+    event=EVENTS.get(event_key)
+    if not event or event_key not in active_events():
+        return reply("⏳ Это событие сейчас недоступно.", [["🎪 Ивент-дропы"],["🏙️ Главное меню"]])
+    uid=player_id_by_vk(db,vk_id)
+    created,_=db.event_participation(uid,event_key)
+    if not created:
+        history=db.event_history(uid)
+        return reply(
+            "🏆 ТЫ УЖЕ УЧАСТВОВАЛ\n\n"
+            f"🎪 {event['title']}\n"
+            "✅ Участие сохранено в твоей истории.\n"
+            "🎟 Награда уже получена.",
+            [["🎪 Ивент-дропы"],["👤 Профиль"],["🏙️ Главное меню"]]
+        )
+    rewards=[]
+    for item_id in event.get("drops",[]):
+        item=find_event_item(item_id)
+        if not item:
+            continue
+        category="🎪 Ивент • Эксклюзивы"
+        name=item["name"]
+        slot=item.get("slot","accessory")
+        with _conn(db) as c:
+            c.execute(
+                "INSERT OR IGNORE INTO v5_wardrobe(user_id,category,name,price,bought_at) VALUES(?,?,?,?,?)",
+                (uid,category,name,0,int(time.time()))
+            )
+        db.set_appearance(uid, **{slot:name})
+        rewards.append(name)
+    db.event_reward_claimed(uid,event_key)
+    reward_text="\n".join("🎁 "+x for x in rewards) if rewards else "🎁 Награда будет объявлена позже."
+    return reply(
+        "🌙 MIDNIGHT RUN\n\n"
+        "🏆 УЧАСТИЕ ЗАСЧИТАНО\n"
+        "Твой профиль теперь отмечен как участник события.\n\n"
+        f"{reward_text}\n\n"
+        "🌙 Добро пожаловать в ночной город.",
+        [["👤 Профиль"],["🎪 Ивент-дропы"],["🏙️ Главное меню"]]
+    )
+
 def clothing_catalog(db,vk_id,category):
     source=EVENT_CLOTHING if category in EVENT_CLOTHING else CLOTHING
     if category not in source: return clothing_menu()
