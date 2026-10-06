@@ -1,6 +1,8 @@
 import random
 import time
 
+from catalog import EVENTS
+
 
 def money(n):
     return f"${int(n):,}".replace(",", " ")
@@ -229,6 +231,7 @@ class Game:
         items=len(self.db.items(uid))
         event_rows=self.db.event_history(uid)
         event_count=len(event_rows)
+        event_names=[EVENTS.get(r["event_code"],{}).get("title",r["event_code"]) for r in event_rows]
         if event_count >= 10:
             event_badge="👑 Легенда событий"
         elif event_count >= 5:
@@ -246,7 +249,8 @@ class Game:
             f"⭐ Уровень: {u['level']}\n✨ XP: {u['xp']}\n"
             f"👥 Рефералов: {u['referrals']}\n🚗 Машин: {cars}\n🎒 Вещей: {items}\n\n"
             f"🏆 События: {event_count}\n{event_badge}\n"
-            f"🔗 Код: {u['ref_code']}"
+            + (f"📜 История: {' • '.join(event_names[-3:])}\n" if event_names else "")
+            + f"🔗 Код: {u['ref_code']}"
         )
 
     def work(self, uid, job):
