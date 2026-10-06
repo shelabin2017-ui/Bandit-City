@@ -726,19 +726,8 @@ def process(uid, text):
                 remaining = BROADCAST_COOLDOWN - (time.time() - last)
                 if remaining > 0:
                     send(uid, f"⏳ Повтори рассылку через {int(remaining) + 1} сек.", [[role_ui.main_button(uid) or "👑 Админ-панель"]]); return
-                BROADCAST_LAST[uid] = time.time()
-                message = state[1]
-                with db.connect() as c:
-                    targets = [r["vk_id"] for r in c.execute("SELECT vk_id FROM users WHERE banned=0").fetchall()]
-                sent = 0
-                for target in targets:
-                    try:
-                        vk.messages.send(user_id=target, random_id=random.randint(1, 2_147_483_647), message="📢 BANDIT CITY\n\n" + message)
-                        sent += 1
-                        time.sleep(0.08)
-                    except Exception:
-                        logging.exception("Broadcast failed for %s", target)
-                send(uid, f"✅ Рассылка завершена. Отправлено: {sent}/{len(targets)}", [[role_ui.main_button(uid) or "👑 Админ-панель"]]); return
+                execute_broadcast(uid, state[1])
+                return
             admin.state[uid] = state
         handled, response, rows = admin.handle(uid, text)
         if handled:
