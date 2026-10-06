@@ -227,12 +227,25 @@ class Game:
         u=self.db.user(uid)
         cars=len(self.db.cars(uid))
         items=len(self.db.items(uid))
+        event_rows=self.db.event_history(uid)
+        event_count=len(event_rows)
+        if event_count >= 10:
+            event_badge="👑 Легенда событий"
+        elif event_count >= 5:
+            event_badge="🔥 Опытный участник"
+        elif event_count >= 3:
+            event_badge="🏅 Ветеран событий"
+        elif event_count >= 1:
+            event_badge="🎟️ Участник событий"
+        else:
+            event_badge="🎟️ Новичок событий"
         return (
             "👤 ПРОФИЛЬ\n\n"
             f"🎭 Ник: {u['nickname']}\n🏙 {u['city']}\n"
             f"💵 Наличные: {money(u['balance'])}\n🏦 Банк: {money(u['bank'])}\n"
             f"⭐ Уровень: {u['level']}\n✨ XP: {u['xp']}\n"
-            f"👥 Рефералов: {u['referrals']}\n🚗 Машин: {cars}\n🎒 Вещей: {items}\n"
+            f"👥 Рефералов: {u['referrals']}\n🚗 Машин: {cars}\n🎒 Вещей: {items}\n\n"
+            f"🏆 События: {event_count}\n{event_badge}\n"
             f"🔗 Код: {u['ref_code']}"
         )
 
