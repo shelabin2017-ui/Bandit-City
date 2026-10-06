@@ -219,6 +219,14 @@ class Database:
                 created_at INTEGER NOT NULL,
                 PRIMARY KEY(user_id, contact_id)
             );
+            CREATE TABLE IF NOT EXISTS event_participation(
+                user_id INTEGER NOT NULL,
+                event_code TEXT NOT NULL,
+                participated_at INTEGER NOT NULL,
+                completed INTEGER NOT NULL DEFAULT 1,
+                reward_claimed INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY(user_id, event_code)
+            );
             CREATE TABLE IF NOT EXISTS npc_state(
                 user_id INTEGER NOT NULL,
                 npc_code TEXT NOT NULL,
@@ -259,6 +267,41 @@ class Database:
     @staticmethod
     def new_ref():
         return "R" + "".join(secrets.choice(string.ascii_letters + string.digits) for _ in range(8))
+
+    def event_participation(self, user_id, event_code):
+        with self.connect() as c:
+            row = c.execute(
+                "SELECT * FROM event_participation WHERE user_id=? AND event_code=?",
+                (int(user_id), str(event_code))
+            ).fetchone()
+            if row:
+                return False, row
+            now = int(time.time())
+            c.execute(
+                "INSERT INTO event_participation(user_id,event_code,participated_at,completed,reward_claimed) VALUES(?,?,?,?,?)",
+                (int(user_id), str(event_code), now, 1, 0)
+            )
+            row = c.execute(
+                "SELECT * FROM event_participation WHERE user_id=? AND event_code=?",
+                (int(user_id), str(event_code))
+            ).fetchone()
+            return True, row
+
+    def event_history(self, user_id):
+        with self.connect() as c:
+            return c.execute(
+                "SELECT event_code,participated_at,completed,reward_claimed "
+                "FROM event_participation WHERE user_id=? ORDER BY participated_at",
+                (int(user_id),)
+            ).fetchall()
+
+    def event_reward_claimed(self, user_id, event_code):
+        with self.connect() as c:
+            c.execute(
+                "UPDATE event_participation SET reward_claimed=1 "
+                "WHERE user_id=? AND event_code=?",
+                (int(user_id), str(event_code))
+            )
 
     def sms_task_complete(self,user_id,task_code):
         with self.connect() as c:
