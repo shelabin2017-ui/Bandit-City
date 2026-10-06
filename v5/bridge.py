@@ -1,6 +1,6 @@
 """V5 shop layer. Public catalogue is separated from event-only drops."""
 import time
-from catalog import EVENTS, EVENT_EXCLUSIVES, active_events
+from catalog import EVENTS, EVENT_EXCLUSIVES, active_events, find_event_item
 
 MAINTENANCE = False
 ADMIN_IDS = set()
