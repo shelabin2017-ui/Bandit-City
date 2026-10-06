@@ -319,7 +319,7 @@ class Database:
                 "SELECT task_code,completed,claimed FROM sms_task_progress WHERE user_id=? AND task_code IN (%s)"
                 % ",".join("?" for _ in codes), [int(user_id),*codes]
             ).fetchall()
-        return {r["task_code"]:r for r in rows}
+        return {r["task_code"]:dict(r) for r in rows}
 
     def sms_task_claim(self,user_id,task_code,reward_cash,reward_xp):
         with self.connect() as c:
@@ -811,7 +811,7 @@ class Database:
                 % ",".join("?" for _ in codes),
                 [user_id, *codes]
             ).fetchall()
-        return {r["code"]: r for r in rows}
+        return {r["code"]:dict(r) for r in rows}
 
     def mission_claim(self, user_id, code, reward_cash, reward_xp, target):
         with self.connect() as c:
