@@ -74,10 +74,12 @@ EVENT_EXCLUSIVES = [
     {"id":"blackout_chain","name":"⛓ Blackout Chain","slot":"accessory","event":"blackout","promo_only":True},
     {"id":"bandit_legend","name":"🏆 Bandit Legend Outfit","slot":"clothes","event":"anniversary","promo_only":True},
     {"id":"golden_bullet","name":"🔫 Golden Bullet","slot":"accessory","event":"anniversary","promo_only":True},
+    {"id":"midnight_mask","name":"🌙 Midnight Mask","slot":"head","event":"midnight","promo_only":True},
 ]
 
 EVENTS = {
     "founder": {"title":"👑 FOUNDER DROP", "description":"Первый закрытый дроп Bandit City.", "drops": ["founder_jacket"], "start_at":"2026-10-01T00:00:00Z", "end_at":"2026-10-15T00:00:00Z"},
+    "midnight": {"title":"🌙 MIDNIGHT RUN", "description":"Ограниченный ночной ивент: город после полуночи становится другим.", "drops": ["midnight_mask"], "start_at":"2026-10-06T00:00:00Z", "end_at":"2026-10-13T00:00:00Z"},
     "nightfall": {"title":"🌑 NIGHTFALL", "description":"Ночная серия эксклюзивов.", "drops": ["nightfall_mask"], "start_at":"2026-10-20T00:00:00Z", "end_at":"2026-11-03T00:00:00Z"},
     "prime": {"title":"💎 BANDIT PRIME", "description":"Премиальный закрытый сезон.", "drops": ["prime_hair"], "start_at":"2026-11-10T00:00:00Z", "end_at":"2026-11-24T00:00:00Z"},
     "neon": {"title":"🌌 NEON CITY", "description":"Временный неоновый ивент.", "drops": ["neon_background"], "start_at":"2026-12-01T00:00:00Z", "end_at":"2027-01-01T00:00:00Z"},
