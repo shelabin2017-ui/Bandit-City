@@ -120,9 +120,9 @@ def participate_event(db,vk_id,event_key):
     db.event_reward_claimed(uid,event_key)
     reward_text="\n".join("🎁 "+x for x in rewards) if rewards else "🎁 Награда будет объявлена позже."
     return reply(
-        "🌙 MIDNIGHT RUN\n\n"
+        "🌙 НОЧНОЙ ЗАБЕГ\n\n"
         "🏆 УЧАСТИЕ ЗАСЧИТАНО\n"
-        "Твой профиль теперь отмечен как участник события.\n\n"
+        "Твой профиль отмечен как участник события.\n\n"
         f"{reward_text}\n\n"
         "🌙 Добро пожаловать в ночной город.",
         [["👤 Профиль"],["🎪 Ивент-дропы"],["🏙️ Главное меню"]]
