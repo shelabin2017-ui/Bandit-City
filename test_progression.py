@@ -79,5 +79,25 @@ class ProgressionTests(unittest.TestCase):
         self.assertTrue(expected.issubset(tables), expected - tables)
 
 
+    def test_event_participation_is_unique_and_rewarded(self):
+        from catalog import EVENTS, active_events
+        from v5 import bridge as v5
+        self.assertIn("midnight", active_events())
+        first = v5.participate_event(self.db, 700001, "midnight")
+        self.assertIn("УЧАСТИЕ ЗАСЧИТАНО", first[0])
+        history = self.db.event_history(self.uid)
+        self.assertEqual(len(history), 1)
+        self.assertEqual(history[0]["event_code"], "midnight")
+        second = v5.participate_event(self.db, 700001, "midnight")
+        self.assertIn("УЖЕ УЧАСТВОВАЛ", second[0])
+        self.assertEqual(len(self.db.event_history(self.uid)), 1)
+        with self.db.connect() as c:
+            row = c.execute(
+                "SELECT 1 FROM v5_wardrobe WHERE user_id=? AND category=? AND name=?",
+                (self.uid, "🎪 Ивент • Эксклюзивы", "🌙 Ночная маска"),
+            ).fetchone()
+        self.assertIsNotNone(row)
+
+
 if __name__=="__main__":
     unittest.main(verbosity=2)
