@@ -76,6 +76,7 @@ class ProgressionTests(unittest.TestCase):
         self.assertEqual(after, before)
         self.assertEqual(stats["plays"], 1)
         self.assertEqual(stats["wins"], 0)
+        self.assertEqual(stats["losses"], 0)
         self.assertEqual(stats["profit"], 0)
         self.assertEqual(self.db.mission_rows(uid, ["casino_win"]).get("casino_win", {}).get("progress", 0), 0)
 
