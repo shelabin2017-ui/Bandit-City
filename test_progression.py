@@ -65,6 +65,20 @@ class ProgressionTests(unittest.TestCase):
         self.assertIn("NPC ГОРОДА", self.game.npc_menu(self.uid))
         self.assertIn("Дилер", self.game.npc(self.uid, "dealer"))
 
+    def test_slot_pair_returns_stake_without_counting_as_win(self):
+        uid = self.db.get_or_create_user(700005)["id"]
+        before = self.db.user(uid)["balance"]
+        with patch("game.random.choice", side_effect=["🍒", "🍒", "🍋"]):
+            result = self.game.casino(uid, "🎰 Слоты")
+        after = self.db.user(uid)["balance"]
+        stats = self.db.casino_stats(uid)
+        self.assertIn("Ставка возвращена", result)
+        self.assertEqual(after, before)
+        self.assertEqual(stats["plays"], 1)
+        self.assertEqual(stats["wins"], 0)
+        self.assertEqual(stats["profit"], 0)
+        self.assertEqual(self.db.mission_rows(uid, ["casino_win"]).get("casino_win", {}).get("progress", 0), 0)
+
     def test_npc_actions_cooldowns_and_car_tuning(self):
         uid = self.db.get_or_create_user(700004)["id"]
         self.db.add_money(uid, 500_000)
