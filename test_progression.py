@@ -82,7 +82,7 @@ class ProgressionTests(unittest.TestCase):
     def test_npc_actions_cooldowns_and_car_tuning(self):
         uid = self.db.get_or_create_user(700004)["id"]
         self.db.add_money(uid, 500_000)
-        self.assertIn("успеш", self.db.buy_car(uid, "Falcon Compact").lower())
+        self.assertIn("куплен", self.db.buy_car(uid, "Falcon Compact").lower())
 
         with patch("game.random.random", return_value=0.1):
             dealer = self.game.npc_action(uid, "dealer")
