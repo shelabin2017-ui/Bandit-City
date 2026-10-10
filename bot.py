@@ -17,6 +17,7 @@ from v5 import bridge as v5
 from admin_panel import AdminPanel
 from roles import RoleManager
 from role_ui import RoleUI
+from release import announce_new_release
 
 load_dotenv()
 TOKEN = os.getenv("VK_TOKEN", "").strip()
@@ -378,7 +379,7 @@ def execute_broadcast(uid, message):
             result = vk.messages.send(
                 user_id=target,
                 random_id=random.randint(1, 2_147_483_647),
-                message="📢 BANDIT CITY\\n\\n" + str(message),
+                message="📢 BANDIT CITY\n\n" + str(message),
             )
             sent += 1
             logging.info("Broadcast sent: target=%s message_id=%s", target, result)
@@ -752,6 +753,12 @@ def business_worker():
 
 
 def main():
+    # Release announcements run in the background so Long Poll starts immediately.
+    threading.Thread(
+        target=lambda: announce_new_release(db, vk, GROUP_ID),
+        name="release-announcement",
+        daemon=True,
+    ).start()
     threading.Thread(target=business_worker, daemon=True).start()
     logging.info("Bandit City запущен.")
     for event in longpoll.listen():
