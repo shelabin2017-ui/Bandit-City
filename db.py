@@ -234,6 +234,13 @@ class Database:
                 updated_at INTEGER NOT NULL,
                 PRIMARY KEY(user_id, npc_code)
             );
+            CREATE TABLE IF NOT EXISTS npc_cooldowns(
+                user_id INTEGER NOT NULL,
+                npc_code TEXT NOT NULL,
+                action_code TEXT NOT NULL,
+                ready_at INTEGER NOT NULL,
+                PRIMARY KEY(user_id, npc_code, action_code)
+            );
             """)
             self.add_column(c, "users", "ref_code", "TEXT")
             self.add_column(c, "users", "referred_by", "INTEGER")
@@ -478,6 +485,51 @@ class Database:
             c.execute("INSERT INTO npc_state(user_id,npc_code,value,updated_at) VALUES(?,?,?,?) "
                       "ON CONFLICT(user_id,npc_code) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at",
                       (user_id,npc_code,int(value),int(time.time())))
+
+    def npc_cooldown_remaining(self, user_id, npc_code, action_code):
+        with self.connect() as c:
+            row = c.execute(
+                "SELECT ready_at FROM npc_cooldowns WHERE user_id=? AND npc_code=? AND action_code=?",
+                (int(user_id), str(npc_code), str(action_code)),
+            ).fetchone()
+        return max(0, int(row["ready_at"]) - int(time.time())) if row else 0
+
+    def npc_set_cooldown(self, user_id, npc_code, action_code, seconds):
+        now = int(time.time())
+        ready_at = now + max(0, int(seconds))
+        with self.connect() as c:
+            c.execute(
+                """INSERT INTO npc_cooldowns(user_id,npc_code,action_code,ready_at)
+                   VALUES(?,?,?,?)
+                   ON CONFLICT(user_id,npc_code,action_code)
+                   DO UPDATE SET ready_at=excluded.ready_at""",
+                (int(user_id), str(npc_code), str(action_code), ready_at),
+            )
+        return ready_at
+
+    def tune_car(self, user_id, cost=75000, boost=5, max_speed=120):
+        with self.connect() as c:
+            user = c.execute("SELECT balance FROM users WHERE id=?", (int(user_id),)).fetchone()
+            if not user:
+                return False, "❌ Игрок не найден."
+            car = c.execute(
+                "SELECT id,model,speed FROM cars WHERE user_id=? ORDER BY id DESC LIMIT 1",
+                (int(user_id),),
+            ).fetchone()
+            if not car:
+                return False, "❌ Сначала купи машину в автосалоне."
+            if int(user["balance"]) < int(cost):
+                return False, f"❌ Для тюнинга нужно {int(cost):,} $.".replace(",", " ")
+            if int(car["speed"]) >= int(max_speed):
+                return False, f"⚡ {car['model']} уже достигла максимальной скорости {max_speed}."
+            new_speed = min(int(max_speed), int(car["speed"]) + int(boost))
+            c.execute("UPDATE users SET balance=balance-? WHERE id=?", (int(cost), int(user_id)))
+            c.execute("UPDATE cars SET speed=? WHERE id=?", (new_speed, int(car["id"])))
+            return True, (
+                f"🔧 ТЮНИНГ ЗАВЕРШЁН\n\n🚗 {car['model']}\n"
+                f"⚡ Скорость: {car['speed']} → {new_speed}\n"
+                f"💵 Стоимость: {int(cost):,} $".replace(",", " ")
+            )
 
     def get_or_create_user(self, vk_id):
         with self.connect() as c:
