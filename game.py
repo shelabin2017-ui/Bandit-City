@@ -467,11 +467,13 @@ class Game:
                 profit=payout-bet
                 result=f"🎰 {' | '.join(reels)}\n🎉 ДЖЕКПОТ +{money(payout)}"
             elif len(set(reels))==2:
-                payout=bet*2
+                # A pair returns the stake; paying 2x made slots exploitable and
+                # incorrectly counted a break-even round as a win.
+                payout=bet
                 self.db.add_money(uid,payout)
-                won=True
-                profit=payout-bet
-                result=f"🎰 {' | '.join(reels)}\n✨ +{money(payout)}"
+                won=False
+                profit=0
+                result=f"🎰 {' | '.join(reels)}\\n↩️ Пара! Ставка возвращена: {money(payout)}"
             else:
                 result=f"🎰 {' | '.join(reels)}\n❌ -{money(bet)}"
         elif cmd=="🎯 Рулетка":
