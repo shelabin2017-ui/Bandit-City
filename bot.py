@@ -352,7 +352,7 @@ def execute_broadcast(uid, message):
             "SELECT vk_id FROM users WHERE banned=0 ORDER BY id"
         ).fetchall()]
 
-    logging.info("Broadcast start: admin=%s targets=%s", uid, targets)
+    logging.info("Broadcast start: admin=%s total=%s", uid, len(targets))
     sent = 0
     skipped = 0
     failed = 0
@@ -383,7 +383,7 @@ def execute_broadcast(uid, message):
             )
             sent += 1
             logging.info("Broadcast sent: target=%s message_id=%s", target, result)
-            time.sleep(0.08)
+            time.sleep(0.35)
         except Exception as exc:
             failed += 1
             logging.exception("Broadcast failed for %s: %s", target, exc)
@@ -394,10 +394,10 @@ def execute_broadcast(uid, message):
     )
     send(
         uid,
-        "📢 Результат рассылки\\n\\n"
-        "✅ Отправлено: {}\\n"
-        "⏭️ Пропущено: {}\\n"
-        "❌ Ошибок: {}\\n"
+        "📢 Результат рассылки\n\n"
+        "✅ Отправлено: {}\n"
+        "⏭️ Пропущено: {}\n"
+        "❌ Ошибок: {}\n"
         "👥 Всего игроков: {}".format(sent, skipped, failed, len(targets)),
         [[role_ui.main_button(uid) or "👑 Админ-панель"]],
     )
