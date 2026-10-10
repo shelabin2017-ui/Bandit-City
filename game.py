@@ -471,7 +471,7 @@ class Game:
                 # incorrectly counted a break-even round as a win.
                 payout=bet
                 self.db.add_money(uid,payout)
-                won=False
+                won=None
                 profit=0
                 result=f"🎰 {' | '.join(reels)}\n↩️ Пара! Ставка возвращена: {money(payout)}"
             else:
@@ -497,7 +497,7 @@ class Game:
             elif p==d:
                 self.db.add_money(uid,bet)
                 profit=0
-                won=False
+                won=None
                 result=f"🃏 Ты {p} | Дилер {d}\n🤝 Ничья"
             else:
                 result=f"🃏 Ты {p} | Дилер {d}\n❌ -{money(bet)}"
