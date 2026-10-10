@@ -547,7 +547,7 @@ def process(uid, text):
         msg, buttons = v5.shop_hub(); send(uid, msg, buttons); return
     if text == "🛍️ Предметы":
         msg, buttons = v5.item_shop(); send(uid, msg, buttons); return
-    if text == "🎒 Инвентарь":
+    if text == "🎒 Инвентарь" or low == "/items":
         msg, buttons = v5.inventory(db, uid); send(uid, msg, buttons); return
     if text in ("🧥 Одежда", "👕 Одежда"):
         msg, buttons = v5.clothing_menu(); send(uid, msg, buttons); return
@@ -577,6 +577,16 @@ def process(uid, text):
     item_choice = next((name for name, _ in v5.ITEMS if text.startswith(name + " — ")), None)
     if item_choice:
         msg, buttons = v5.buy_item(db, uid, item_choice); send(uid, msg, buttons); return
+    if low.startswith("/sellitem "):
+        try:
+            parts = text.split()
+            if len(parts) != 2:
+                raise ValueError
+            msg, buttons = v5.sell_item(db, uid, int(parts[1]))
+            send(uid, msg, buttons)
+        except (ValueError, IndexError):
+            send(uid, "Использование: /sellitem ID", [["🎒 Инвентарь"], ["🏙️ Главное меню"]])
+        return
     if text.startswith("🗑 Продать #"):
         try:
             msg, buttons = v5.sell_item(db, uid, int(text.split("#", 1)[1])); send(uid, msg, buttons)
