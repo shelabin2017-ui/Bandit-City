@@ -231,7 +231,17 @@ def kb_casino():
 def kb_phone():
     return [["👥 Контакты", "➕ Добавить контакт"], ["➖ Удалить контакт"], ["🤝 NPC города"], ["🏙️ Главное меню"]]
 
-def kb_npc():
+NPC_ACTION_BUTTONS = {
+    "dealer": "💰 Сделка дилера",
+    "fixer": "📜 Заказ фиксера",
+    "mechanic": "🔧 Тюнинг авто",
+    "informant": "🕵️ Слух информатора",
+}
+
+
+def kb_npc(code=None):
+    if code in NPC_ACTION_BUTTONS:
+        return [[NPC_ACTION_BUTTONS[code]], ["📱 Телефон"], ["🏙️ Главное меню"]]
     return [["💰 Дилер", "🕴️ Фиксер"], ["🔧 Механик", "🕵️ Информатор"], ["📱 Телефон"], ["🏙️ Главное меню"]]
 
 
@@ -647,7 +657,12 @@ def process(uid, text):
         send(uid, game.npc_menu(user["id"]), kb_npc()); return
     npc_map={"💰 Дилер":"dealer","🕴️ Фиксер":"fixer","🔧 Механик":"mechanic","🕵️ Информатор":"informant"}
     if text in npc_map:
-        send(uid, game.npc(user["id"],npc_map[text]),kb_npc()); return
+        code = npc_map[text]
+        send(uid, game.npc(user["id"], code), kb_npc(code)); return
+    npc_action_map = {label: code for code, label in NPC_ACTION_BUTTONS.items()}
+    if text in npc_action_map:
+        code = npc_action_map[text]
+        send(uid, game.npc_action(user["id"], code), kb_npc(code)); return
     if text in ("🎲 Кости", "🎰 Слоты", "🎯 Рулетка", "🃏 Blackjack"):
         send(uid, game.casino(user["id"], text), kb_casino()); return
 
