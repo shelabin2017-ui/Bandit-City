@@ -473,7 +473,7 @@ class Game:
                 self.db.add_money(uid,payout)
                 won=False
                 profit=0
-                result=f"🎰 {' | '.join(reels)}\\n↩️ Пара! Ставка возвращена: {money(payout)}"
+                result=f"🎰 {' | '.join(reels)}\n↩️ Пара! Ставка возвращена: {money(payout)}"
             else:
                 result=f"🎰 {' | '.join(reels)}\n❌ -{money(bet)}"
         elif cmd=="🎯 Рулетка":
