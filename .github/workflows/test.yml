@@ -19,3 +19,4 @@ jobs:
       - run: python -m unittest -v test_progression.py
       - run: python -m unittest -v test_status.py
       - run: python -m unittest -v test_admin.py
+      - run: python -m unittest -v test_release.py
