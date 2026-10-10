@@ -1,1 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#080a12"/><stop offset="1" stop-color="#151b35"/></linearGradient><linearGradient id="glow" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#6ca8ff"/><stop offset="1" stop-color="#9a78ff"/></linearGradient></defs><rect width="1200" height="630" fill="url(#bg)"/><circle cx="1000" cy="315" r="250" fill="#172650" opacity=".7"/><circle cx="1000" cy="315" r="185" fill="none" stroke="#6ca8ff" stroke-opacity=".35" stroke-width="2"/><circle cx="1000" cy="315" r="145" fill="none" stroke="#9a78ff" stroke-opacity=".25" stroke-width="2"/><rect x="48" y="48" width="1104" height="534" rx="36" fill="none" stroke="url(#glow)" stroke-opacity=".6" stroke-width="3"/><rect x="78" y="82" width="150" height="38" rx="19" fill="#6ca8ff" opacity=".15" stroke="#6ca8ff" stroke-opacity=".5"/><text x="98" y="108" fill="#dceaff" font-family="Arial" font-size="18" font-weight="700">PLAYER CARD</text><text x="88" y="220" fill="#ffffff" font-family="Arial" font-size="62" font-weight="700">YOUR STORY</text><text x="92" y="274" fill="#b9c8e8" font-family="Arial" font-size="28">PROFILE • STATUS • PROGRESS</text><text x="92" y="466" fill="#7f91b8" font-family="Arial" font-size="21">BUILD YOUR NAME. BUILD YOUR CITY.</text><text x="92" y="520" fill="#d7e4ff" font-family="Arial" font-size="23" font-weight="700">BANDIT CITY / LOS SANTOS</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="shade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#030711" stop-opacity=".08"/><stop offset=".42" stop-color="#030711" stop-opacity=".12"/><stop offset="1" stop-color="#030711" stop-opacity=".93"/></linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#51d8ff"/><stop offset=".55" stop-color="#8c8bff"/><stop offset="1" stop-color="#ffbd72"/></linearGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <image href="profile-source.jpeg" x="0" y="0" width="1200" height="630" preserveAspectRatio="xMidYMid slice"/>
+  <rect width="1200" height="630" fill="url(#shade)"/>
+  <rect x="24" y="24" width="1152" height="582" rx="28" fill="none" stroke="url(#edge)" stroke-width="3" stroke-opacity=".9"/>
+  <rect x="62" y="62" width="278" height="44" rx="22" fill="#050a16" fill-opacity=".78" stroke="#65d9ff" stroke-opacity=".8"/>
+  <text x="84" y="91" font-family="Arial, sans-serif" font-size="19" font-weight="700" letter-spacing="3" fill="#d9faff">BANDIT CITY  /  ИГРОК</text>
+  <path d="M64 432 H430" stroke="#78bfff" stroke-width="4" filter="url(#glow)"/>
+  <text x="62" y="504" font-family="Arial, sans-serif" font-size="82" font-weight="900" letter-spacing="5" fill="#ffffff">ПРОФИЛЬ</text>
+  <text x="66" y="552" font-family="Arial, sans-serif" font-size="25" font-weight="700" letter-spacing="2" fill="#d9e6ff">ТВОЯ ИСТОРИЯ. ТВОЙ ГОРОД.</text>
+  <text x="66" y="585" font-family="Arial, sans-serif" font-size="17" letter-spacing="4" fill="#d4e4ed">СТАТУС • ПРОГРЕСС • РЕПУТАЦИЯ</text>
+</svg>
