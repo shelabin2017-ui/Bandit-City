@@ -330,7 +330,7 @@ def apply(bot):
                 f"🧾 Пополнение: {_money(spec['refill'])}/ед.\n\n{spec['desc']}").replace(",", " ")
     def buy_business(game, uid):
         return game.buy_business_type(uid, "airport")
-    def buy_business_type(game, uid, code):
+    def game_buy_business_type(game, uid, code):
         ok, result = game.db.buy_business_type(uid, code)
         if ok and not game.db.sms_task_rows(uid,["first_business"]).get("first_business",{}).get("completed",0):
             game.db.sms_task_complete(uid,"first_business")
@@ -342,7 +342,7 @@ def apply(bot):
     Game.profile = profile
     Game.business_info = business_info
     Game.buy_business = buy_business
-    Game.buy_business_type = buy_business_type
+    Game.buy_business_type = game_buy_business_type
     Game.upgrade_business = upgrade
     Game.refill_stock = lambda game, uid, amount: game.db.refill(uid, amount)
     Game.withdraw_business = lambda game, uid: game.db.withdraw(uid)
