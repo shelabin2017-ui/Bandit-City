@@ -891,7 +891,7 @@ class Database:
                 "ON CONFLICT(user_id) DO UPDATE SET plays=plays+1,wins=wins+excluded.wins,"
                 "losses=losses+excluded.losses,wagered=wagered+excluded.wagered,"
                 "profit=profit+excluded.profit,updated_at=excluded.updated_at",
-                (user_id, 1, 1 if won else 0, 0 if won else 1, wager, profit, now)
+                (user_id, 1, 1 if won is True else 0, 1 if won is False else 0, wager, profit, now)
             )
 
     def casino_stats(self, user_id):
