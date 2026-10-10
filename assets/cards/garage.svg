@@ -1,1 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#0b0a09"/><stop offset="1" stop-color="#2a1a10"/></linearGradient><linearGradient id="gold" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#d18a4d"/><stop offset="1" stop-color="#ffd08a"/></linearGradient></defs><rect width="1200" height="630" fill="url(#bg)"/><circle cx="1000" cy="315" r="250" fill="#4b2915" opacity=".5"/><circle cx="1000" cy="315" r="175" fill="none" stroke="#d18a4d" stroke-opacity=".3" stroke-width="3"/><path d="M770 440 L1115 190" stroke="#ffd08a" stroke-opacity=".13" stroke-width="80"/><rect x="48" y="48" width="1104" height="534" rx="36" fill="none" stroke="url(#gold)" stroke-opacity=".65" stroke-width="3"/><rect x="78" y="82" width="145" height="38" rx="19" fill="#d18a4d" opacity=".14" stroke="#d18a4d" stroke-opacity=".5"/><text x="98" y="108" fill="#ffe5c7" font-family="Arial" font-size="18" font-weight="700">NIGHT GARAGE</text><text x="88" y="220" fill="#ffffff" font-family="Arial" font-size="56" font-weight="700">LOS SANTOS GARAGE</text><text x="92" y="274" fill="#e0c5ad" font-family="Arial" font-size="28">CARS • SPEED • COLLECTION</text><text x="92" y="466" fill="#aa8d74" font-family="Arial" font-size="21">YOUR GARAGE. YOUR RULES. YOUR RIDE.</text><text x="92" y="520" fill="#ffe5cf" font-family="Arial" font-size="23" font-weight="700">BANDIT CITY / LOS SANTOS</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="shade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#05080c" stop-opacity=".08"/><stop offset=".48" stop-color="#05080c" stop-opacity=".12"/><stop offset="1" stop-color="#05080c" stop-opacity=".94"/></linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#4be6ff"/><stop offset=".55" stop-color="#d4a35e"/><stop offset="1" stop-color="#ffc36e"/></linearGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <image href="garage-source.jpeg" x="0" y="0" width="1200" height="630" preserveAspectRatio="xMidYMid slice"/>
+  <rect width="1200" height="630" fill="url(#shade)"/>
+  <rect x="24" y="24" width="1152" height="582" rx="28" fill="none" stroke="url(#edge)" stroke-width="3" stroke-opacity=".9"/>
+  <rect x="62" y="62" width="278" height="44" rx="22" fill="#080d12" fill-opacity=".76" stroke="#54dff5" stroke-opacity=".8"/>
+  <text x="84" y="91" font-family="Arial, sans-serif" font-size="19" font-weight="700" letter-spacing="3" fill="#d9faff">BANDIT CITY  /  АВТО</text>
+  <path d="M64 432 H370" stroke="#e7b56e" stroke-width="4" filter="url(#glow)"/>
+  <text x="62" y="504" font-family="Arial, sans-serif" font-size="82" font-weight="900" letter-spacing="5" fill="#ffffff">ГАРАЖ</text>
+  <text x="66" y="552" font-family="Arial, sans-serif" font-size="25" font-weight="700" letter-spacing="2" fill="#ffd99d">ТВОИ МАШИНЫ. ТВОИ ПРАВИЛА.</text>
+  <text x="66" y="585" font-family="Arial, sans-serif" font-size="17" letter-spacing="4" fill="#d4e4ed">КОЛЛЕКЦИЯ • СКОРОСТЬ • СТИЛЬ</text>
+</svg>
