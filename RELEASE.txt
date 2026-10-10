@@ -1,8 +1,7 @@
-BANDIT CITY VPS RELEASE
-Build: 2026-10-05
-Source commit: e258c0f05201f187153042fc74ede29541472e29
+BANDIT CITY RELEASE
+Build: 2026-10-10
+Announcement: Вышло обновление BANDIT CITY! Мы дорабатываем игровые механики, исправляем ошибки и улучшаем стабильность. Заходи в город и проверь изменения.
 
-This package is a runtime release for manual VPS deployment.
-GitHub Actions and .github are intentionally excluded.
-Do NOT place .env or bandit.db from this package over the existing VPS files.
-The deployment procedure must preserve the existing .env and bandit.db.
+Runtime package for manual VPS deployment.
+GitHub Actions are not required on the VPS.
+Never overwrite the existing .env or bandit.db during deployment.
