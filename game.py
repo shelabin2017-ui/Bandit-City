@@ -73,10 +73,82 @@ class Game:
         )
 
     def npc(self,uid,code):
-        if code not in self.NPCS: return "❌ NPC не найден."
+        if code not in self.NPCS:
+            return "❌ NPC не найден."
         title,desc=self.NPCS[code]
         progress=self.db.npc_value(uid,code)
-        return f"{title}\n\n{desc}\n\n⭐ Репутация: {progress}\n\n🎯 Доступные действия появятся по мере развития NPC."
+        actions = {
+            "dealer": "💰 Сделка дилера • ставка $20 000 • перерыв 10 мин.",
+            "fixer": "📜 Заказ фиксера • вход $10 000 • перерыв 15 мин.",
+            "mechanic": "🔧 Тюнинг авто • $75 000 за +5 скорости • перерыв 60 мин.",
+            "informant": "🕵️ Слух информатора • $5 000, снижение розыска • перерыв 5 мин.",
+        }
+        return f"{title}\n\n{desc}\n\n⭐ Репутация: {progress}\n\n🎯 Действие: {actions[code]}"
+
+    def npc_action(self,uid,code):
+        actions = {
+            "dealer": ("deal", 600),
+            "fixer": ("contract", 900),
+            "mechanic": ("tune", 3600),
+            "informant": ("tip", 300),
+        }
+        if code not in actions:
+            return "❌ Действие NPC не найдено."
+        action, cooldown = actions[code]
+        remaining = self.db.npc_cooldown_remaining(uid, code, action)
+        if remaining:
+            minutes, seconds = divmod(remaining, 60)
+            return f"⏳ Вернись через {minutes} мин. {seconds} сек."
+
+        user = self.db.user(uid)
+        if code == "dealer":
+            stake = 20_000
+            if int(user["balance"]) < stake:
+                return "❌ Для сделки дилера нужно $20 000 наличными."
+            self.db.add_money(uid, -stake)
+            self.db.status_change(uid, heat=3)
+            self.db.npc_set_cooldown(uid, code, action, cooldown)
+            if random.random() < 0.5:
+                payout = 40_000
+                self.db.add_money(uid, payout)
+                self.db.npc_set(uid, code, self.db.npc_value(uid, code) + 1)
+                return f"🤝 СДЕЛКА УДАЛАСЬ\n\n💵 Получено: {money(payout)}\n📈 Чистый результат: +{money(payout-stake)}"
+            return f"🚨 СДЕЛКА ПРОВАЛИЛАСЬ\n\n💸 Потеряно: {money(stake)}\n🚨 Розыск вырос на 3."
+
+        if code == "fixer":
+            fee = 10_000
+            if int(user["balance"]) < fee:
+                return "❌ Для заказа фиксера нужно $10 000 наличными."
+            self.db.add_money(uid, -fee)
+            self.db.npc_set_cooldown(uid, code, action, cooldown)
+            if random.random() < 0.5:
+                payout = 30_000
+                self.db.add_money(uid, payout)
+                self.db.status_change(uid, reputation=2)
+                self.db.npc_set(uid, code, self.db.npc_value(uid, code) + 1)
+                return f"📜 ЗАКАЗ ВЫПОЛНЕН\n\n💵 Награда: {money(payout)}\n📈 Чистый результат: +{money(payout-fee)}\n⭐ Репутация выросла."
+            self.db.status_change(uid, heat=5)
+            return f"❌ ЗАКАЗ СОРВАН\n\n💸 Потерян аванс: {money(fee)}\n🚨 Розыск вырос на 5."
+
+        if code == "mechanic":
+            ok, message = self.db.tune_car(uid)
+            if not ok:
+                return message
+            self.db.npc_set_cooldown(uid, code, action, cooldown)
+            self.db.npc_set(uid, code, self.db.npc_value(uid, code) + 1)
+            return message
+
+        fee = 5_000
+        if int(user["balance"]) < fee:
+            return "❌ Информатору нужно $5 000 наличными."
+        self.db.add_money(uid, -fee)
+        self.db.status_change(uid, heat=-15, reputation=1)
+        self.db.npc_set_cooldown(uid, code, action, cooldown)
+        self.db.city_event_seed()
+        events = self.db.city_event_list()
+        rumor = events[0]["title"] if events else "В городе пока тихо."
+        self.db.npc_set(uid, code, self.db.npc_value(uid, code) + 1)
+        return f"🕵️ СЛУХИ ИНФОРМАТОРА\n\n🗞️ {rumor}\n\n🚨 Розыск снижен на 15.\n💵 Оплата: {money(fee)}\n⭐ Репутация выросла."
     
     SMS_TASKS = {
         "first_job": ("💼 Первое дело", "Найди работу и выполни первую смену.", 25000, 20),
