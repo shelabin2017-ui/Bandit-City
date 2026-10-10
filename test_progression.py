@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from db import Database
 from game import Game
@@ -64,11 +65,36 @@ class ProgressionTests(unittest.TestCase):
         self.assertIn("NPC ГОРОДА", self.game.npc_menu(self.uid))
         self.assertIn("Дилер", self.game.npc(self.uid, "dealer"))
 
+    def test_npc_actions_cooldowns_and_car_tuning(self):
+        uid = self.db.get_or_create_user(700004)["id"]
+        self.db.add_money(uid, 500_000)
+        self.assertIn("успеш", self.db.buy_car(uid, "Falcon Compact").lower())
+
+        with patch("game.random.random", return_value=0.1):
+            dealer = self.game.npc_action(uid, "dealer")
+        self.assertIn("СДЕЛКА УДАЛАСЬ", dealer)
+        self.assertIn("Вернись через", self.game.npc_action(uid, "dealer"))
+
+        with patch("game.random.random", return_value=0.1):
+            fixer = self.game.npc_action(uid, "fixer")
+        self.assertIn("ЗАКАЗ ВЫПОЛНЕН", fixer)
+
+        before = self.db.cars(uid)[0]["speed"]
+        tune = self.game.npc_action(uid, "mechanic")
+        after = self.db.cars(uid)[0]["speed"]
+        self.assertIn("ТЮНИНГ ЗАВЕРШЁН", tune)
+        self.assertEqual(after, min(120, before + 5))
+
+        self.db.status_change(uid, heat=20)
+        tip = self.game.npc_action(uid, "informant")
+        self.assertIn("СЛУХИ ИНФОРМАТОРА", tip)
+        self.assertEqual(self.db.status(uid)["heat"], 8)
+
     def test_auxiliary_schema_exists(self):
         expected = {
             "mission_progress", "sms_task_progress", "sms_messages",
             "story_progress", "tutorial_progress", "player_status",
-            "city_events", "casino_stats", "phone_contacts", "npc_state",
+            "city_events", "casino_stats", "phone_contacts", "npc_state", "npc_cooldowns",
         }
         with self.db.connect() as c:
             tables = {
