@@ -72,6 +72,12 @@ class RoleTests(unittest.TestCase):
         self.assertIn("self.roles.set_role", panel)
         self.assertIn("self.roles.revoke", panel)
 
+    def test_documented_item_commands_are_wired(self):
+        root = Path(__file__).resolve().parent
+        bot = (root / "bot.py").read_text(encoding="utf-8")
+        self.assertIn('low == "/items"', bot)
+        self.assertIn('low.startswith("/sellitem ")', bot)
+
     def test_legacy_admin_ids_bootstrap(self):
         old_owner = os.environ.get("OWNER_VK_ID")
         old_admins = os.environ.get("ADMIN_IDS")
