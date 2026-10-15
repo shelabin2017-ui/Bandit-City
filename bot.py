@@ -167,15 +167,14 @@ def upload_card(user_id, key):
         return None
 
 
-def send_card(user_id, text, rows=None):
-    # Админская панель должна отправляться без карточки:
-    # VK иногда отклоняет комбинацию attachment + keyboard,
-    # после чего fallback удаляет клавиатуру.
+def send_card(user_id, text, rows=None, key=None):
+    # Для служебных экранов оставляем обычный текст; игровые разделы
+    # могут явно указать ключ карточки, чтобы короткий ответ не выбрал main.svg.
     t = str(text).lower()
-    if "админ" in t or "настройки" in t or "технический режим" in t:
+    if key is None and ("админ" in t or "настройки" in t or "технический режим" in t):
         send(user_id, text, rows)
         return
-    send(user_id, text, rows, upload_card(user_id, card_key(text)))
+    send(user_id, text, rows, upload_card(user_id, key or card_key(text)))
 
 
 def kb_main(is_admin=False, panel_label="👑 Админ-панель"):
@@ -500,24 +499,24 @@ def process(uid, text):
     if text == "🌆 События города":
         send(uid, game.city_events(user["id"]), [["📊 Мой статус"],["🏙️ Главное меню"]]); return
     if text == "💼 Работа":
-        send(uid, "💼 ВЫБЕРИ РАБОТУ", kb_work())
+        send_card(uid, "💼 ВЫБЕРИ РАБОТУ", kb_work(), key="work")
         return
     work_map = {"🚕 Таксист": "taxi", "🕵️ Федерал": "federal", "📦 Блок": "block", "🔗 Рефка": "refwork"}
     if text in work_map:
-        send(uid, game.work(user["id"], work_map[text]), kb_work())
+        send_card(uid, game.work(user["id"], work_map[text]), kb_work(), key="work")
         return
 
     if text == "🏢 Бизнес":
-        send(uid, game.business_info(user["id"]), kb_business())
+        send_card(uid, game.business_info(user["id"]), kb_business(), key="business")
         return
     if text == "🏭 Купить аэропорт":
-        send(uid, game.buy_business(user["id"]), kb_business())
+        send_card(uid, game.buy_business(user["id"]), kb_business(), key="business")
         return
     if text in ("📦 Склад", "ℹ️ Инфо"):
         send(uid, game.business_info(user["id"]), kb_business())
         return
     if text == "💰 Снять деньги":
-        send(uid, game.withdraw_business(user["id"]), kb_business())
+        send_card(uid, game.withdraw_business(user["id"]), kb_business(), key="business")
         return
     if text == "📦 Пополнить склад":
         set_state(uid, "stock")
@@ -525,20 +524,20 @@ def process(uid, text):
         return
     if low.startswith("/stock "):
         try:
-            send(uid, game.refill_stock(user["id"], int(text.split()[1])), kb_business())
+            send_card(uid, game.refill_stock(user["id"], int(text.split()[1])), kb_business(), key="business")
         except (ValueError, IndexError):
             send(uid, "Использование: /stock КОЛИЧЕСТВО", kb_business())
         return
 
     if text == "🚗 Авто":
-        send(uid, "🚗 АВТОСАЛОН LOS SANTOS", kb_auto())
+        send_card(uid, "🚗 АВТОСАЛОН LOS SANTOS", kb_auto(), key="garage")
         return
     cats = {"🚙 Обычные": "common", "🏎 Спорт": "sport", "🔥 Суперкары": "super", "💿 Лоурайдеры": "lowrider", "🚘 Спецтранспорт": "special"}
     if text in cats:
-        send(uid, game.catalog(cats[text]), kb_auto())
+        send_card(uid, game.catalog(cats[text]), kb_auto(), key="garage")
         return
     if text == "🚘 Гараж" or low == "/garage":
-        send(uid, game.garage(user["id"]), kb_auto())
+        send_card(uid, game.garage(user["id"]), kb_auto(), key="garage")
         return
     if low.startswith("/buycar "):
         try:
@@ -557,13 +556,13 @@ def process(uid, text):
         return
 
     if text == "🛒 Магазин":
-        msg, buttons = v5.shop_hub(); send(uid, msg, buttons); return
+        msg, buttons = v5.shop_hub(); send_card(uid, msg, buttons, key="shop"); return
     if text == "🛍️ Предметы":
-        msg, buttons = v5.item_shop(); send(uid, msg, buttons); return
+        msg, buttons = v5.item_shop(); send_card(uid, msg, buttons, key="shop"); return
     if text == "🎒 Инвентарь" or low == "/items":
-        msg, buttons = v5.inventory(db, uid); send(uid, msg, buttons); return
+        msg, buttons = v5.inventory(db, uid); send_card(uid, msg, buttons, key="shop"); return
     if text in ("🧥 Одежда", "👕 Одежда"):
-        msg, buttons = v5.clothing_menu(); send(uid, msg, buttons); return
+        msg, buttons = v5.clothing_menu(); send_card(uid, msg, buttons, key="shop"); return
     character_category_map = {
         "🧢 Головной убор": "🧢 Головные уборы",
         "💇 Волосы": "💇 Волосы",
@@ -572,15 +571,15 @@ def process(uid, text):
         "🥾 Обувь": "🥾 Обувь",
     }
     if text in character_category_map:
-        msg, buttons = v5.clothing_catalog(db, uid, character_category_map[text]); send(uid, msg, buttons); return
+        msg, buttons = v5.clothing_catalog(db, uid, character_category_map[text]); send_card(uid, msg, buttons, key="shop"); return
     if text == "🎪 Ивент-дропы":
-        msg, buttons = v5.event_catalog(); send(uid, msg, buttons); return
+        msg, buttons = v5.event_catalog(); send_card(uid, msg, buttons, key="event"); return
     if text in v5.CLOTHING:
-        msg, buttons = v5.clothing_catalog(db, uid, text); send(uid, msg, buttons); return
+        msg, buttons = v5.clothing_catalog(db, uid, text); send_card(uid, msg, buttons, key="shop"); return
     if text == "🔫 Оружие":
-        msg, buttons = v5.weapon_shop(); send(uid, msg, buttons); return
+        msg, buttons = v5.weapon_shop(); send_card(uid, msg, buttons, key="shop"); return
     if text == "💎 Премиум":
-        msg, buttons = v5.premium_shop(); send(uid, msg, buttons); return
+        msg, buttons = v5.premium_shop(); send_card(uid, msg, buttons, key="shop"); return
     if text == "👤 Персонаж":
         msg, buttons = v5.character(db, uid); send(uid, msg, buttons); return
     if text in ("↩️ В магазин", "🛒 В магазин"):
@@ -642,9 +641,9 @@ def process(uid, text):
         return
 
     if text == "🎰 Казино":
-        send(uid, "🎰 КАЗИНО\n\nМинимальная ставка $10 000.", kb_casino()); return
+        send_card(uid, "🎰 КАЗИНО\n\nМинимальная ставка $10 000.", kb_casino(), key="casino"); return
     if text == "📊 Статистика казино":
-        send(uid, game.casino_info(user["id"]), kb_casino()); return
+        send_card(uid, game.casino_info(user["id"]), kb_casino(), key="casino"); return
     if text == "🎯 Миссии":
         send(uid, game.missions(user["id"]), [["💼 Рабочая смена"], ["💵 Заработок"], ["🎰 Азарт"], ["🍀 Удача"], ["💰 Капитал"], ["🤝 Связи"], ["🏙️ Главное меню"]]); return
     mission_map={"💼 Рабочая смена":"work_3","💵 Заработок":"earn_100k","🎰 Азарт":"casino_3","🍀 Удача":"casino_win","💰 Капитал":"rich","🤝 Связи":"ref_1"}
@@ -687,7 +686,7 @@ def process(uid, text):
         code = npc_action_map[text]
         send(uid, game.npc_action(user["id"], code), kb_npc(code)); return
     if text in ("🎲 Кости", "🎰 Слоты", "🎯 Рулетка", "🃏 Blackjack"):
-        send(uid, game.casino(user["id"], text), kb_casino()); return
+        send_card(uid, game.casino(user["id"], text), kb_casino(), key="casino"); return
 
     if text == "🏦 Банк":
         u = db.user(user["id"])
@@ -709,14 +708,14 @@ def process(uid, text):
         except (ValueError, IndexError):
             send(uid, "Использование: /bank in SUM или /bank out SUM", kb_bank())
         return
-    if text == "🎁 Бонус" or low == "/daily": send(uid, game.daily(user["id"]), main_kb(uid)); return
+    if text == "🎁 Бонус" or low == "/daily": send_card(uid, game.daily(user["id"]), main_kb(uid), key="bonus"); return
     if text == "🏆 Достижения" or low == "/achievements": send(uid, game.achievements(user["id"]), main_kb(uid)); return
 
     if text == "👥 Игроки":
         send(uid, "👥 ИГРОКИ\n\n💸 Перевод — отправь VK ID и сумму\n/scam VK_ID — скам\n/rob VK_ID — ограбление\n/ref — реферальная ссылка\n/top — рейтинг", [["💸 Перевод", "/ref"], ["🏆 Рейтинг", "🏙️ Главное меню"]]); return
     if text == "💸 Перевод": set_state(uid, "pay"); send(uid, "💸 Введи двумя числами: VK_ID СУММА\n\nПример: 123456789 37500", [["❌ Отмена"]]); return
     if low == "/ref": send(uid, game.ref_link(user["id"]), main_kb(uid)); return
-    if low == "/top" or text == "🏆 Рейтинг": send(uid, game.top(), main_kb(uid)); return
+    if low == "/top" or text == "🏆 Рейтинг": send_card(uid, game.top(), main_kb(uid), key="rating"); return
     if low.startswith("/pay "):
         try:
             p = text.split(); send(uid, game.transfer(user["id"], int(p[1]), int(p[2])), main_kb(uid))
