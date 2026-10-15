@@ -79,7 +79,7 @@ EVENT_EXCLUSIVES = [
 
 EVENTS = {
     "founder": {"title":"👑 FOUNDER DROP", "description":"Первый закрытый дроп Bandit City.", "drops": ["founder_jacket"], "start_at":"2026-10-01T00:00:00Z", "end_at":"2026-10-15T00:00:00Z"},
-    "midnight": {"title":"🌙 НОЧНОЙ ЗАБЕГ", "description":"Ограниченное ночное событие: город после полуночи становится другим.", "drops": ["midnight_mask"], "start_at":"2026-10-06T00:00:00Z", "end_at":"2026-10-13T00:00:00Z"},
+    "midnight": {"title":"🌙 НОЧНОЙ ЗАБЕГ", "description":"Ограниченное ночное событие: город после полуночи становится другим.", "drops": ["midnight_mask"], "start_at":"2026-10-06T00:00:00Z", "end_at":"2026-10-31T00:00:00Z"},
     "nightfall": {"title":"🌑 NIGHTFALL", "description":"Ночная серия эксклюзивов.", "drops": ["nightfall_mask"], "start_at":"2026-10-20T00:00:00Z", "end_at":"2026-11-03T00:00:00Z"},
     "prime": {"title":"💎 BANDIT PRIME", "description":"Премиальный закрытый сезон.", "drops": ["prime_hair"], "start_at":"2026-11-10T00:00:00Z", "end_at":"2026-11-24T00:00:00Z"},
     "neon": {"title":"🌌 NEON CITY", "description":"Временный неоновый ивент.", "drops": ["neon_background"], "start_at":"2026-12-01T00:00:00Z", "end_at":"2027-01-01T00:00:00Z"},
