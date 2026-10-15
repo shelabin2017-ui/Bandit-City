@@ -17,6 +17,7 @@ from v5 import bridge as v5
 from admin_panel import AdminPanel
 from roles import RoleManager
 from role_ui import RoleUI
+from release import announce_new_release
 
 load_dotenv()
 TOKEN = os.getenv("VK_TOKEN", "").strip()
@@ -230,7 +231,17 @@ def kb_casino():
 def kb_phone():
     return [["👥 Контакты", "➕ Добавить контакт"], ["➖ Удалить контакт"], ["🤝 NPC города"], ["🏙️ Главное меню"]]
 
-def kb_npc():
+NPC_ACTION_BUTTONS = {
+    "dealer": "💰 Сделка дилера",
+    "fixer": "📜 Заказ фиксера",
+    "mechanic": "🔧 Тюнинг авто",
+    "informant": "🕵️ Слух информатора",
+}
+
+
+def kb_npc(code=None):
+    if code in NPC_ACTION_BUTTONS:
+        return [[NPC_ACTION_BUTTONS[code]], ["📱 Телефон"], ["🏙️ Главное меню"]]
     return [["💰 Дилер", "🕴️ Фиксер"], ["🔧 Механик", "🕵️ Информатор"], ["📱 Телефон"], ["🏙️ Главное меню"]]
 
 
@@ -351,7 +362,7 @@ def execute_broadcast(uid, message):
             "SELECT vk_id FROM users WHERE banned=0 ORDER BY id"
         ).fetchall()]
 
-    logging.info("Broadcast start: admin=%s targets=%s", uid, targets)
+    logging.info("Broadcast start: admin=%s total=%s", uid, len(targets))
     sent = 0
     skipped = 0
     failed = 0
@@ -378,11 +389,11 @@ def execute_broadcast(uid, message):
             result = vk.messages.send(
                 user_id=target,
                 random_id=random.randint(1, 2_147_483_647),
-                message="📢 BANDIT CITY\\n\\n" + str(message),
+                message="📢 BANDIT CITY\n\n" + str(message),
             )
             sent += 1
             logging.info("Broadcast sent: target=%s message_id=%s", target, result)
-            time.sleep(0.08)
+            time.sleep(0.35)
         except Exception as exc:
             failed += 1
             logging.exception("Broadcast failed for %s: %s", target, exc)
@@ -393,10 +404,10 @@ def execute_broadcast(uid, message):
     )
     send(
         uid,
-        "📢 Результат рассылки\\n\\n"
-        "✅ Отправлено: {}\\n"
-        "⏭️ Пропущено: {}\\n"
-        "❌ Ошибок: {}\\n"
+        "📢 Результат рассылки\n\n"
+        "✅ Отправлено: {}\n"
+        "⏭️ Пропущено: {}\n"
+        "❌ Ошибок: {}\n"
         "👥 Всего игроков: {}".format(sent, skipped, failed, len(targets)),
         [[role_ui.main_button(uid) or "👑 Админ-панель"]],
     )
@@ -536,7 +547,7 @@ def process(uid, text):
         msg, buttons = v5.shop_hub(); send(uid, msg, buttons); return
     if text == "🛍️ Предметы":
         msg, buttons = v5.item_shop(); send(uid, msg, buttons); return
-    if text == "🎒 Инвентарь":
+    if text == "🎒 Инвентарь" or low == "/items":
         msg, buttons = v5.inventory(db, uid); send(uid, msg, buttons); return
     if text in ("🧥 Одежда", "👕 Одежда"):
         msg, buttons = v5.clothing_menu(); send(uid, msg, buttons); return
@@ -566,6 +577,16 @@ def process(uid, text):
     item_choice = next((name for name, _ in v5.ITEMS if text.startswith(name + " — ")), None)
     if item_choice:
         msg, buttons = v5.buy_item(db, uid, item_choice); send(uid, msg, buttons); return
+    if low.startswith("/sellitem "):
+        try:
+            parts = text.split()
+            if len(parts) != 2:
+                raise ValueError
+            msg, buttons = v5.sell_item(db, uid, int(parts[1]))
+            send(uid, msg, buttons)
+        except (ValueError, IndexError):
+            send(uid, "Использование: /sellitem ID", [["🎒 Инвентарь"], ["🏙️ Главное меню"]])
+        return
     if text.startswith("🗑 Продать #"):
         try:
             msg, buttons = v5.sell_item(db, uid, int(text.split("#", 1)[1])); send(uid, msg, buttons)
@@ -646,7 +667,12 @@ def process(uid, text):
         send(uid, game.npc_menu(user["id"]), kb_npc()); return
     npc_map={"💰 Дилер":"dealer","🕴️ Фиксер":"fixer","🔧 Механик":"mechanic","🕵️ Информатор":"informant"}
     if text in npc_map:
-        send(uid, game.npc(user["id"],npc_map[text]),kb_npc()); return
+        code = npc_map[text]
+        send(uid, game.npc(user["id"], code), kb_npc(code)); return
+    npc_action_map = {label: code for code, label in NPC_ACTION_BUTTONS.items()}
+    if text in npc_action_map:
+        code = npc_action_map[text]
+        send(uid, game.npc_action(user["id"], code), kb_npc(code)); return
     if text in ("🎲 Кости", "🎰 Слоты", "🎯 Рулетка", "🃏 Blackjack"):
         send(uid, game.casino(user["id"], text), kb_casino()); return
 
@@ -752,6 +778,12 @@ def business_worker():
 
 
 def main():
+    # Release announcements run in the background so Long Poll starts immediately.
+    threading.Thread(
+        target=lambda: announce_new_release(db, vk, GROUP_ID),
+        name="release-announcement",
+        daemon=True,
+    ).start()
     threading.Thread(target=business_worker, daemon=True).start()
     logging.info("Bandit City запущен.")
     for event in longpoll.listen():
