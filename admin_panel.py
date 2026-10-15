@@ -211,12 +211,14 @@ class AdminPanel:
                     self._log(uid, "promo_toggle", None, code)
                     return True, "✅ Промокод переключён.", [["🎟 Промокоды"], ["👑 Админ-панель"]]
                 if st == "promo_add":
-                    parts = [x.strip() for x in text.split("|")]
+                    raw = text.strip().strip("`").strip()
+                    parts = [x.strip() for x in raw.split("|")]
                     if len(parts) not in (5, 7):
-                        return True, "❌ Формат: CODE|TITLE|CASH|XP|MAX_USES[|ITEM|SLOT]", [["👑 Админ-панель"]]
+                        return True, (f"❌ Получено полей: {len(parts)}. Нужно ровно 5 или 7, разделитель — |.\n"
+                                      "Пример с машиной: ZEROSHKA20|Подарок от Zeroshka20|2000000|2000|50|turismo|car"), [["👑 Админ-панель"]]
                     code, title, cash, xp, max_uses = parts[:5]
                     item = parts[5] if len(parts) == 7 else None
-                    slot = parts[6] if len(parts) == 7 else None
+                    slot = parts[6].lower() if len(parts) == 7 else None
                     try:
                         cash, xp, max_uses = int(cash), int(xp), int(max_uses)
                     except ValueError:
