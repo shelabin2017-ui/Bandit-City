@@ -116,20 +116,33 @@ def send(user_id, text, rows=None, attachment=None):
 
 def card_key(text):
     t = str(text).lower()
-    if "админ" in t or "admin" in t or "статист" in t:
+    if any(x in t for x in ("админ", "admin", "статист", "управлен")):
         return "admin"
-    if "магазин" in t or "оруж" in t or "одежд" in t:
+    if any(x in t for x in ("магазин", "оруж", "одежд", "предмет", "снаряж")):
         return "shop"
-    if "профил" in t or "создател" in t:
+    if any(x in t for x in ("профил", "создател", "личное дело")):
         return "profile"
-    if "авто" in t or "гараж" in t:
+    if any(x in t for x in ("авто", "гараж", "машин", "автосалон")):
         return "garage"
-    if "промокод" in t:
+    if any(x in t for x in ("промокод", "promo")):
         return "promo"
-    if "ивент" in t or "midnight" in t or "midnight run" in t or "событ" in t:
+    if any(x in t for x in ("ивент", "midnight", "событ", "задани", "награда")):
         return "event"
+    if any(x in t for x in ("работ", "професси", "карьер")):
+        return "work"
+    if any(x in t for x in ("бизнес", "предприят", "склад")):
+        return "business"
+    if any(x in t for x in ("казино", "рулет", "слот", "кости")):
+        return "casino"
+    if any(x in t for x in ("бонус", "ежеднев")):
+        return "bonus"
+    if any(x in t for x in ("рейтинг", "топ игрок")):
+        return "rating"
+    if any(x in t for x in ("игрок", "друз", "перевод", "телефон")):
+        return "players"
+    if any(x in t for x in ("настрой", "уведомлен")):
+        return "settings"
     return "main"
-
 
 def upload_card(user_id, key):
     if key in CARD_CACHE:
