@@ -432,25 +432,37 @@ class Database:
                 c.execute("UPDATE users SET xp=xp+? WHERE id=?",(promo["reward_xp"],user_id))
                 xp=c.execute("SELECT xp FROM users WHERE id=?",(user_id,)).fetchone()["xp"]
                 c.execute("UPDATE users SET level=? WHERE id=?",(xp//100+1,user_id))
+            reward_name = promo["reward_item"] or "Эксклюзивный бонус"
             if promo["reward_item"]:
-                c.execute(
-                    "INSERT OR IGNORE INTO v5_wardrobe(user_id,category,name,price,bought_at) VALUES(?,?,?,?,?)",
-                    (user_id,"🎟 PROMO",promo["reward_item"],0,int(time.time()))
-                )
-                now=int(time.time())
-                c.execute(
-                    "INSERT OR IGNORE INTO user_appearance(user_id,hair,clothes,pants,shoes,head,accessory,background,updated_at) VALUES(?,?,?,?,?,?,?,?,?)",
-                    (user_id,"default","default","default","default","default","none","city",now)
-                )
-                slot=promo["reward_slot"]
-                if slot in {"hair","clothes","pants","shoes","head","accessory"}:
-                    c.execute("UPDATE user_appearance SET "+slot+"=?, updated_at=? WHERE user_id=?",
-                              (promo["reward_item"],now,user_id))
+                slot = promo["reward_slot"]
+                now = int(time.time())
+                if slot == "car":
+                    from catalog import CARS
+                    car = next((x for x in CARS if x["id"] == promo["reward_item"]), None)
+                    if not car:
+                        raise ValueError("Unknown promo car id: " + str(promo["reward_item"]))
+                    c.execute(
+                        "INSERT INTO cars(user_id,model,category,speed,price,bought_at) VALUES(?,?,?,?,?,?)",
+                        (user_id, car["name"], car["category"], car["speed"], car["price"], now)
+                    )
+                    reward_name = car["name"]
+                else:
+                    c.execute(
+                        "INSERT OR IGNORE INTO v5_wardrobe(user_id,category,name,price,bought_at) VALUES(?,?,?,?,?)",
+                        (user_id,"🎟 PROMO",promo["reward_item"],0,now)
+                    )
+                    c.execute(
+                        "INSERT OR IGNORE INTO user_appearance(user_id,hair,clothes,pants,shoes,head,accessory,background,updated_at) VALUES(?,?,?,?,?,?,?,?,?)",
+                        (user_id,"default","default","default","default","default","none","city",now)
+                    )
+                    if slot in {"hair","clothes","pants","shoes","head","accessory"}:
+                        c.execute("UPDATE user_appearance SET "+slot+"=?, updated_at=? WHERE user_id=?",
+                                  (promo["reward_item"],now,user_id))
             c.execute("UPDATE promo_codes SET used_count=used_count+1 WHERE code=?",(code,))
             cash=f"${promo['reward_cash']:,}".replace(","," ")
             return True,("🎟 ПРОМОКОД АКТИВИРОВАН\n\n" +
                 f"✨ {promo['title']}\n💵 +{cash}\n⭐ +{promo['reward_xp']} XP\n" +
-                f"🎁 {promo['reward_item'] or 'Эксклюзивный бонус'}")
+                f"🎁 {reward_name}")
 
     def phone_contacts(self,user_id):
         with self.connect() as c:
