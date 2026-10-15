@@ -79,7 +79,10 @@ class BanditCoreTest(unittest.TestCase):
 
     def test_event_catalog_is_separate(self):
         self.assertEqual(len(EVENT_EXCLUSIVES), 8)
-        self.assertGreaterEqual(len(active_events()), 1)
+        from datetime import datetime, timezone
+        # Fixed instant inside an event window; do not depend on CI wall-clock time.
+        event_time = datetime(2026, 10, 10, 12, 0, tzinfo=timezone.utc)
+        self.assertGreaterEqual(len(active_events(event_time)), 1)
 
     def test_schema_columns_and_admin_import(self):
         with self.db.connect() as c:
