@@ -225,8 +225,13 @@ class AdminPanel:
                         return True, "❌ CODE и TITLE не могут быть пустыми.", [["👑 Админ-панель"]]
                     if cash < 0 or xp < 0 or max_uses < 0:
                         return True, "❌ CASH, XP и MAX_USES не могут быть отрицательными.", [["👑 Админ-панель"]]
-                    if slot and slot not in {"hair", "clothes", "pants", "shoes", "head", "accessory", "background"}:
-                        return True, "❌ Недопустимый слот награды.", [["👑 Админ-панель"]]
+                    allowed_slots = {"hair", "clothes", "pants", "shoes", "head", "accessory", "background", "car"}
+                    if slot and slot not in allowed_slots:
+                        return True, "❌ SLOT: hair/clothes/pants/shoes/head/accessory/background/car.", [["👑 Админ-панель"]]
+                    if slot == "car":
+                        from catalog import CARS
+                        if not any(x["id"] == item for x in CARS):
+                            return True, "❌ Неизвестная машина. Укажи ID: turismo, bullet или infernus.", [["👑 Админ-панель"]]
                     with self._conn() as c:
                         c.execute("INSERT OR REPLACE INTO promo_codes(code,title,reward_cash,reward_xp,reward_item,reward_slot,max_uses,used_count,active) VALUES(?,?,?,?,?,?,?,0,1)", (code.upper(), title, cash, xp, item or None, slot or None, max_uses))
                     self._log(uid, "promo_add", None, code.upper())
