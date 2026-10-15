@@ -1,16 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
-  <defs>
-    <linearGradient id="shade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#05080c" stop-opacity=".08"/><stop offset=".48" stop-color="#05080c" stop-opacity=".12"/><stop offset="1" stop-color="#05080c" stop-opacity=".94"/></linearGradient>
-    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#4be6ff"/><stop offset=".55" stop-color="#d4a35e"/><stop offset="1" stop-color="#ffc36e"/></linearGradient>
-    <filter id="glow"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-  </defs>
-  <image href="garage-source.jpeg" x="0" y="0" width="1200" height="630" preserveAspectRatio="xMidYMid slice"/>
-  <rect width="1200" height="630" fill="url(#shade)"/>
-  <rect x="24" y="24" width="1152" height="582" rx="28" fill="none" stroke="url(#edge)" stroke-width="3" stroke-opacity=".9"/>
-  <rect x="62" y="62" width="278" height="44" rx="22" fill="#080d12" fill-opacity=".76" stroke="#54dff5" stroke-opacity=".8"/>
-  <text x="84" y="91" font-family="Arial, sans-serif" font-size="19" font-weight="700" letter-spacing="3" fill="#d9faff">BANDIT CITY  /  АВТО</text>
-  <path d="M64 432 H370" stroke="#e7b56e" stroke-width="4" filter="url(#glow)"/>
-  <text x="62" y="504" font-family="Arial, sans-serif" font-size="82" font-weight="900" letter-spacing="5" fill="#ffffff">ГАРАЖ</text>
-  <text x="66" y="552" font-family="Arial, sans-serif" font-size="25" font-weight="700" letter-spacing="2" fill="#ffd99d">ТВОИ МАШИНЫ. ТВОИ ПРАВИЛА.</text>
-  <text x="66" y="585" font-family="Arial, sans-serif" font-size="17" letter-spacing="4" fill="#d4e4ed">КОЛЛЕКЦИЯ • СКОРОСТЬ • СТИЛЬ</text>
-</svg>
+ <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#05090e"/><stop offset=".52" stop-color="#101923"/><stop offset="1" stop-color="#17131a"/></linearGradient><linearGradient id="edge" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#e8b56d"/><stop offset="1" stop-color="#55d9f2"/></linearGradient><linearGradient id="shade" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#03070c" stop-opacity=".05"/><stop offset=".4" stop-color="#03070c" stop-opacity=".3"/><stop offset="1" stop-color="#03070c" stop-opacity=".94"/></linearGradient></defs>
+ <image href="garage-source.jpeg" x="0" y="0" width="1200" height="630" preserveAspectRatio="xMidYMid slice"/><rect width="1200" height="630" fill="url(#shade)"/>
+ <rect x="24" y="24" width="1152" height="582" rx="28" fill="none" stroke="url(#edge)" stroke-width="3" stroke-opacity=".88"/>
+ <rect x="62" y="62" width="340" height="44" rx="22" fill="#05090e" fill-opacity=".78" stroke="#e8b56d" stroke-opacity=".85"/>
+ <text x="84" y="91" font-family="Arial,sans-serif" font-size="19" font-weight="700" letter-spacing="3" fill="#f2f5f7">BANDIT CITY  /  АВТОПАРК</text>
+ <path d="M64 432 H440" stroke="#e8b56d" stroke-width="4"/>
+ <text x="62" y="504" font-family="Arial,sans-serif" font-size="78" font-weight="900" letter-spacing="2" fill="#ffffff">ГАРАЖ</text>
+ <text x="66" y="552" font-family="Arial,sans-serif" font-size="25" font-weight="700" fill="#e8b56d">ТВОИ МАШИНЫ. ТВОИ ПРАВИЛА.</text>
+ <text x="66" y="585" font-family="Arial,sans-serif" font-size="17" letter-spacing="3" fill="#d8e2e8">КОЛЛЕКЦИЯ • СКОРОСТЬ • СТИЛЬ</text></svg>
