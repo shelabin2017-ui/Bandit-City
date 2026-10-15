@@ -13,6 +13,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - run: python -m pip install -r requirements.txt
       - run: python -m py_compile bot.py admin_panel.py roles.py role_ui.py
       - run: python -m unittest -v test_roles.py
       - run: python -m unittest -v selftest.py
@@ -20,3 +21,12 @@ jobs:
       - run: python -m unittest -v test_status.py
       - run: python -m unittest -v test_admin.py
       - run: python -m unittest -v test_release.py
+      - run: python -m unittest -v test_cards.py
+      - name: Package deployable source ZIP
+        run: zip -r bandit-city-release.zip . -x ".git/*" ".env" "bandit.db" "*.db" "*/__pycache__/*" ".venv/*" "venv/*" "bandit-city-release.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bandit-city-release
+          path: bandit-city-release.zip
+          if-no-files-found: error
+          retention-days: 30
