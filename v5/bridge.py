@@ -77,14 +77,20 @@ def inventory(db,vk_id):
     return reply("\n".join(body),buttons)
 def clothing_menu():
     return reply("🧥 ОДЕЖДА LOS SANTOS\n\nПостоянные категории. Эксклюзивы выдаются отдельно.",[["🧢 Головные уборы","👕 Верх"],["👖 Брюки","🥾 Обувь"],["💍 Аксессуары","💇 Волосы"],["↩️ В магазин"],["👤 Персонаж","🏙️ Главное меню"]])
-def event_catalog():
+def event_catalog(db=None,vk_id=None):
     active=active_events()
+    uid=player_id_by_vk(db,vk_id) if db is not None and vk_id is not None else None
     body=["🎪 ИВЕНТ-ДРОПЫ","","🔒 Не продаются за обычные деньги.","Участие сохраняется в профиле игрока.", ""]
     buttons=[]
     for key,event in EVENTS.items():
         is_active=key in active
         state="🟢 АКТИВЕН" if is_active else "⚪ ЗАКРЫТ"
-        body += [f"📅 {event['title']} • {state}",event['description'],f"🎁 {len(event['drops'])} эксклюзивов",""]
+        body += [f"📅 {event['title']} • {state}",event['description']]
+        if is_active and event.get("goal_code") and uid is not None:
+            row=db.mission_rows(uid,[event["goal_code"]]).get(event["goal_code"],{})
+            progress=min(int(row.get("progress",0)),int(event.get("goal_target",1)))
+            body.append(f"🎯 Задача: {event.get('goal_label','Выполни условие')} • {progress}/{event.get('goal_target',1)}")
+        body += [f"🎁 {len(event['drops'])} эксклюзивов",""]
         if is_active: buttons.append([f"🎪 {event['title']}"])
     if not buttons: body.append("⏳ Сейчас активных ивентов нет.")
     buttons += [["↩️ В магазин"],["🏙️ Главное меню"]]
@@ -95,6 +101,19 @@ def participate_event(db,vk_id,event_key):
     if not event or event_key not in active_events():
         return reply("⏳ Это событие сейчас недоступно.", [["🎪 Ивент-дропы"],["🏙️ Главное меню"]])
     uid=player_id_by_vk(db,vk_id)
+    goal_code=event.get("goal_code")
+    if goal_code:
+        row=db.mission_rows(uid,[goal_code]).get(goal_code,{})
+        progress=int(row.get("progress",0))
+        target=int(event.get("goal_target",1))
+        if progress<target:
+            return reply(
+                f"🎯 ИВЕНТ: {event['title']}\n\n"
+                f"Задача: {event.get('goal_label','Выполни условие')}\n"
+                f"Прогресс: {min(progress,target)}/{target}\n\n"
+                "Награда откроется после выполнения условия. Прогресс засчитывается автоматически.",
+                [["🎪 Ивент-дропы"],["🏙️ Главное меню"]]
+            )
     created,_=db.event_participation(uid,event_key)
     if not created:
         history=db.event_history(uid)
