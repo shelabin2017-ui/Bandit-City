@@ -194,6 +194,7 @@ class Database:
                 heat INTEGER NOT NULL DEFAULT 0,
                 reputation INTEGER NOT NULL DEFAULT 0,
                 energy INTEGER NOT NULL DEFAULT 100,
+                hunger INTEGER NOT NULL DEFAULT 0,
                 last_update INTEGER NOT NULL
             );
             CREATE TABLE IF NOT EXISTS city_events(
@@ -248,6 +249,7 @@ class Database:
             self.add_column(c, "users", "referrals", "INTEGER NOT NULL DEFAULT 0")
             self.add_column(c, "users", "banned", "INTEGER NOT NULL DEFAULT 0")
             self.add_column(c, "users", "onboarding_done", "INTEGER NOT NULL DEFAULT 0")
+            self.add_column(c, "player_status", "hunger", "INTEGER NOT NULL DEFAULT 0")
             self.add_column(c, "users", "nickname", "TEXT")
             self.add_column(c, "user_appearance", "pants", "TEXT NOT NULL DEFAULT 'default'")
             self.add_column(c, "user_appearance", "shoes", "TEXT NOT NULL DEFAULT 'default'")
@@ -583,27 +585,45 @@ class Database:
             return bool(r and r["banned"])
 
     def status(self,user_id):
+        """Apply offline needs simulation safely whenever a player opens a status screen or acts."""
         now=int(time.time())
         with self.connect() as c:
             r=c.execute("SELECT * FROM player_status WHERE user_id=?",(user_id,)).fetchone()
             if not r:
-                c.execute("INSERT INTO player_status(user_id,heat,reputation,energy,last_update) VALUES(?,?,?,?,?)",(user_id,0,0,100,now))
+                c.execute("INSERT INTO player_status(user_id,heat,reputation,energy,hunger,last_update) VALUES(?,?,?,?,?,?)",(user_id,0,0,100,0,now))
                 return c.execute("SELECT * FROM player_status WHERE user_id=?",(user_id,)).fetchone()
             elapsed=max(0,now-int(r["last_update"]))
-            energy=min(100,int(r["energy"])+elapsed//60*5)
+            intervals=elapsed//60
+            hunger=min(100,int(r["hunger"])+elapsed//300)
+            regen=intervals*5 if hunger<90 else intervals
+            energy=max(0,min(100,int(r["energy"])+regen))
+            if hunger>=100 and intervals:
+                energy=max(0,energy-intervals*2)
             heat=max(0,int(r["heat"])-elapsed//300)
-            c.execute("UPDATE player_status SET energy=?,heat=?,last_update=? WHERE user_id=?",(energy,heat,now,user_id))
+            c.execute("UPDATE player_status SET energy=?,hunger=?,heat=?,last_update=? WHERE user_id=?",(energy,hunger,heat,now,user_id))
             return c.execute("SELECT * FROM player_status WHERE user_id=?",(user_id,)).fetchone()
 
-    def status_change(self,user_id,heat=0,reputation=0,energy=0):
+    def status_change(self,user_id,heat=0,reputation=0,energy=0,hunger=0):
         r=self.status(user_id)
         now=int(time.time())
         h=max(0,min(100,int(r["heat"])+int(heat)))
         rep=max(-1000,min(1000,int(r["reputation"])+int(reputation)))
         en=max(0,min(100,int(r["energy"])+int(energy)))
+        hu=max(0,min(100,int(r["hunger"])+int(hunger)))
         with self.connect() as c:
-            c.execute("UPDATE player_status SET heat=?,reputation=?,energy=?,last_update=? WHERE user_id=?",(h,rep,en,now,user_id))
+            c.execute("UPDATE player_status SET heat=?,reputation=?,energy=?,hunger=?,last_update=? WHERE user_id=?",(h,rep,en,hu,now,user_id))
         return self.status(user_id)
+
+    def consume_inventory_item(self,user_id,item_id):
+        """Atomically remove an owned consumable; returns its name or None."""
+        with self.connect() as c:
+            row=c.execute("SELECT id,name FROM items WHERE id=? AND user_id=?",(int(item_id),int(user_id))).fetchone()
+            if not row:
+                return None
+            if not any(word in str(row["name"]).lower() for word in ("бургер","сэндвич","вода","энергетик","еда","кофе")):
+                return ""
+            c.execute("DELETE FROM items WHERE id=? AND user_id=?",(int(item_id),int(user_id)))
+            return str(row["name"])
 
     def city_event_list(self):
         with self.connect() as c:
