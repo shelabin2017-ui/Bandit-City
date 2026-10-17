@@ -1,5 +1,6 @@
 import os
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 
@@ -36,6 +37,8 @@ class ProgressionTests(unittest.TestCase):
 
     def test_tutorial_completion_opens_city(self):
         for _ in range(len(self.game.TUTORIAL)):
+            if int(self.db.tutorial(self.uid)["step"]) == 1:
+                self.db.sms_task_complete(self.uid, "first_job")
             self.game.tutorial_next(self.uid)
         self.assertTrue(self.db.tutorial(self.uid)["completed"])
         self.assertFalse(self.db.needs_onboarding(self.uid))
