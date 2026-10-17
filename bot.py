@@ -610,7 +610,7 @@ def process(uid, text):
     if text in character_category_map:
         msg, buttons = v5.clothing_catalog(db, uid, character_category_map[text]); send_card(uid, msg, buttons, key="shop"); return
     if text == "🎪 Ивент-дропы":
-        msg, buttons = v5.event_catalog(); send_card(uid, msg, buttons, key="event"); return
+        msg, buttons = v5.event_catalog(db, uid); send_card(uid, msg, buttons, key="event"); return
     if text in v5.CLOTHING:
         msg, buttons = v5.clothing_catalog(db, uid, text); send_card(uid, msg, buttons, key="shop"); return
     if text == "🔫 Оружие":
