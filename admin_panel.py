@@ -243,7 +243,7 @@ class AdminPanel:
                     if len(title) > 120:
                         return True, "❌ Название промокода — максимум 120 символов.", [["👑 Админ-панель"]]
                     if cash < 0 or xp < 0 or max_uses < 0 or expires_hours < 0 or expires_hours > 8760:
-                        return True, "❌ CASH, XP, MAX_USES и срок (0–8760 часов) должны быть неотрицательными.", [["👑 Админ-панель"]]
+                        return True, "❌ CASH, XP и MAX_USES не могут быть отрицательными; срок должен быть от 0 до 8760 часов.", [["👑 Админ-панель"]]
                     allowed_slots = {"hair", "clothes", "pants", "shoes", "head", "accessory", "background", "car"}
                     if slot and slot not in allowed_slots:
                         return True, "❌ SLOT: hair/clothes/pants/shoes/head/accessory/background/car.", [["👑 Админ-панель"]]
