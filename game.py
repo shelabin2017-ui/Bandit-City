@@ -242,7 +242,16 @@ class Game:
         "ref_1": ("🤝 Связи", 1, "Пригласи игрока.", 100000, 70),
     }
 
+    def sync_milestones(self,uid):
+        """Reconcile milestone-style quests from authoritative player state."""
+        user=self.db.user(uid)
+        rows=self.db.mission_rows(uid,["rich"])
+        current=rows.get("rich",{}).get("progress",0)
+        if user and int(user["balance"])>=1_000_000 and int(current)<1:
+            self.db.mission_add(uid,"rich",1)
+
     def missions(self,uid):
+        self.sync_milestones(uid)
         rows=self.db.mission_rows(uid,list(self.MISSIONS))
         out=["🎯 МИССИИ",""]
         for code,(title,target,desc,cash,xp) in self.MISSIONS.items():
@@ -254,6 +263,7 @@ class Game:
         return "\n\n".join(out)
 
     def claim_mission(self,uid,code):
+        self.sync_milestones(uid)
         if code not in self.MISSIONS:
             return "❌ Миссия не найдена."
         _,target,_,cash,xp=self.MISSIONS[code]
@@ -400,6 +410,7 @@ class Game:
 
     def apply_referral(self,uid,code):
         if self.db.referral(uid,code):
+            self.db.mission_add(uid,"ref_1",1)
             return "🎁 Реферал активирован! Ты получил $50 000."
         return None
 
