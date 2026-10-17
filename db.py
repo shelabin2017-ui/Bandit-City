@@ -195,6 +195,8 @@ class Database:
                 reputation INTEGER NOT NULL DEFAULT 0,
                 energy INTEGER NOT NULL DEFAULT 100,
                 hunger INTEGER NOT NULL DEFAULT 0,
+                hunger_updated_at INTEGER NOT NULL DEFAULT 0,
+                heat_updated_at INTEGER NOT NULL DEFAULT 0,
                 last_update INTEGER NOT NULL
             );
             CREATE TABLE IF NOT EXISTS city_events(
@@ -250,6 +252,10 @@ class Database:
             self.add_column(c, "users", "banned", "INTEGER NOT NULL DEFAULT 0")
             self.add_column(c, "users", "onboarding_done", "INTEGER NOT NULL DEFAULT 0")
             self.add_column(c, "player_status", "hunger", "INTEGER NOT NULL DEFAULT 0")
+            self.add_column(c, "player_status", "hunger_updated_at", "INTEGER NOT NULL DEFAULT 0")
+            self.add_column(c, "player_status", "heat_updated_at", "INTEGER NOT NULL DEFAULT 0")
+            c.execute("UPDATE player_status SET hunger_updated_at=last_update WHERE hunger_updated_at=0")
+            c.execute("UPDATE player_status SET heat_updated_at=last_update WHERE heat_updated_at=0")
             self.add_column(c, "users", "nickname", "TEXT")
             self.add_column(c, "user_appearance", "pants", "TEXT NOT NULL DEFAULT 'default'")
             self.add_column(c, "user_appearance", "shoes", "TEXT NOT NULL DEFAULT 'default'")
@@ -585,26 +591,32 @@ class Database:
             return bool(r and r["banned"])
 
     def status(self,user_id):
-        """Apply offline needs simulation safely whenever a player opens a status screen or acts."""
+        """Apply offline needs simulation without losing time on frequent reads."""
         now=int(time.time())
         with self.connect() as c:
             r=c.execute("SELECT * FROM player_status WHERE user_id=?",(user_id,)).fetchone()
             if not r:
-                c.execute("INSERT INTO player_status(user_id,heat,reputation,energy,hunger,last_update) VALUES(?,?,?,?,?,?)",(user_id,0,0,100,0,now))
+                c.execute("INSERT INTO player_status(user_id,heat,reputation,energy,hunger,hunger_updated_at,heat_updated_at,last_update) VALUES(?,?,?,?,?,?,?,?)",(user_id,0,0,100,0,now,now,now))
                 return c.execute("SELECT * FROM player_status WHERE user_id=?",(user_id,)).fetchone()
-            elapsed=max(0,now-int(r["last_update"]))
-            # Keep unprocessed seconds so frequent profile/status reads never
-            # reset regeneration or hunger accumulation.
-            processed=(elapsed//60)*60
-            intervals=processed//60
-            hunger=min(100,int(r["hunger"])+processed//300)
-            regen=intervals*5 if hunger<90 else intervals
+            energy_elapsed=max(0,now-int(r["last_update"]))
+            energy_processed=(energy_elapsed//60)*60
+            energy_intervals=energy_processed//60
+            hunger_base=int(r["hunger_updated_at"] or r["last_update"])
+            hunger_elapsed=max(0,now-hunger_base)
+            hunger_steps=hunger_elapsed//300
+            hunger=min(100,int(r["hunger"])+hunger_steps)
+            heat_base=int(r["heat_updated_at"] or r["last_update"])
+            heat_elapsed=max(0,now-heat_base)
+            heat_steps=heat_elapsed//300
+            regen=energy_intervals*5 if hunger<90 else energy_intervals
             energy=max(0,min(100,int(r["energy"])+regen))
-            if hunger>=100 and intervals:
-                energy=max(0,energy-intervals*2)
-            heat=max(0,int(r["heat"])-processed//300)
-            last_update=int(r["last_update"])+processed
-            c.execute("UPDATE player_status SET energy=?,hunger=?,heat=?,last_update=? WHERE user_id=?",(energy,hunger,heat,last_update,user_id))
+            if hunger>=100 and energy_intervals:
+                energy=max(0,energy-energy_intervals*2)
+            heat=max(0,int(r["heat"])-heat_steps)
+            last_update=int(r["last_update"])+energy_processed
+            hunger_updated_at=hunger_base+hunger_steps*300
+            heat_updated_at=heat_base+heat_steps*300
+            c.execute("UPDATE player_status SET energy=?,hunger=?,heat=?,last_update=?,hunger_updated_at=?,heat_updated_at=? WHERE user_id=?",(energy,hunger,heat,last_update,hunger_updated_at,heat_updated_at,user_id))
             return c.execute("SELECT * FROM player_status WHERE user_id=?",(user_id,)).fetchone()
 
     def status_change(self,user_id,heat=0,reputation=0,energy=0,hunger=0):
