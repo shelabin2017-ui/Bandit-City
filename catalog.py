@@ -79,9 +79,9 @@ EVENT_EXCLUSIVES = [
 
 EVENTS = {
     "founder": {"title":"👑 FOUNDER DROP", "description":"Первый закрытый дроп Bandit City.", "drops": ["founder_jacket"], "start_at":"2026-10-01T00:00:00Z", "end_at":"2026-10-15T00:00:00Z"},
-    "midnight": {"title":"🌙 НОЧНОЙ ЗАБЕГ", "description":"Ограниченное ночное событие: город после полуночи становится другим.", "drops": ["midnight_mask"], "start_at":"2026-10-06T00:00:00Z", "end_at":"2026-10-31T00:00:00Z"},
-    "nightfall": {"title":"🌑 NIGHTFALL", "description":"Ночная серия эксклюзивов.", "drops": ["nightfall_mask"], "start_at":"2026-10-20T00:00:00Z", "end_at":"2026-11-03T00:00:00Z"},
-    "prime": {"title":"💎 BANDIT PRIME", "description":"Премиальный закрытый сезон.", "drops": ["prime_hair"], "start_at":"2026-11-10T00:00:00Z", "end_at":"2026-11-24T00:00:00Z"},
+    "midnight": {"title":"🌙 НОЧНОЙ ЗАБЕГ", "description":"Ограниченное ночное событие: город после полуночи становится другим.", "drops": ["midnight_mask"], "start_at":"2026-10-06T00:00:00Z", "end_at":"2026-10-31T00:00:00Z", "goal_code":"event_midnight_work", "goal_action":"work", "goal_target":3, "goal_label":"Выполни 3 рабочие смены"},
+    "nightfall": {"title":"🌑 NIGHTFALL", "description":"Ночная серия эксклюзивов.", "drops": ["nightfall_mask"], "start_at":"2026-10-20T00:00:00Z", "end_at":"2026-11-03T00:00:00Z", "goal_code":"event_nightfall_car", "goal_action":"buy_car", "goal_target":1, "goal_label":"Купи первую машину"},
+    "prime": {"title":"💎 BANDIT PRIME", "description":"Премиальный закрытый сезон.", "drops": ["prime_hair"], "start_at":"2026-11-10T00:00:00Z", "end_at":"2026-11-24T00:00:00Z", "goal_code":"event_prime_business", "goal_action":"buy_business", "goal_target":1, "goal_label":"Открой первый бизнес"},
     "neon": {"title":"🌌 NEON CITY", "description":"Временный неоновый ивент.", "drops": ["neon_background"], "start_at":"2026-12-01T00:00:00Z", "end_at":"2027-01-01T00:00:00Z"},
     "blackout": {"title":"🖤 BLACKOUT", "description":"Секретный лимитированный дроп.", "drops": ["blackout_chain"], "start_at":"2027-01-05T00:00:00Z", "end_at":"2027-01-12T00:00:00Z"},
     "anniversary": {"title":"🎉 BANDIT CITY ANNIVERSARY", "description":"Редкие награды за годовщину проекта.", "drops": ["bandit_legend", "golden_bullet"], "start_at":"2027-02-01T00:00:00Z", "end_at":"2027-02-15T00:00:00Z"},
