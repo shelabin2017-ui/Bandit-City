@@ -156,8 +156,12 @@ def upload_card(user_id, key):
                 appearance = db.appearance(player['id'])
                 cache_key = 'profile-player-{}-{}'.format(user_id, int(appearance['updated_at']))
                 svg = CARD_DIR / (cache_key + '.svg')
-                if cache_key not in CARD_CACHE and not svg.exists():
-                    base = (CARD_DIR / 'profile.svg').read_text(encoding='utf-8')
+                profile_template = CARD_DIR / 'profile.svg'
+                # Rebuild per-player artwork when the shared template changes.
+                # Otherwise an old profile-player-*.svg survives deployments and
+                # keeps showing the previous card even after the template is updated.
+                if not svg.exists() or svg.stat().st_mtime < profile_template.stat().st_mtime:
+                    base = profile_template.read_text(encoding='utf-8')
                     slots = [('ГОЛОВА', appearance['head']), ('ВЕРХ', appearance['clothes']), ('АКСЕССУАР', appearance['accessory']), ('БРЮКИ', appearance['pants']), ('ОБУВЬ', appearance['shoes']), ('ВОЛОСЫ', appearance['hair'])]
                     lines = ['<g font-family="Arial,sans-serif" font-weight="700">', '<rect x="720" y="360" width="410" height="205" rx="20" fill="#05090e" fill-opacity=".86" stroke="#78bfff" stroke-opacity=".9"/>', '<text x="750" y="395" font-size="19" letter-spacing="2" fill="#78bfff">ЭКИПИРОВКА ПЕРСОНАЖА</text>']
                     y = 430
