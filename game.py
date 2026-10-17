@@ -47,6 +47,13 @@ class Game:
         "informant": ("🕵️ Информатор", "Слухи о городе и особые задания."),
     }
 
+    def record_event_action(self,uid,action,amount=1):
+        """Count actions only while a matching time-limited event is active."""
+        from catalog import active_events
+        for event in active_events().values():
+            if event.get("goal_action") == action and event.get("goal_code"):
+                self.db.mission_add(uid,event["goal_code"],amount)
+
     def phone(self,uid):
         rows=self.db.phone_contacts(uid)
         if not rows:
@@ -378,6 +385,7 @@ class Game:
             self.db.sms_add(uid,"📱 Неизвестный номер","Первое дело сделано. Теперь город знает, что ты умеешь работать.","first_job",25000,20)
         self.db.mission_add(uid,"work_3",1)
         self.db.mission_add(uid,"earn_100k",reward)
+        self.record_event_action(uid,"work",1)
         return f"✅ {name}\n💵 +{money(reward)}\n✨ +{xp} XP"
 
     def business_info(self,uid):
@@ -397,6 +405,7 @@ class Game:
     def buy_business(self,uid):
         result=self.db.buy_business(uid)
         if "успеш" in result.lower() or "куплен" in result.lower():
+            self.record_event_action(uid,"buy_business",1)
             if not self.db.sms_task_rows(uid,["first_business"]).get("first_business",{}).get("completed",0):
                 self.db.sms_task_complete(uid,"first_business")
                 self.db.sms_add(uid,"🕴️ Фиксер","Теперь у тебя есть своё дело. Деньги любят тех, кто умеет ими управлять.","first_business",100000,50)
@@ -445,6 +454,7 @@ class Game:
     def buy_car(self,uid,model):
         result=self.db.buy_car(uid,model)
         if "успеш" in result.lower() or "куплен" in result.lower():
+            self.record_event_action(uid,"buy_car",1)
             if not self.db.sms_task_rows(uid,["first_car"]).get("first_car",{}).get("completed",0):
                 self.db.sms_task_complete(uid,"first_car")
                 self.db.sms_add(uid,"🔧 Механик","Поздравляю с первой машиной. Заезжай, если понадобится ремонт.","first_car",50000,30)
