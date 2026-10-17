@@ -593,14 +593,18 @@ class Database:
                 c.execute("INSERT INTO player_status(user_id,heat,reputation,energy,hunger,last_update) VALUES(?,?,?,?,?,?)",(user_id,0,0,100,0,now))
                 return c.execute("SELECT * FROM player_status WHERE user_id=?",(user_id,)).fetchone()
             elapsed=max(0,now-int(r["last_update"]))
-            intervals=elapsed//60
-            hunger=min(100,int(r["hunger"])+elapsed//300)
+            # Keep unprocessed seconds so frequent profile/status reads never
+            # reset regeneration or hunger accumulation.
+            processed=(elapsed//60)*60
+            intervals=processed//60
+            hunger=min(100,int(r["hunger"])+processed//300)
             regen=intervals*5 if hunger<90 else intervals
             energy=max(0,min(100,int(r["energy"])+regen))
             if hunger>=100 and intervals:
                 energy=max(0,energy-intervals*2)
-            heat=max(0,int(r["heat"])-elapsed//300)
-            c.execute("UPDATE player_status SET energy=?,hunger=?,heat=?,last_update=? WHERE user_id=?",(energy,hunger,heat,now,user_id))
+            heat=max(0,int(r["heat"])-processed//300)
+            last_update=int(r["last_update"])+processed
+            c.execute("UPDATE player_status SET energy=?,hunger=?,heat=?,last_update=? WHERE user_id=?",(energy,hunger,heat,last_update,user_id))
             return c.execute("SELECT * FROM player_status WHERE user_id=?",(user_id,)).fetchone()
 
     def status_change(self,user_id,heat=0,reputation=0,energy=0,hunger=0):
