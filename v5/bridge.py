@@ -10,6 +10,7 @@ ITEMS = [
     ("💇 Волосы", 30000), ("📱 Burner Phone", 65000), ("🧰 Набор отмычек", 85000),
     ("🩹 Аптечка", 30000), ("⚡ Энергетик", 15000), ("🎭 Маска", 45000),
     ("🛡 Бронежилет", 180000), ("🧰 Инструменты", 95000), ("🍀 Счастливый жетон", 125000),
+    ("🍔 Бургер", 12000), ("🥪 Сэндвич", 8000), ("💧 Вода", 3000),
     ("🎁 Подарочный бокс", 200000),
 ]
 
@@ -65,6 +66,8 @@ def inventory(db,vk_id):
     for row in rows:
         body += ["📦 "+row["name"],"💵 Цена: "+money(row["price"]),""]
         sell_buttons.append("🗑 Продать #"+str(row["id"]))
+        if any(word in str(row["name"]).lower() for word in ("бургер","сэндвич","вода","энергетик","еда","кофе")):
+            sell_buttons.append("🍔 Использовать #"+str(row["id"]))
     # Reserve 3 rows for navigation; keep inventory actions within 7 rows.
     for i in range(0, len(sell_buttons), 2):
         if len(buttons) >= 7:

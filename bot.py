@@ -207,7 +207,8 @@ def kb_main(is_admin=False, panel_label="👑 Админ-панель"):
         ["🎰 Казино", "🎁 Бонус"],
         ["👥 Игроки", "🏆 Рейтинг"],
         ["🏆 Достижения", "🎯 Миссии"],
-        ["📊 Мой статус", "🌆 События города"],
+        ["📊 Мой статус", "🍔 Потребности"],
+        ["🌆 События города", "🎒 Инвентарь"],
         ["📱 Телефон", "📩 СМС"],
         ["⚙️ Настройки", "❓ Помощь"],
         ["📚 Ещё", panel_label] if is_admin else ["📚 Ещё"],
@@ -250,7 +251,7 @@ def kb_business():
 
 
 def kb_work():
-    return [["🚕 Таксист", "🕵️ Федерал"], ["📦 Блок", "🔗 Рефка"], ["🏙️ Главное меню"]]
+    return [["🚕 Таксист", "🕵️ Федерал"], ["📦 Блок", "🔗 Рефка"], ["🎓 Обучение"], ["🏙️ Главное меню"]]
 
 
 def kb_auto():
@@ -458,6 +459,15 @@ def process(uid, text):
         return
 
     if db.needs_onboarding(user["id"]):
+        # Let the required first-job action run while onboarding is still active.
+        if text == "💼 Работа":
+            send_card(uid, "🎓 ЭТАП ОБУЧЕНИЯ: ПЕРВАЯ РАБОТА\n\nВыбери профессию и выполни смену, чтобы получить деньги и опыт.", kb_work(), key="work")
+            return
+        onboarding_work_map = {"🚕 Таксист": "taxi", "🕵️ Федерал": "federal", "📦 Блок": "block", "🔗 Рефка": "refwork"}
+        if text in onboarding_work_map:
+            result = game.work(user["id"], onboarding_work_map[text])
+            send_card(uid, result + "\n\n📩 После первой смены вернись в «🎓 Обучение» и продолжи сюжет.", kb_work(), key="work")
+            return
         # Handle tutorial navigation before the generic welcome branch.
         # Otherwise every "▶️ Далее" hits needs_onboarding() again and
         # returns to step 1 forever.
@@ -514,8 +524,8 @@ def process(uid, text):
         send_card(uid, creator_text(), [["🏙️ Главное меню"]])
         return
 
-    if text == "📊 Мой статус":
-        send(uid, game.status(user["id"]), [["👤 Профиль"],["🌆 События города"],["🏙️ Главное меню"]]); return
+    if text in ("📊 Мой статус", "🍔 Потребности"):
+        send(uid, game.status(user["id"]), [["🎒 Инвентарь"],["🛒 Магазин"],["🌆 События города"],["🏙️ Главное меню"]]); return
     if text == "🌆 События города":
         send(uid, game.city_events(user["id"]), [["📊 Мой статус"],["🏙️ Главное меню"]]); return
     if text == "💼 Работа":
@@ -581,6 +591,13 @@ def process(uid, text):
         msg, buttons = v5.item_shop(); send_card(uid, msg, buttons, key="shop"); return
     if text == "🎒 Инвентарь" or low == "/items":
         msg, buttons = v5.inventory(db, uid); send_card(uid, msg, buttons, key="shop"); return
+    if text.startswith("🍔 Использовать #"):
+        try:
+            item_id = int(text.split("#", 1)[1])
+            send(uid, game.eat_item(user["id"], item_id), [["🎒 Инвентарь"], ["🍔 Потребности"], ["🏙️ Главное меню"]])
+        except ValueError:
+            send(uid, "❌ Неверный номер предмета.", [["🎒 Инвентарь"], ["🏙️ Главное меню"]])
+        return
     if text in ("🧥 Одежда", "👕 Одежда"):
         msg, buttons = v5.clothing_menu(); send_card(uid, msg, buttons, key="shop"); return
     character_category_map = {
@@ -677,7 +694,21 @@ def process(uid, text):
     if text == "📖 Сюжет":
         send(uid, game.story(user["id"]), [["📖 Следующая глава"], ["🏙️ Главное меню"]]); return
     if text == "📖 Следующая глава":
-        r=db.story(user["id"]); db.story_set(user["id"], min(int(r["chapter"])+1, len(game.STORY)), 0)
+        r = db.story(user["id"])
+        chapter = int(r["chapter"])
+        if chapter == 1 and not db.sms_task_rows(user["id"], ["first_job"]).get("first_job", {}).get("completed", 0):
+            send(uid, "📖 ГЛАВА ЗАКРЫТА\n\nСначала выполни первую рабочую смену — сюжет не продвигается без реального действия.", [["💼 Работа"], ["📖 Сюжет"], ["🏙️ Главное меню"]])
+            return
+        if chapter == 2:
+            tasks = db.sms_task_rows(user["id"], ["first_car", "first_business"])
+            missing = [label for code, label in (("first_car", "купи первую машину"), ("first_business", "открой первый бизнес")) if not tasks.get(code, {}).get("completed", 0)]
+            if missing:
+                send(uid, "📖 ГЛАВА ЗАКРЫТА\n\nЧтобы открыть следующую главу, нужно: " + " и ".join(missing) + ".", [["🚗 Авто"], ["🏢 Бизнес"], ["📖 Сюжет"], ["🏙️ Главное меню"]])
+                return
+        if chapter >= len(game.STORY):
+            send(uid, "📖 СЮЖЕТ\n\n🏆 Все доступные главы пройдены. Новые главы появятся в следующих обновлениях.", [["🏙️ Главное меню"]])
+            return
+        db.story_set(user["id"], chapter + 1, 0)
         send(uid, game.story(user["id"]), [["📖 Следующая глава"], ["🏙️ Главное меню"]]); return
     if text == "🎓 Обучение":
         send(uid, game.tutorial(user["id"]), [["▶️ Далее"], ["🏙️ Главное меню"]]); return

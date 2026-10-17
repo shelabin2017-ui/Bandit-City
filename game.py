@@ -211,7 +211,10 @@ class Game:
 
     def tutorial_next(self,uid):
         r=self.db.tutorial(uid)
-        step=int(r["step"])+1
+        current=int(r["step"])
+        if current == 1 and not self.db.sms_task_rows(uid,["first_job"]).get("first_job",{}).get("completed",0):
+            return "🎓 ОБУЧЕНИЕ • ЭТАП 2\n\nСначала действительно устройся на работу и выполни первую смену.\n\nНажми «💼 Работа», выбери профессию, затем вернись в обучение. Этот этап нельзя пропустить."
+        step=current+1
         if step>=len(self.TUTORIAL):
             self.db.tutorial_set(uid,len(self.TUTORIAL),True)
             self.db.complete_onboarding(uid)
@@ -239,7 +242,16 @@ class Game:
         "ref_1": ("🤝 Связи", 1, "Пригласи игрока.", 100000, 70),
     }
 
+    def sync_milestones(self,uid):
+        """Reconcile milestone-style quests from authoritative player state."""
+        user=self.db.user(uid)
+        rows=self.db.mission_rows(uid,["rich"])
+        current=rows.get("rich",{}).get("progress",0)
+        if user and int(user["balance"])>=1_000_000 and int(current)<1:
+            self.db.mission_add(uid,"rich",1)
+
     def missions(self,uid):
+        self.sync_milestones(uid)
         rows=self.db.mission_rows(uid,list(self.MISSIONS))
         out=["🎯 МИССИИ",""]
         for code,(title,target,desc,cash,xp) in self.MISSIONS.items():
@@ -251,6 +263,7 @@ class Game:
         return "\n\n".join(out)
 
     def claim_mission(self,uid,code):
+        self.sync_milestones(uid)
         if code not in self.MISSIONS:
             return "❌ Миссия не найдена."
         _,target,_,cash,xp=self.MISSIONS[code]
@@ -288,7 +301,26 @@ class Game:
         r=self.db.status(uid)
         wanted="🟢 Низкая" if r["heat"]<25 else ("🟡 Внимание" if r["heat"]<60 else ("🟠 Розыск" if r["heat"]<85 else "🔴 Особо разыскивается"))
         rep="Нейтральная" if r["reputation"]==0 else ("Уважаемый" if r["reputation"]>0 else "Опасный")
-        return f"📊 СТАТУС\n\n⚡ Энергия: {r['energy']}/100\n🚨 Розыск: {r['heat']}/100 — {wanted}\n⭐ Репутация: {r['reputation']} — {rep}"
+        hunger_state="сыт" if r["hunger"]<35 else ("голоден" if r["hunger"]<70 else "очень голоден")
+        return f"📊 СТАТУС\n\n⚡ Энергия: {r['energy']}/100\n🍔 Голод: {r['hunger']}/100 — {hunger_state}\n🚨 Розыск: {r['heat']}/100 — {wanted}\n⭐ Репутация: {r['reputation']} — {rep}"
+
+    def eat_item(self,uid,item_id):
+        name=self.db.consume_inventory_item(uid,item_id)
+        if name is None:
+            return "❌ Предмет не найден в твоём инвентаре."
+        if name == "":
+            return "ℹ️ Этот предмет нельзя использовать как еду или напиток."
+        lowered=name.lower()
+        if any(word in lowered for word in ("бургер","сэндвич","еда")):
+            self.db.status_change(uid,hunger=-35,energy=5)
+            effect="🍔 Голод −35 • ⚡ Энергия +5"
+        elif "вода" in lowered:
+            self.db.status_change(uid,hunger=-5,energy=3)
+            effect="💧 Голод −5 • ⚡ Энергия +3"
+        else:
+            self.db.status_change(uid,energy=25,hunger=5)
+            effect="⚡ Энергия +25 • 🍔 Голод +5"
+        return f"✅ ИСПОЛЬЗОВАНО: {name}\n\n{effect}"
 
     def city_events(self,uid):
         self.db.city_event_seed()
@@ -334,8 +366,10 @@ class Game:
             return f"⏳ Подожди {60-(now-last)} сек."
         status=self.db.status(uid)
         if int(status["energy"])<10:
-            return "😴 Ты вымотан. Подожди, пока восстановится энергия."
-        self.db.status_change(uid,energy=-10,heat=2,reputation=1)
+            return "😴 Ты вымотан. Отдохни или используй энергетик из инвентаря."
+        if int(status["hunger"])>=95:
+            return "🍔 Ты слишком голоден, чтобы работать. Купи еду в магазине и используй её из инвентаря."
+        self.db.status_change(uid,energy=-10,hunger=3,heat=2,reputation=1)
         self.db.add_money(uid,reward)
         self.db.xp(uid,xp)
         self.db.job_set(uid,job)
@@ -376,6 +410,7 @@ class Game:
 
     def apply_referral(self,uid,code):
         if self.db.referral(uid,code):
+            self.db.mission_add(uid,"ref_1",1)
             return "🎁 Реферал активирован! Ты получил $50 000."
         return None
 
