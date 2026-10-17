@@ -208,6 +208,7 @@ def kb_main(is_admin=False, panel_label="👑 Админ-панель"):
         ["👥 Игроки", "🏆 Рейтинг"],
         ["🏆 Достижения", "🎯 Миссии"],
         ["📊 Мой статус", "🌆 События города"],
+        ["🍔 Потребности", "🎒 Инвентарь"],
         ["📱 Телефон", "📩 СМС"],
         ["⚙️ Настройки", "❓ Помощь"],
         ["📚 Ещё", panel_label] if is_admin else ["📚 Ещё"],
@@ -458,6 +459,15 @@ def process(uid, text):
         return
 
     if db.needs_onboarding(user["id"]):
+        # Let the required first-job action run while onboarding is still active.
+        if text == "💼 Работа":
+            send_card(uid, "🎓 ЭТАП ОБУЧЕНИЯ: ПЕРВАЯ РАБОТА\n\nВыбери профессию и выполни смену, чтобы получить деньги и опыт.", kb_work(), key="work")
+            return
+        onboarding_work_map = {"🚕 Таксист": "taxi", "🕵️ Федерал": "federal", "📦 Блок": "block", "🔗 Рефка": "refwork"}
+        if text in onboarding_work_map:
+            result = game.work(user["id"], onboarding_work_map[text])
+            send_card(uid, result + "\n\n📩 После первой смены вернись в «🎓 Обучение» и продолжи сюжет.", kb_work(), key="work")
+            return
         # Handle tutorial navigation before the generic welcome branch.
         # Otherwise every "▶️ Далее" hits needs_onboarding() again and
         # returns to step 1 forever.
@@ -514,8 +524,8 @@ def process(uid, text):
         send_card(uid, creator_text(), [["🏙️ Главное меню"]])
         return
 
-    if text == "📊 Мой статус":
-        send(uid, game.status(user["id"]), [["👤 Профиль"],["🌆 События города"],["🏙️ Главное меню"]]); return
+    if text in ("📊 Мой статус", "🍔 Потребности"):
+        send(uid, game.status(user["id"]), [["🎒 Инвентарь"],["🛒 Магазин"],["🌆 События города"],["🏙️ Главное меню"]]); return
     if text == "🌆 События города":
         send(uid, game.city_events(user["id"]), [["📊 Мой статус"],["🏙️ Главное меню"]]); return
     if text == "💼 Работа":
@@ -581,6 +591,13 @@ def process(uid, text):
         msg, buttons = v5.item_shop(); send_card(uid, msg, buttons, key="shop"); return
     if text == "🎒 Инвентарь" or low == "/items":
         msg, buttons = v5.inventory(db, uid); send_card(uid, msg, buttons, key="shop"); return
+    if text.startswith("🍔 Использовать #"):
+        try:
+            item_id = int(text.split("#", 1)[1])
+            send(uid, game.eat_item(user["id"], item_id), [["🎒 Инвентарь"], ["🍔 Потребности"], ["🏙️ Главное меню"]])
+        except ValueError:
+            send(uid, "❌ Неверный номер предмета.", [["🎒 Инвентарь"], ["🏙️ Главное меню"]])
+        return
     if text in ("🧥 Одежда", "👕 Одежда"):
         msg, buttons = v5.clothing_menu(); send_card(uid, msg, buttons, key="shop"); return
     character_category_map = {
