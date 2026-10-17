@@ -478,21 +478,26 @@ def process(uid, text):
             if "ЗАВЕРШЕНО" in message:
                 send_card(uid, message, main_kb(uid))
             else:
-                send(uid, message, [["▶️ Далее"]])
+                send(uid, message, [["▶️ Далее"], ["🏙️ Главное меню"]])
             return
 
         if text == "🎓 Обучение":
-            send(uid, game.tutorial(user["id"]), [["▶️ Далее"]])
+            send(uid, game.tutorial(user["id"]), [["▶️ Далее"], ["🏙️ Главное меню"]])
             return
 
-        referral_bonus = False
-        if low.startswith("/start"):
-            parts = text.split(maxsplit=1)
-            if len(parts) == 2:
-                referral_bonus = bool(game.apply_referral(user["id"], parts[1]))
-        send_card(uid, game.welcome(user["id"], referral_bonus), [["🎓 Обучение"]])
-        send(uid, game.tutorial(user["id"]), [["▶️ Далее"]])
-        return
+        # Only show onboarding welcome for an actual start command. Previously,
+        # every other button pressed during onboarding was swallowed here and
+        # the player was sent back to the tutorial, making sections/navigation
+        # appear broken. Let normal section handlers run while onboarding is active.
+        if low.startswith("/start") or low in ("начать", "старт"):
+            referral_bonus = False
+            if low.startswith("/start"):
+                parts = text.split(maxsplit=1)
+                if len(parts) == 2:
+                    referral_bonus = bool(game.apply_referral(user["id"], parts[1]))
+            send_card(uid, game.welcome(user["id"], referral_bonus), [["🎓 Обучение"], ["🏙️ Главное меню"]])
+            send(uid, game.tutorial(user["id"]), [["▶️ Далее"], ["🏙️ Главное меню"]])
+            return
 
     if low.startswith("/start") or low in ("/menu", "меню", "🏙️ главное меню"):
         send_card(uid, "🏙 Главное меню", main_kb(uid))
