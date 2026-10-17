@@ -179,7 +179,7 @@ def upload_card(user_id, key):
             cairosvg.svg2png(url=str(svg), write_to=str(png), output_width=1200, output_height=630)
         upload = vk.photos.getMessagesUploadServer(peer_id=user_id)
         with png.open('rb') as fh:
-            response = requests.post(upload['upload_url'], files={'photo': fh}, timeout=30).json()
+            response = requests.post(upload['upload_url'], files={'photo': fh}, timeout=(5, 10)).json()
         saved = vk.photos.saveMessagesPhoto(server=response['server'], photo=response['photo'], hash=response['hash'])
         photo = saved[0]
         attachment = 'photo{}_{}'.format(photo['owner_id'], photo['id'])
@@ -460,6 +460,18 @@ def process(uid, text):
         send(uid, "⛔ Твой аккаунт заблокирован.")
         return
 
+    # Route tutorial buttons before onboarding and normal menu handling.
+    if text == "🎓 Обучение":
+        send(uid, game.tutorial(user["id"]), [["▶️ Далее", "🏙️ Главное меню"]])
+        return
+    if text == "▶️ Далее":
+        message = game.tutorial_next(user["id"])
+        if "ЗАВЕРШЕНО" in message:
+            send_card(uid, message, main_kb(uid))
+        else:
+            send(uid, message, [["▶️ Далее", "🏙️ Главное меню"]])
+        return
+
     if db.needs_onboarding(user["id"]):
         # Let the required first-job action run while onboarding is still active.
         if text == "💼 Работа":
@@ -470,21 +482,6 @@ def process(uid, text):
             result = game.work(user["id"], onboarding_work_map[text])
             send_card(uid, result + "\n\n📩 После первой смены вернись в «🎓 Обучение» и продолжи сюжет.", kb_work(), key="work")
             return
-        # Handle tutorial navigation before the generic welcome branch.
-        # Otherwise every "▶️ Далее" hits needs_onboarding() again and
-        # returns to step 1 forever.
-        if text == "▶️ Далее":
-            message = game.tutorial_next(user["id"])
-            if "ЗАВЕРШЕНО" in message:
-                send_card(uid, message, main_kb(uid))
-            else:
-                send(uid, message, [["▶️ Далее"]])
-            return
-
-        if text == "🎓 Обучение":
-            send(uid, game.tutorial(user["id"]), [["▶️ Далее"]])
-            return
-
         referral_bonus = False
         if low.startswith("/start"):
             parts = text.split(maxsplit=1)
@@ -712,10 +709,6 @@ def process(uid, text):
             return
         db.story_set(user["id"], chapter + 1, 0)
         send(uid, game.story(user["id"]), [["📖 Следующая глава"], ["🏙️ Главное меню"]]); return
-    if text == "🎓 Обучение":
-        send(uid, game.tutorial(user["id"]), [["▶️ Далее"], ["🏙️ Главное меню"]]); return
-    if text == "▶️ Далее":
-        send(uid, game.tutorial_next(user["id"]), [["▶️ Далее"], ["🏙️ Главное меню"]]); return
     if text == "🏆 Ачивки":
         send(uid, game.achievements_full(user["id"]), [["🏙️ Главное меню"]]); return
     if text == "📱 Телефон":
