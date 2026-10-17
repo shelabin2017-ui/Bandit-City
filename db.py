@@ -257,6 +257,7 @@ class Database:
             self.add_column(c, "promo_codes", "max_uses", "INTEGER NOT NULL DEFAULT 0")
             self.add_column(c, "promo_codes", "used_count", "INTEGER NOT NULL DEFAULT 0")
             self.add_column(c, "promo_codes", "active", "INTEGER NOT NULL DEFAULT 1")
+            self.add_column(c, "promo_codes", "expires_at", "INTEGER")
             for row in c.execute("SELECT id FROM users WHERE ref_code IS NULL OR ref_code=''").fetchall():
                 c.execute("UPDATE users SET ref_code=? WHERE id=?", (self.new_ref(), row["id"]))
 
