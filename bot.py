@@ -79,8 +79,10 @@ def build_keyboard(rows):
     # VK rejects default keyboards with more than 10 rows.
     # Keep the bot alive even if a future handler accidentally returns too many.
     if len(clean) > 10:
-        logging.warning("Keyboard truncated from %s to 10 rows", len(clean))
-        clean = clean[:10]
+        logging.warning("Keyboard truncated from %s to 10 rows; preserving the final navigation row", len(clean))
+        # Keep the final row (usually Back/Main menu) instead of silently
+        # dropping it when a screen exceeds VK's 10-row limit.
+        clean = clean[:9] + [clean[-1]]
     for ri, row in enumerate(clean):
         for i, label in enumerate(row):
             low = label.lower()
