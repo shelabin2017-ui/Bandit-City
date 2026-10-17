@@ -9,6 +9,7 @@ class Database:
     def __init__(self, path):
         self.path = path
         self.init()
+        self.seed_promos()
 
     def connect(self):
         c = sqlite3.connect(self.path, timeout=30)
