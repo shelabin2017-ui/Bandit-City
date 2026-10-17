@@ -409,18 +409,18 @@ class Database:
             c.execute("UPDATE user_appearance SET "+fields+" WHERE user_id=?", params)
 
     def seed_promos(self):
-        promos=[
-            ("NIGHTFALL-2026","NIGHTFALL • Founder Drop",250000,500,"🖤 Shadow Jacket","clothes",0),
-            ("LOS-SANTOS-7","LOS SANTOS 7 • Neon Drop",150000,300,"🌌 Neon Shades","accessory",0),
-            ("BANDIT-PRIME","BANDIT PRIME • Private Drop",500000,1000,"👑 Prime Hair","hair",0),
+        # Temporary legendary campaign; INSERT OR IGNORE preserves the initial expiry.
+        now = int(time.time())
+        expires = now + 72 * 60 * 60
+        promos = [
+            ("BC-LEGEND-72H", "Легендарный дроп: образ Бандита", 0, 0, "🏆 Bandit Legend Outfit", "clothes", 100, expires),
+            ("BC-NEON-72H", "Легендарный дроп: неоновый фон", 0, 0, "🌃 Neon City Background", "background", 100, expires),
+            ("BC-NIGHT-72H", "Легендарный дроп: маска Ночного города", 0, 0, "🎭 Nightfall Mask", "head", 100, expires),
         ]
         with self.connect() as c:
-            for p in promos:
-                c.execute(
-                    "INSERT OR IGNORE INTO promo_codes(code,title,reward_cash,reward_xp,reward_item,reward_slot,max_uses) VALUES(?,?,?,?,?,?,?)",
-                    p
-                )
-
+            c.execute("UPDATE promo_codes SET active=0 WHERE code IN ('0.20','ANNIVERSARY-2026','BANDIT-PRIME','BLACKOUT-2026','FOUNDER-2026','GOLDEN-2026','LOS-SANTOS-7','NEON-2026','NIGHTFALL-2026','NIGHTFALL-X','PRIME-2026')")
+            for promo in promos:
+                c.execute("INSERT OR IGNORE INTO promo_codes(code,title,reward_cash,reward_xp,reward_item,reward_slot,max_uses,expires_at) VALUES(?,?,?,?,?,?,?,?)", promo)
     def redeem_promo(self, user_id, code):
         code=code.strip().upper()
         self.seed_promos()
