@@ -106,13 +106,11 @@ def send(user_id, text, rows=None, attachment=None):
         payload["attachment"] = attachment
     try:
         vk.messages.send(**payload)
-    except Exception as exc:
-        msg = str(exc)
-        if "911" in msg or "100" in msg:
-            payload.pop("keyboard", None)
-            vk.messages.send(**payload)
-        else:
-            raise
+    except Exception:
+        # Do not silently hide keyboard/API errors by retrying without buttons.
+        # Log the exact failure so keyboard regressions can be diagnosed.
+        logging.exception("VK messages.send failed (user_id=%s, keyboard=%s)", user_id, bool(payload.get("keyboard")))
+        raise
 
 
 def card_key(text):
