@@ -428,6 +428,9 @@ class Database:
             promo=c.execute("SELECT * FROM promo_codes WHERE code=? AND active=1",(code,)).fetchone()
             if not promo:
                 return False,"❌ Промокод не найден или уже отключён."
+            if promo["expires_at"] is not None and int(promo["expires_at"]) <= int(time.time()):
+                c.execute("UPDATE promo_codes SET active=0 WHERE code=?", (code,))
+                return False, "⌛ Срок действия промокода истёк."
             if promo["max_uses"] and promo["used_count"]>=promo["max_uses"]:
                 return False,"❌ Лимит промокода исчерпан."
             if c.execute("SELECT 1 FROM promo_redemptions WHERE user_id=? AND code=?",(user_id,code)).fetchone():
@@ -456,7 +459,7 @@ class Database:
                 else:
                     c.execute(
                         "INSERT OR IGNORE INTO v5_wardrobe(user_id,category,name,price,bought_at) VALUES(?,?,?,?,?)",
-                        (user_id,"🎟 PROMO",promo["reward_item"],0,now)
+                        (user_id, "🎪 Ивент • Эксклюзивы" if promo["reward_item"] in {"🖤 Shadow Jacket", "🌌 Neon Shades", "👑 Prime Hair", "🧥 Founder Jacket", "🎭 Nightfall Mask", "⛓ Blackout Chain", "🏆 Bandit Legend Outfit", "🌃 Neon City Background", "🔫 Golden Bullet"} else "🎟 ПРОМО", promo["reward_item"], 0, now)
                     )
                     c.execute(
                         "INSERT OR IGNORE INTO user_appearance(user_id,hair,clothes,pants,shoes,head,accessory,background,updated_at) VALUES(?,?,?,?,?,?,?,?,?)",
