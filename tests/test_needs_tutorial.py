@@ -25,8 +25,8 @@ class NeedsAndTutorialTests(unittest.TestCase):
             self.db.status(self.uid)
         with self.db.connect() as c:
             c.execute(
-                "UPDATE player_status SET energy=40,hunger=10,last_update=? WHERE user_id=?",
-                (now - 600, self.uid),
+                "UPDATE player_status SET energy=40,hunger=10,last_update=?,hunger_updated_at=?,heat_updated_at=? WHERE user_id=?",
+                (now - 600, now - 600, now - 600, self.uid),
             )
         with patch("db.time.time", return_value=now):
             status = self.db.status(self.uid)
@@ -57,8 +57,8 @@ class NeedsAndTutorialTests(unittest.TestCase):
             )
             item_id = c.execute("SELECT last_insert_rowid()").fetchone()[0]
             c.execute(
-                "INSERT INTO player_status(user_id,heat,reputation,energy,hunger,last_update) VALUES(?,?,?,?,?,?)",
-                (self.uid, 0, 0, 40, 80, now),
+                "INSERT INTO player_status(user_id,heat,reputation,energy,hunger,hunger_updated_at,heat_updated_at,last_update) VALUES(?,?,?,?,?,?,?,?)",
+                (self.uid, 0, 0, 40, 80, now, now, now),
             )
         with patch("db.time.time", return_value=now):
             result = self.game.eat_item(self.uid, item_id)
