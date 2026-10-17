@@ -694,7 +694,21 @@ def process(uid, text):
     if text == "📖 Сюжет":
         send(uid, game.story(user["id"]), [["📖 Следующая глава"], ["🏙️ Главное меню"]]); return
     if text == "📖 Следующая глава":
-        r=db.story(user["id"]); db.story_set(user["id"], min(int(r["chapter"])+1, len(game.STORY)), 0)
+        r = db.story(user["id"])
+        chapter = int(r["chapter"])
+        if chapter == 1 and not db.sms_task_rows(user["id"], ["first_job"]).get("first_job", {}).get("completed", 0):
+            send(uid, "📖 ГЛАВА ЗАКРЫТА\n\nСначала выполни первую рабочую смену — сюжет не продвигается без реального действия.", [["💼 Работа"], ["📖 Сюжет"], ["🏙️ Главное меню"]])
+            return
+        if chapter == 2:
+            tasks = db.sms_task_rows(user["id"], ["first_car", "first_business"])
+            missing = [label for code, label in (("first_car", "купи первую машину"), ("first_business", "открой первый бизнес")) if not tasks.get(code, {}).get("completed", 0)]
+            if missing:
+                send(uid, "📖 ГЛАВА ЗАКРЫТА\n\nЧтобы открыть следующую главу, нужно: " + " и ".join(missing) + ".", [["🚗 Авто"], ["🏢 Бизнес"], ["📖 Сюжет"], ["🏙️ Главное меню"]])
+                return
+        if chapter >= len(game.STORY):
+            send(uid, "📖 СЮЖЕТ\n\n🏆 Все доступные главы пройдены. Новые главы появятся в следующих обновлениях.", [["🏙️ Главное меню"]])
+            return
+        db.story_set(user["id"], chapter + 1, 0)
         send(uid, game.story(user["id"]), [["📖 Следующая глава"], ["🏙️ Главное меню"]]); return
     if text == "🎓 Обучение":
         send(uid, game.tutorial(user["id"]), [["▶️ Далее"], ["🏙️ Главное меню"]]); return
