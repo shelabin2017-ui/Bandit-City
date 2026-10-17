@@ -189,6 +189,12 @@ class RoleManager:
         owner_vk = int(owner_vk)
         with self.db.connect() as c:
             now = self._now()
+            # Keep exactly one OWNER. Previous test/legacy owners are demoted;
+            # configured ADMIN_IDS are promoted to ADMIN by bootstrap_from_env.
+            c.execute(
+                "UPDATE user_roles SET role=?, assigned_by=?, assigned_at=? WHERE role=? AND vk_id<>?",
+                (int(Role.PLAYER), owner_vk, now, int(Role.OWNER), owner_vk),
+            )
             c.execute(
                 "INSERT INTO user_roles(vk_id,role,assigned_by,assigned_at) VALUES(?,?,?,?) "
                 "ON CONFLICT(vk_id) DO UPDATE SET role=?, assigned_by=?, assigned_at=?",

@@ -1,3 +1,5 @@
+import logging
+import re
 import time
 from roles import Role
 
@@ -187,6 +189,14 @@ class AdminPanel:
             u=c.execute("SELECT id FROM users WHERE vk_id=?", (int(vk_id),)).fetchone()
             return None if not u else c.execute("SELECT id,name,price FROM items WHERE user_id=? ORDER BY id DESC", (u["id"],)).fetchall()
     def handle(self, uid, text):
+        try:
+            return self._handle(uid, text)
+        except Exception:
+            logging.exception("Admin panel handler failed (uid=%s)", uid)
+            self.state.pop(int(uid), None)
+            return True, "❌ Не удалось выполнить действие. Ошибка записана в журнал; данные игроков не сброшены. Попробуй ещё раз.", [["🏙️ Главное меню"]]
+
+    def _handle(self, uid, text):
         if not self.is_admin(uid) and not self.is_moderator(uid):
             return False, "", []
         self._home_uid = int(uid)
@@ -223,8 +233,13 @@ class AdminPanel:
                         cash, xp, max_uses = int(cash), int(xp), int(max_uses)
                     except ValueError:
                         return True, "❌ CASH, XP и MAX_USES должны быть числами.", [["👑 Админ-панель"]]
-                    if not code or not title:
+                    code = code.upper().strip()
+                    if not code or not title.strip():
                         return True, "❌ CODE и TITLE не могут быть пустыми.", [["👑 Админ-панель"]]
+                    if not re.fullmatch(r"[A-ZА-ЯЁ0-9][A-ZА-ЯЁ0-9._-]{0,63}", code):
+                        return True, "❌ Код может содержать буквы, цифры, точку, дефис и подчёркивание (до 64 символов). Пример: 0.20 или ZEROSHKA20.", [["👑 Админ-панель"]]
+                    if len(title) > 120:
+                        return True, "❌ Название промокода — максимум 120 символов.", [["👑 Админ-панель"]]
                     if cash < 0 or xp < 0 or max_uses < 0:
                         return True, "❌ CASH, XP и MAX_USES не могут быть отрицательными.", [["👑 Админ-панель"]]
                     allowed_slots = {"hair", "clothes", "pants", "shoes", "head", "accessory", "background", "car"}
@@ -235,8 +250,10 @@ class AdminPanel:
                         if not any(x["id"] == item for x in CARS):
                             return True, "❌ Неизвестная машина. Укажи ID: turismo, bullet или infernus.", [["👑 Админ-панель"]]
                     with self._conn() as c:
-                        c.execute("INSERT OR REPLACE INTO promo_codes(code,title,reward_cash,reward_xp,reward_item,reward_slot,max_uses,used_count,active) VALUES(?,?,?,?,?,?,?,0,1)", (code.upper(), title, cash, xp, item or None, slot or None, max_uses))
-                    self._log(uid, "promo_add", None, code.upper())
+                        if c.execute("SELECT 1 FROM promo_codes WHERE code=?", (code,)).fetchone():
+                            return True, "❌ Такой промокод уже существует. Выбери другой код или отключи старый; использованные промокоды не перезаписываются.", [["🎟 Промокоды"], ["👑 Админ-панель"]]
+                        c.execute("INSERT INTO promo_codes(code,title,reward_cash,reward_xp,reward_item,reward_slot,max_uses,used_count,active) VALUES(?,?,?,?,?,?,?,0,1)", (code, title.strip(), cash, xp, item or None, slot or None, max_uses))
+                    self._log(uid, "promo_add", None, code)
                     self.state.pop(uid, None)
                     return True, "✅ Промокод создан и активирован.", [["🎟 Промокоды"], ["👑 Админ-панель"]]
                 if st == "appearance_lookup":
@@ -432,7 +449,11 @@ class AdminPanel:
             return True, "🎟 ПРОМОКОДЫ\n\nВыбери действие.", [["➕ Создать промокод", "📋 Список промокодов"], ["🔄 Переключить промокод"], ["👑 Админ-панель"]]
         if text == "➕ Создать промокод":
             self.state[uid] = "promo_add"
-            return True, "➕ Формат: CODE|TITLE|CASH|XP|MAX_USES[|ITEM|SLOT]", [["❌ Отмена"], ["👑 Админ-панель"]]
+            return True, ("➕ Создание промокода\n\n"
+                          "Формат: CODE|TITLE|CASH|XP|MAX_USES[|ITEM|SLOT]\n"
+                          "Пример: 0.20|Подарок 0.20|20000|100|0\n"
+                          "Для машины: ZEROSHKA20|Подарок|2000000|2000|50|turismo|car\n"
+                          "MAX_USES = 0 означает без лимита. Код не должен существовать ранее."), [["❌ Отмена"], ["👑 Админ-панель"]]
         if text == "📋 Список промокодов":
             with self._conn() as c:
                 rows = c.execute("SELECT code,title,reward_cash,reward_xp,used_count,max_uses,active FROM promo_codes ORDER BY code").fetchall()
