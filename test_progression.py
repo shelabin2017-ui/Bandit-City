@@ -120,10 +120,23 @@ class ProgressionTests(unittest.TestCase):
         self.assertTrue(expected.issubset(tables), expected - tables)
 
 
+    def test_active_event_progress_counts_real_work(self):
+        now = int(time.time())
+        for offset in (0, 61, 122):
+            with patch("game.time.time", return_value=now + offset):
+                result = self.game.work(self.uid, "taxi")
+            self.assertIn("Таксист", result)
+        row = self.db.mission_rows(self.uid, ["event_midnight_work"])["event_midnight_work"]
+        self.assertEqual(row["progress"], 3)
+
     def test_event_participation_is_unique_and_rewarded(self):
         from catalog import EVENTS, active_events
         from v5 import bridge as v5
         self.assertIn("midnight", active_events())
+        locked = v5.participate_event(self.db, 700001, "midnight")
+        self.assertIn("Прогресс: 0/3", locked[0])
+        self.assertEqual(len(self.db.event_history(self.uid)), 0)
+        self.db.mission_add(self.uid, "event_midnight_work", 3)
         first = v5.participate_event(self.db, 700001, "midnight")
         self.assertIn("УЧАСТИЕ ЗАСЧИТАНО", first[0])
         history = self.db.event_history(self.uid)
