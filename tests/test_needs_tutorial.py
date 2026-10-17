@@ -78,6 +78,19 @@ class NeedsAndTutorialTests(unittest.TestCase):
         self.assertIn("Деньги", result)
         self.assertEqual(int(self.db.tutorial(self.uid)["step"]), 2)
 
+    def test_capital_mission_syncs_from_real_balance(self):
+        self.db.add_money(self.uid, 1_000_000)
+        message = self.game.missions(self.uid)
+        self.assertIn("Капитал — 🎁 ГОТОВО", message)
+        result = self.game.claim_mission(self.uid, "rich")
+        self.assertIn("МИССИЯ ВЫПОЛНЕНА", result)
+
+    def test_referral_action_advances_referral_mission(self):
+        referrer = self.db.get_or_create_user(880002)
+        self.assertIn("Реферал активирован", self.game.apply_referral(self.uid, referrer["ref_code"]))
+        row = self.db.mission_rows(self.uid, ["ref_1"])["ref_1"]
+        self.assertEqual(row["progress"], 1)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
