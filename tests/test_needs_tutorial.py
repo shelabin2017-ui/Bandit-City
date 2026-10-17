@@ -49,6 +49,7 @@ class NeedsAndTutorialTests(unittest.TestCase):
         self.assertEqual(status["energy"], 55)
 
     def test_food_is_consumed_only_from_owners_inventory(self):
+        now = 2_000_000_000
         with self.db.connect() as c:
             c.execute(
                 "INSERT INTO items(user_id,name,price,bought_at) VALUES(?,?,?,?)",
@@ -57,9 +58,10 @@ class NeedsAndTutorialTests(unittest.TestCase):
             item_id = c.execute("SELECT last_insert_rowid()").fetchone()[0]
             c.execute(
                 "INSERT INTO player_status(user_id,heat,reputation,energy,hunger,last_update) VALUES(?,?,?,?,?,?)",
-                (self.uid, 0, 0, 40, 80, 1),
+                (self.uid, 0, 0, 40, 80, now),
             )
-        result = self.game.eat_item(self.uid, item_id)
+        with patch("db.time.time", return_value=now):
+            result = self.game.eat_item(self.uid, item_id)
         self.assertIn("Голод −35", result)
         status = self.db.status(self.uid)
         self.assertEqual(status["hunger"], 45)
