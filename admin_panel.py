@@ -223,14 +223,16 @@ class AdminPanel:
                 if st == "promo_add":
                     raw = text.strip().strip("`").strip()
                     parts = [x.strip() for x in raw.split("|")]
-                    if len(parts) not in (5, 7):
+                    if len(parts) not in (5, 6, 7, 8):
                         return True, (f"❌ Получено полей: {len(parts)}. Нужно ровно 5 или 7, разделитель — |.\n"
                                       "Пример с машиной: ZEROSHKA20|Подарок от Zeroshka20|2000000|2000|50|turismo|car"), [["👑 Админ-панель"]]
                     code, title, cash, xp, max_uses = parts[:5]
-                    item = parts[5] if len(parts) == 7 else None
-                    slot = parts[6].lower() if len(parts) == 7 else None
+                    item = parts[5] if len(parts) in (7, 8) else None
+                    slot = parts[6].lower() if len(parts) in (7, 8) else None
+                    expires_hours_raw = parts[7] if len(parts) == 8 else (parts[5] if len(parts) == 6 else None)
                     try:
                         cash, xp, max_uses = int(cash), int(xp), int(max_uses)
+                        expires_hours = int(expires_hours_raw) if expires_hours_raw is not None else 0
                     except ValueError:
                         return True, "❌ CASH, XP и MAX_USES должны быть числами.", [["👑 Админ-панель"]]
                     code = code.upper().strip()
@@ -240,8 +242,8 @@ class AdminPanel:
                         return True, "❌ Код может содержать буквы, цифры, точку, дефис и подчёркивание (до 64 символов). Пример: 0.20 или ZEROSHKA20.", [["👑 Админ-панель"]]
                     if len(title) > 120:
                         return True, "❌ Название промокода — максимум 120 символов.", [["👑 Админ-панель"]]
-                    if cash < 0 or xp < 0 or max_uses < 0:
-                        return True, "❌ CASH, XP и MAX_USES не могут быть отрицательными.", [["👑 Админ-панель"]]
+                    if cash < 0 or xp < 0 or max_uses < 0 or expires_hours < 0 or expires_hours > 8760:
+                        return True, "❌ CASH, XP, MAX_USES и срок (0–8760 часов) должны быть неотрицательными.", [["👑 Админ-панель"]]
                     allowed_slots = {"hair", "clothes", "pants", "shoes", "head", "accessory", "background", "car"}
                     if slot and slot not in allowed_slots:
                         return True, "❌ SLOT: hair/clothes/pants/shoes/head/accessory/background/car.", [["👑 Админ-панель"]]
@@ -252,7 +254,8 @@ class AdminPanel:
                     with self._conn() as c:
                         if c.execute("SELECT 1 FROM promo_codes WHERE code=?", (code,)).fetchone():
                             return True, "❌ Такой промокод уже существует. Выбери другой код или отключи старый; использованные промокоды не перезаписываются.", [["🎟 Промокоды"], ["👑 Админ-панель"]]
-                        c.execute("INSERT INTO promo_codes(code,title,reward_cash,reward_xp,reward_item,reward_slot,max_uses,used_count,active) VALUES(?,?,?,?,?,?,?,0,1)", (code, title.strip(), cash, xp, item or None, slot or None, max_uses))
+                        expires_at = int(time.time()) + expires_hours * 3600 if expires_hours else None
+                        c.execute("INSERT INTO promo_codes(code,title,reward_cash,reward_xp,reward_item,reward_slot,max_uses,used_count,active,expires_at) VALUES(?,?,?,?,?,?,?,0,1,?)", (code, title.strip(), cash, xp, item or None, slot or None, max_uses, expires_at))
                     self._log(uid, "promo_add", None, code)
                     self.state.pop(uid, None)
                     return True, "✅ Промокод создан и активирован.", [["🎟 Промокоды"], ["👑 Админ-панель"]]
