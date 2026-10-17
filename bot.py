@@ -1,3 +1,4 @@
+import html
 import logging
 import os
 import random
@@ -145,27 +146,46 @@ def card_key(text):
     return "main"
 
 def upload_card(user_id, key):
-    if key in CARD_CACHE:
-        return CARD_CACHE[key]
     try:
         import cairosvg
-        svg = CARD_DIR / f"{key}.svg"
-        png = CARD_DIR / f"{key}.png"
+        cache_key = key
+        svg = CARD_DIR / (str(key) + '.svg')
+        if key == 'profile':
+            player = db.get_or_create_user(user_id)
+            if player:
+                appearance = db.appearance(player['id'])
+                cache_key = 'profile-player-{}-{}'.format(user_id, int(appearance['updated_at']))
+                svg = CARD_DIR / (cache_key + '.svg')
+                if cache_key not in CARD_CACHE and not svg.exists():
+                    base = (CARD_DIR / 'profile.svg').read_text(encoding='utf-8')
+                    slots = [('ГОЛОВА', appearance['head']), ('ВЕРХ', appearance['clothes']), ('АКСЕССУАР', appearance['accessory']), ('БРЮКИ', appearance['pants']), ('ОБУВЬ', appearance['shoes']), ('ВОЛОСЫ', appearance['hair'])]
+                    lines = ['<g font-family="Arial,sans-serif" font-weight="700">', '<rect x="720" y="360" width="410" height="205" rx="20" fill="#05090e" fill-opacity=".86" stroke="#78bfff" stroke-opacity=".9"/>', '<text x="750" y="395" font-size="19" letter-spacing="2" fill="#78bfff">ЭКИПИРОВКА ПЕРСОНАЖА</text>']
+                    y = 430
+                    for label, value in slots:
+                        value = html.escape(str(value or 'не надето'))[:30]
+                        lines.append('<text x="750" y="{}" font-size="16" fill="#d8e2e8">{}:</text>'.format(y, label))
+                        lines.append('<text x="900" y="{}" font-size="16" fill="#ffffff">{}</text>'.format(y, value))
+                        y += 23
+                    lines.append('</g>')
+                    svg.write_text(base.replace('</svg>', ''.join(lines) + '</svg>'), encoding='utf-8')
+        if cache_key in CARD_CACHE:
+            return CARD_CACHE[cache_key]
+        png = CARD_DIR / (cache_key + '.png')
         if not svg.exists():
             return None
         if not png.exists() or png.stat().st_mtime < svg.stat().st_mtime:
             cairosvg.svg2png(url=str(svg), write_to=str(png), output_width=1200, output_height=630)
         upload = vk.photos.getMessagesUploadServer(peer_id=user_id)
-        with png.open("rb") as fh:
-            response = requests.post(upload["upload_url"], files={"photo": fh}, timeout=30).json()
-        saved = vk.photos.saveMessagesPhoto(server=response["server"], photo=response["photo"], hash=response["hash"])
+        with png.open('rb') as fh:
+            response = requests.post(upload['upload_url'], files={'photo': fh}, timeout=30).json()
+        saved = vk.photos.saveMessagesPhoto(server=response['server'], photo=response['photo'], hash=response['hash'])
         photo = saved[0]
-        attachment = f"photo{photo['owner_id']}_{photo['id']}"
-        CARD_CACHE[key] = attachment
+        attachment = 'photo{}_{}'.format(photo['owner_id'], photo['id'])
+        CARD_CACHE[cache_key] = attachment
         return attachment
     except Exception:
+        logging.exception('Не удалось сформировать карточку %s', key)
         return None
-
 
 def send_card(user_id, text, rows=None, key=None):
     # Для служебных экранов оставляем обычный текст; игровые разделы

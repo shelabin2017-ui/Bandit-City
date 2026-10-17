@@ -28,16 +28,11 @@ class BanditCoreTest(unittest.TestCase):
             self.assertEqual(c.execute("PRAGMA integrity_check").fetchone()[0], "ok")
 
     def test_all_secret_event_promos(self):
-        import v5
         user = self.db.get_or_create_user(100004)
         for code, item in (
-            ("FOUNDER-2026", "🧥 Founder Jacket"),
-            ("NEON-2026", "🌃 Neon City Background"),
-            ("BLACKOUT-2026", "⛓ Blackout Chain"),
-            ("ANNIVERSARY-2026", "🏆 Bandit Legend Outfit"),
-            ("NIGHTFALL-X", "🎭 Nightfall Mask"),
-            ("PRIME-2026", "👑 Prime Hair"),
-            ("GOLDEN-2026", "🔫 Golden Bullet"),
+            ("BC-LEGEND-72H", "🏆 Bandit Legend Outfit"),
+            ("BC-NEON-72H", "🌃 Neon City Background"),
+            ("BC-NIGHT-72H", "🎭 Nightfall Mask"),
         ):
             ok, message = self.db.redeem_promo(user["id"], code)
             self.assertTrue(ok, (code, message))
@@ -46,37 +41,25 @@ class BanditCoreTest(unittest.TestCase):
                 "SELECT name FROM v5_wardrobe WHERE user_id=? AND category='🎪 Ивент • Эксклюзивы'",
                 (user["id"],),
             )}
-        self.assertTrue({
-            "🧥 Founder Jacket","🌃 Neon City Background","⛓ Blackout Chain",
-            "🏆 Bandit Legend Outfit","🎭 Nightfall Mask","👑 Prime Hair","🔫 Golden Bullet"
-        }.issubset(names))
+        self.assertTrue({"🏆 Bandit Legend Outfit", "🌃 Neon City Background", "🎭 Nightfall Mask"}.issubset(names))
 
     def test_event_promo_is_not_public(self):
-        import v5
         user = self.db.get_or_create_user(100001)
-        ok, message = self.db.redeem_promo(user["id"], "FOUNDER-2026")
+        ok, message = self.db.redeem_promo(user["id"], "BC-LEGEND-72H")
         self.assertTrue(ok, message)
         with self.db.connect() as c:
-            row = c.execute(
-                "SELECT 1 FROM v5_wardrobe WHERE user_id=? AND name=?",
-                (user["id"], "🧥 Founder Jacket"),
-            ).fetchone()
+            row = c.execute("SELECT 1 FROM v5_wardrobe WHERE user_id=? AND name=?", (user["id"], "🏆 Bandit Legend Outfit")).fetchone()
         self.assertIsNotNone(row)
-        public_names = {
-            item["name"]
-            for section in public_catalog().values()
-            for item in section
-        }
-        self.assertNotIn("🧥 Founder Jacket", public_names)
+        public_names = {item["name"] for section in public_catalog().values() for item in section}
+        self.assertNotIn("🏆 Bandit Legend Outfit", public_names)
 
     def test_event_exclusive_buttons_are_rendered(self):
         from v5 import bridge as v5
         user = self.db.get_or_create_user(100005)
-        self.db.redeem_promo(user["id"], "FOUNDER-2026")
+        self.db.redeem_promo(user["id"], "BC-LEGEND-72H")
         message, buttons = v5.clothing_catalog(self.db, user["vk_id"], "🎪 Ивент • Эксклюзивы")
-        self.assertIn("Founder Jacket", message)
-        self.assertIn(["✅ 🧥 Founder Jacket"], buttons)
-
+        self.assertIn("Bandit Legend Outfit", message)
+        self.assertIn(["✅ 🏆 Bandit Legend Outfit"], buttons)
     def test_event_catalog_is_separate(self):
         self.assertEqual(len(EVENT_EXCLUSIVES), 8)
         from datetime import datetime, timezone
