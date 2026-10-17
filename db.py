@@ -251,6 +251,12 @@ class Database:
             self.add_column(c, "user_appearance", "pants", "TEXT NOT NULL DEFAULT 'default'")
             self.add_column(c, "user_appearance", "shoes", "TEXT NOT NULL DEFAULT 'default'")
             self.add_column(c, "user_appearance", "head", "TEXT NOT NULL DEFAULT 'default'")
+            # Upgrade existing databases in place: CREATE TABLE IF NOT EXISTS does not add columns.
+            self.add_column(c, "promo_codes", "reward_item", "TEXT")
+            self.add_column(c, "promo_codes", "reward_slot", "TEXT")
+            self.add_column(c, "promo_codes", "max_uses", "INTEGER NOT NULL DEFAULT 0")
+            self.add_column(c, "promo_codes", "used_count", "INTEGER NOT NULL DEFAULT 0")
+            self.add_column(c, "promo_codes", "active", "INTEGER NOT NULL DEFAULT 1")
             for row in c.execute("SELECT id FROM users WHERE ref_code IS NULL OR ref_code=''").fetchall():
                 c.execute("UPDATE users SET ref_code=? WHERE id=?", (self.new_ref(), row["id"]))
 
@@ -455,7 +461,7 @@ class Database:
                         "INSERT OR IGNORE INTO user_appearance(user_id,hair,clothes,pants,shoes,head,accessory,background,updated_at) VALUES(?,?,?,?,?,?,?,?,?)",
                         (user_id,"default","default","default","default","default","none","city",now)
                     )
-                    if slot in {"hair","clothes","pants","shoes","head","accessory"}:
+                    if slot in {"hair","clothes","pants","shoes","head","accessory","background"}:
                         c.execute("UPDATE user_appearance SET "+slot+"=?, updated_at=? WHERE user_id=?",
                                   (promo["reward_item"],now,user_id))
             c.execute("UPDATE promo_codes SET used_count=used_count+1 WHERE code=?",(code,))
