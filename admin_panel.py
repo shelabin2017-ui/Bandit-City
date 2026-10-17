@@ -675,26 +675,35 @@ class AdminPanel:
             return True, "✅ Переключено." if cur.rowcount else "❌ Код не найден.", [["👑 Админ-панель"]]
         if text.startswith("/promoadd "):
             try:
-                parts = text[10:].split("|")
-                if len(parts) not in (5, 7):
+                parts = [part.strip() for part in text[10:].split("|")]
+                if len(parts) not in (5, 6, 7, 8):
                     raise ValueError
                 code, title, cash, xp, max_uses = parts[:5]
-                item = parts[5].strip() if len(parts) == 7 else None
-                slot = parts[6].strip() if len(parts) == 7 else None
+                item = parts[5] if len(parts) in (7, 8) else None
+                slot = parts[6].lower() if len(parts) in (7, 8) else None
+                expiry_raw = parts[7] if len(parts) == 8 else (parts[5] if len(parts) == 6 else None)
                 cash, xp, max_uses = int(cash), int(xp), int(max_uses)
-                if not code.strip() or not title.strip() or cash < 0 or xp < 0 or max_uses < 0:
+                expires_hours = int(expiry_raw) if expiry_raw is not None else 0
+                code = code.upper()
+                if not re.fullmatch(r"[A-ZА-ЯЁ0-9][A-ZА-ЯЁ0-9._-]{0,63}", code):
                     raise ValueError
-                if slot and slot not in {"hair", "clothes", "pants", "shoes", "head", "accessory", "background"}:
+                if not title or cash < 0 or xp < 0 or max_uses < 0 or not 0 <= expires_hours <= 8760:
                     raise ValueError
+                if slot and slot not in {"hair", "clothes", "pants", "shoes", "head", "accessory", "background", "car"}:
+                    raise ValueError
+                if slot == "car":
+                    from catalog import CARS
+                    if not any(car["id"] == item for car in CARS):
+                        raise ValueError
+                expires_at = int(time.time()) + expires_hours * 3600 if expires_hours else None
                 with self._conn() as c:
-                    c.execute(
-                        "INSERT OR REPLACE INTO promo_codes(code,title,reward_cash,reward_xp,reward_item,reward_slot,max_uses,used_count,active) VALUES(?,?,?,?,?,?,?,0,1)",
-                        (code.strip().upper(), title.strip(), int(cash), int(xp), item or None, slot or None, int(max_uses))
-                    )
-                self._log(uid, "promo_add", None, code.strip().upper())
+                    if c.execute("SELECT 1 FROM promo_codes WHERE code=?", (code,)).fetchone():
+                        return True, "❌ Такой промокод уже существует; использованные коды не перезаписываются.", [["🎟 Промокоды"], ["👑 Админ-панель"]]
+                    c.execute("INSERT INTO promo_codes(code,title,reward_cash,reward_xp,reward_item,reward_slot,max_uses,used_count,active,expires_at) VALUES(?,?,?,?,?,?,?,0,1,?)", (code, title, cash, xp, item or None, slot or None, max_uses, expires_at))
+                self._log(uid, "promo_add", None, code)
                 return True, "✅ Промокод создан.", [["👑 Админ-панель"]]
             except Exception:
-                return True, "❌ Формат: CODE|TITLE|CASH|XP|MAX_USES[|ITEM|SLOT]", [["👑 Админ-панель"]]
+                return True, "❌ Формат: CODE|TITLE|CASH|XP|MAX_USES[|СРОК_ЧАСЫ] или CODE|TITLE|CASH|XP|MAX_USES|ITEM|SLOT|СРОК_ЧАСЫ", [["👑 Админ-панель"]]
         if text.startswith("/asetappearance "):
             try:
                 parts=text.split(maxsplit=3)
