@@ -705,8 +705,8 @@ def process(uid, text):
     mission_map={"💼 Рабочая смена":"work_3","💵 Заработок":"earn_100k","🎰 Азарт":"casino_3","🍀 Удача":"casino_win","💰 Капитал":"rich","🤝 Связи":"ref_1"}
     if text in mission_map:
         send(uid, game.claim_mission(user["id"],mission_map[text]), [["🎯 Миссии"], ["🏙️ Главное меню"]]); return
-    if text == "📩 СМС":
-        send(uid, game.sms(user["id"]), [["💼 Первое дело","🚗 Первая машина"],["🏢 Свой бизнес"],["🏙️ Главное меню"]]); return
+    if text in ("📩 СМС", "📨 Новые SMS"):
+        send(uid, game.sms(user["id"]), [["💼 Первое дело","🚗 Первая машина"],["🏢 Свой бизнес"],["📱 Телефон"],["🏙️ Главное меню"]]); return
     sms_task_map={"💼 Первое дело":"first_job","🚗 Первая машина":"first_car","🏢 Свой бизнес":"first_business"}
     if text in sms_task_map:
         send(uid, game.complete_sms_task(user["id"],sms_task_map[text]), [["📩 СМС"],["🏙️ Главное меню"]]); return
