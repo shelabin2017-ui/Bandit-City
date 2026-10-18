@@ -476,14 +476,22 @@ def process(uid, text):
 
     # Route tutorial buttons before onboarding and normal menu handling.
     if text == "🎓 Обучение":
-        send(uid, game.tutorial(user["id"]), [["▶️ Далее", "🏙️ Главное меню"]])
+        progress = db.tutorial(user["id"])
+        tutorial_rows = [["▶️ Далее", "🏙️ Главное меню"]]
+        if not progress["completed"] and int(progress["step"]) == 1:
+            tutorial_rows = [["💼 Работа"], ["▶️ Далее", "🏙️ Главное меню"]]
+        send(uid, game.tutorial(user["id"]), tutorial_rows)
         return
     if text == "▶️ Далее":
         message = game.tutorial_next(user["id"])
         if "ЗАВЕРШЕНО" in message:
             send_card(uid, message, main_kb(uid))
         else:
-            send(uid, message, [["▶️ Далее", "🏙️ Главное меню"]])
+            progress = db.tutorial(user["id"])
+            tutorial_rows = [["▶️ Далее", "🏙️ Главное меню"]]
+            if not progress["completed"] and int(progress["step"]) == 1:
+                tutorial_rows = [["💼 Работа"], ["▶️ Далее", "🏙️ Главное меню"]]
+            send(uid, message, tutorial_rows)
         return
 
     if db.needs_onboarding(user["id"]):
