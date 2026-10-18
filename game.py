@@ -14,6 +14,12 @@ class Game:
         "federal": ("🕵️ Федерал", 30000, 15),
         "block": ("📦 Блок", 22000, 12),
         "refwork": ("🔗 Рефка", 40000, 20),
+        "courier": ("📦 Курьер", 18000, 12),
+        "mechanic": ("🔧 Автомеханик", 26000, 14),
+        "security": ("🛡️ Охранник", 28000, 14),
+        "hacker": ("💻 Хакер", 36000, 18),
+        "paramedic": ("🚑 Фельдшер", 24000, 13),
+        "smuggler": ("🚚 Перевозчик", 33000, 16),
     }
     CARS = {
         "common": [
@@ -58,8 +64,9 @@ class Game:
         rows=self.db.phone_contacts(uid)
         if not rows:
             return "📱 ТЕЛЕФОН\n\nКонтактов пока нет.\nДобавляй игроков через VK ID."
-        return "📱 ТЕЛЕФОН\n\n" + "\n".join(
-            f"👤 {r['nickname']} • VK {r['contact_id']}" for r in rows
+        return "📱 ТЕЛЕФОН • КОНТАКТЫ\n\n" + "\n".join(
+            f"👤 {r['nickname']}\n🔗 https://vk.com/id{r['contact_id']}\n🆔 VK ID: {r['contact_id']}"
+            for r in rows
         )
 
     def phone_add(self,user_id,target_vk):
