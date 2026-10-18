@@ -399,6 +399,12 @@ def apply(bot):
                     bot.send(uid, "ℹ️ Реферальная ссылка уже использована или недействительна.", bot.main_kb(uid))
                 return
 
+        # Keep onboarding as the single gate for gameplay. The original
+        # processor owns tutorial routing and the first-job exception.
+        if bot.db.needs_onboarding(user["id"]):
+            original_process(uid, raw)
+            return
+
         # Business hub and catalogue.
         if raw == "🏢 Бизнес":
             bot.send(uid, bot.game.business_info(user["id"]), kb_business()); return
