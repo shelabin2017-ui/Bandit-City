@@ -90,7 +90,7 @@ def apply(bot):
             cur = c.execute("INSERT INTO businesses(user_id,type,level,stock,balance,last_tick) VALUES(?,?,?,?,?,?)", (int(user_id), str(business_type), 1, 0, 0, now))
             business_id = cur.lastrowid
             c.execute("INSERT INTO business_preferences(user_id,selected_business_id) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET selected_business_id=excluded.selected_business_id", (int(user_id), int(business_id)))
-        return True, f"✅ Бизнес куплен!\\n\\n{spec['name']}\\n💵 Цена: {_money(spec['price'])}\\n💰 Доход: {_money(spec['income'])}/мин\\n📦 Вместимость: {spec['capacity']:,}".replace(",", " ")
+        return True, f"✅ Бизнес куплен!\n\n{spec['name']}\n💵 Цена: {_money(spec['price'])}\n💰 Доход: {_money(spec['income'])}/мин\n📦 Вместимость: {spec['capacity']:,}".replace(",", " ")
 
     def upgrade_business(self, user_id):
         b = selected_business(self, user_id)
@@ -108,7 +108,7 @@ def apply(bot):
             level = int(b["level"]) + 1
             c.execute("UPDATE users SET balance=balance-? WHERE id=?", (cost, int(user_id)))
             c.execute("UPDATE businesses SET level=? WHERE id=?", (level, int(b["id"])))
-        return True, f"⬆️ БИЗНЕС УЛУЧШЕН\\n\\n{spec['name']}\\n⭐ Уровень: {level}/10\\n💰 Доход: {_money(_income(spec,level))}/мин\\n📦 Вместимость: {_capacity(spec,level):,}\\n💵 Стоимость: {_money(cost)}".replace(",", " ")
+        return True, f"⬆️ БИЗНЕС УЛУЧШЕН\n\n{spec['name']}\n⭐ Уровень: {level}/10\n💰 Доход: {_money(_income(spec,level))}/мин\n📦 Вместимость: {_capacity(spec,level):,}\n💵 Стоимость: {_money(cost)}".replace(",", " ")
 
     def refill(self, user_id, amount):
         if int(amount) <= 0:
@@ -131,7 +131,7 @@ def apply(bot):
                 return f"❌ Не хватает денег. Нужно {_money(price)}."
             c.execute("UPDATE users SET balance=balance-? WHERE id=?", (price, int(user_id)))
             c.execute("UPDATE businesses SET stock=stock+? WHERE id=?", (amount, int(b["id"])))
-        return f"📦 Загружено: {amount:,}\\n💵 Стоимость: {_money(price)}".replace(",", " ")
+        return f"📦 Загружено: {amount:,}\n💵 Стоимость: {_money(price)}".replace(",", " ")
 
     def withdraw(self, user_id):
         b = selected_business(self, user_id)
@@ -171,8 +171,8 @@ def apply(bot):
         if not rows:
             out = ["🏢 КАТАЛОГ БИЗНЕСА", "", "Можно владеть несколькими предприятиями одновременно.", ""]
             for spec in BUSINESSES.values():
-                out.append(f"{spec['name']}\\n💵 {_money(spec['price'])} • 💰 {_money(spec['income'])}/мин\\n{spec['desc']}")
-            return "\\n\\n".join(out)
+                out.append(f"{spec['name']}\n💵 {_money(spec['price'])} • 💰 {_money(spec['income'])}/мин\n{spec['desc']}")
+            return "\n\n".join(out)
         selected = game.db.selected_business(uid)
         out = [f"🏢 ТВОИ БИЗНЕСЫ: {len(rows)}", "Ниже можно выбрать предприятие для управления.", ""]
         for row in rows:
@@ -181,7 +181,7 @@ def apply(bot):
             out.append(f"{marker}#{row['id']} {spec['name']} • ур. {row['level']} • касса {_money(row['balance'])} • склад {row['stock']}/{_capacity(spec,row['level'])}")
         spec = _business_spec(selected)
         out += ["", f"🎯 ВЫБРАН: #{selected['id']} {spec['name']}", f"⭐ Уровень: {selected['level']}/10", f"💵 Касса: {_money(selected['balance'])}", f"📦 Склад: {selected['stock']:,}/{_capacity(spec,selected['level']):,}", f"💰 Доход: {_money(_income(spec,selected['level']))}/мин", f"🧾 Сырьё: {_money(spec['refill'])}/ед.", spec["desc"]]
-        return "\\n".join(out).replace(",", " ")
+        return "\n".join(out).replace(",", " ")
     Game.business_info = business_info
 
     # Add business selection buttons and route them before the original processor.
@@ -211,7 +211,7 @@ def apply(bot):
         if raw == "🏢 Каталог бизнеса":
             rows = [[f"🏢 Купить: {spec['short']}"] for spec in BUSINESSES.values()]
             rows.append(["🏢 Мои предприятия", "↩️ К бизнесу"])
-            bot.send(uid, "🏢 КАТАЛОГ БИЗНЕСА\\n\\nВыбирай разные предприятия. Повторно купить один и тот же тип нельзя.", rows)
+            bot.send(uid, "🏢 КАТАЛОГ БИЗНЕСА\n\nВыбирай разные предприятия. Повторно купить один и тот же тип нельзя.", rows)
             return
         if raw == "📊 Мой бизнес":
             user = bot.db.get_or_create_user(uid)
