@@ -417,14 +417,22 @@ def apply(bot):
         if raw == "📊 Мой бизнес":
             bot.send(uid, bot.game.business_info(user["id"]), kb_business()); return
         if raw == "⬆️ Улучшить бизнес":
-            bot.send(uid, bot.game.upgrade_business(user["id"]), kb_business()); return
+            result = bot.game.upgrade_business(user["id"])
+            # Multi-business methods return (success, message); legacy handlers
+            # expected a plain string. Normalize both return shapes for VK.
+            message = result[1] if isinstance(result, tuple) and len(result) == 2 else result
+            bot.send(uid, message, kb_business()); return
         if raw == "↩️ К бизнесу":
             bot.send(uid, bot.game.business_info(user["id"]), kb_business()); return
         if raw.startswith("🏢 Купить: "):
             label = raw.split(": ",1)[1].strip()
             code = next((k for k,v in BUSINESSES.items() if v["short"] == label), None)
             if code:
-                bot.send(uid, bot.game.buy_business_type(user["id"], code), kb_business()); return
+                result = bot.game.buy_business_type(user["id"], code)
+                # Multi-business methods return (success, message); never show
+                # the Python tuple representation to the player.
+                message = result[1] if isinstance(result, tuple) and len(result) == 2 else result
+                bot.send(uid, message, kb_business()); return
 
         # Friendly target syntax for transfers/attacks.
         if low.startswith("/pay ") or low.startswith("/scam ") or low.startswith("/rob "):
