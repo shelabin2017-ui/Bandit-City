@@ -5,6 +5,16 @@ import string
 import time
 
 
+class _ClosingConnection(sqlite3.Connection):
+    """Commit/rollback on context exit and always release the SQLite handle."""
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        try:
+            return super().__exit__(exc_type, exc_value, traceback)
+        finally:
+            self.close()
+
+
 class Database:
     def __init__(self, path):
         self.path = path
@@ -12,7 +22,7 @@ class Database:
         self.seed_promos()
 
     def connect(self):
-        c = sqlite3.connect(self.path, timeout=30)
+        c = sqlite3.connect(self.path, timeout=30, factory=_ClosingConnection)
         c.row_factory = sqlite3.Row
         c.execute("PRAGMA journal_mode=WAL")
         c.execute("PRAGMA foreign_keys=ON")
