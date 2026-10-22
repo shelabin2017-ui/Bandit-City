@@ -19,6 +19,7 @@ from admin_panel import AdminPanel
 from roles import RoleManager
 from role_ui import RoleUI
 from release import announce_new_release
+from keyboard_layout import normalize_rows, paginate_rows
 
 load_dotenv()
 TOKEN = os.getenv("VK_TOKEN", "").strip()
@@ -41,6 +42,8 @@ vk = session.get_api()
 longpoll = VkLongPoll(session)
 
 CARD_CACHE = {}
+KEYBOARD_PAGES = {}
+TUTORIAL_ACTIVE = set()
 CARD_DIR = Path(__file__).resolve().parent / "assets" / "cards"
 INPUT_STATE = {}
 MAINTENANCE_KEY = "maintenance_mode"
@@ -69,22 +72,13 @@ def maintenance_enabled():
 
 def build_keyboard(rows):
     k = VkKeyboard(one_time=False)
-    clean = []
-    for row in rows or []:
-        if isinstance(row, str):
-            row = [row]
-        row = [str(x)[:40] for x in row if x]
-        for i in range(0, len(row), 2):
-            clean.append(row[i:i + 2])
-    # VK rejects default keyboards with more than 10 rows.
-    # Keep the bot alive even if a future handler accidentally returns too many.
+    clean = normalize_rows(rows)
     if len(clean) > 10:
-        logging.warning("Keyboard truncated from %s to 10 rows; preserving the final navigation row", len(clean))
-        # Keep the final row (usually Back/Main menu) instead of silently
-        # dropping it when a screen exceeds VK's 10-row limit.
-        clean = clean[:9] + [clean[-1]]
+        # Defensive fallback for any caller bypassing send() pagination.
+        logging.error("Keyboard passed directly with %s rows; rendering first safe page", len(clean))
+        clean = paginate_rows(clean)[0]
     for ri, row in enumerate(clean):
-        for i, label in enumerate(row):
+        for label in row:
             low = label.lower()
             if "назад" in low or "главное меню" in low:
                 color = VkKeyboardColor.SECONDARY
@@ -100,7 +94,7 @@ def build_keyboard(rows):
     return k
 
 
-def send(user_id, text, rows=None, attachment=None):
+def _send_raw(user_id, text, rows=None, attachment=None):
     payload = {"user_id": user_id, "random_id": random.randint(1, 2_147_483_647), "message": str(text)}
     if rows:
         payload["keyboard"] = rows.get_keyboard() if isinstance(rows, VkKeyboard) else build_keyboard(rows).get_keyboard()
@@ -109,11 +103,56 @@ def send(user_id, text, rows=None, attachment=None):
     try:
         vk.messages.send(**payload)
     except Exception:
-        # Do not silently hide keyboard/API errors by retrying without buttons.
-        # Log the exact failure so keyboard regressions can be diagnosed.
         logging.exception("VK messages.send failed (user_id=%s, keyboard=%s)", user_id, bool(payload.get("keyboard")))
         raise
 
+
+def send(user_id, text, rows=None, attachment=None):
+    """Send a VK-safe keyboard; long menus get real pages instead of lost buttons."""
+    uid = int(user_id)
+    if not rows or isinstance(rows, VkKeyboard):
+        KEYBOARD_PAGES.pop(uid, None)
+        _send_raw(uid, text, rows, attachment)
+        return
+
+    pages = paginate_rows(rows)
+    if len(pages) <= 1:
+        KEYBOARD_PAGES.pop(uid, None)
+        _send_raw(uid, text, pages[0] if pages else None, attachment)
+        return
+
+    KEYBOARD_PAGES[uid] = {
+        "text": str(text),
+        "pages": pages,
+        "attachment": attachment,
+        "page": 0,
+    }
+    _send_keyboard_page(uid, 0)
+
+
+def _send_keyboard_page(user_id, page_index):
+    state = KEYBOARD_PAGES.get(int(user_id))
+    if not state:
+        send(user_id, "🏙️ Вернулись в главное меню.", main_kb(user_id))
+        return
+    pages = state["pages"]
+    index = max(0, min(int(page_index), len(pages) - 1))
+    state["page"] = index
+    page_text = "{}\n\n📄 Страница меню: {}/{}".format(state["text"], index + 1, len(pages))
+    _send_raw(user_id, page_text, pages[index], state["attachment"])
+
+
+def handle_keyboard_paging(user_id, text):
+    """Return True when a pagination control was handled."""
+    if text not in ("➡️ Далее меню", "⬅️ Назад меню"):
+        return False
+    state = KEYBOARD_PAGES.get(int(user_id))
+    if not state:
+        send(user_id, "⌨️ Это меню уже закрыто. Открой нужный раздел заново.", main_kb(user_id))
+        return True
+    step = 1 if text == "➡️ Далее меню" else -1
+    _send_keyboard_page(user_id, state["page"] + step)
+    return True
 
 def card_key(text):
     t = str(text).lower()
@@ -202,21 +241,20 @@ def send_card(user_id, text, rows=None, key=None):
 
 
 def kb_main(is_admin=False, panel_label="👑 Админ-панель"):
-    # VK default keyboard supports at most 10 rows. Keep the main screen
-    # within that limit and move secondary sections into a separate page.
-    rows = [
-        ["👤 Профиль", "💼 Работа"],
+    # Главный экран: максимум 10 рядов VK, пары сгруппированы по смыслу.
+    # Дополнительные функции вынесены в «📚 Ещё», длинные меню листаются.
+    return [
+        ["👤 Профиль", "📊 Мой статус"],
+        ["💼 Работа", "🏢 Бизнес"],
         ["🚗 Авто", "🛒 Магазин"],
-        ["🏢 Бизнес", "🏦 Банк"],
-        ["🎰 Казино", "🎁 Бонус"],
-        ["👥 Игроки", "🏆 Рейтинг"],
-        ["🏆 Достижения", "🎯 Миссии"],
-        ["📊 Мой статус", "🍔 Потребности"],
+        ["🏦 Банк", "🎰 Казино"],
+        ["👥 Игроки", "📱 Телефон"],
+        ["🏆 Рейтинг", "🏆 Достижения"],
+        ["🎯 Миссии", "🎁 Бонус"],
         ["🌆 События города", "🎒 Инвентарь"],
-        ["📱 Телефон", "📩 СМС"],
+        ["🍔 Потребности", "📩 СМС"],
         ["📚 Ещё", panel_label] if is_admin else ["📚 Ещё"],
     ]
-    return rows
 
 
 def kb_more():
@@ -242,6 +280,36 @@ def main_kb(uid):
     return kb_main(False)
 
 
+TUTORIAL_BUTTONS = {
+    0: ["👤 Профиль", "📊 Мой статус"],
+    1: ["💼 Работа"],
+    2: ["👤 Профиль", "📊 Мой статус"],
+    3: ["💼 Работа", "🏢 Бизнес"],
+    4: ["🚗 Авто", "🛒 Магазин"],
+    5: ["🏦 Банк", "🎰 Казино"],
+    6: ["👥 Игроки", "📱 Телефон"],
+    7: ["🎯 Миссии", "🌆 События города"],
+    8: ["🎒 Инвентарь", "🍔 Потребности", "📩 СМС"],
+    9: ["🏆 Рейтинг", "🏆 Достижения", "🎁 Бонус"],
+    10: ["📚 Ещё"],
+    11: ["📖 Сюжет", "🎟 Промокод", "⚙️ Настройки", "❓ Помощь"],
+    12: ["👑 О создателе"],
+    13: [],
+}
+
+
+def tutorial_keyboard(user_id):
+    progress = db.tutorial(user_id)
+    step = min(int(progress["step"]), len(game.TUTORIAL) - 1)
+    rows = [[label] for label in TUTORIAL_BUTTONS.get(step, [])]
+    if step < len(game.TUTORIAL) - 1:
+        rows.append(["➡️ Далее экскурсии"])
+    else:
+        rows.append(["🏁 Завершить экскурсию"])
+    rows.append(["🏙️ Главное меню"])
+    return rows
+
+
 def has_staff_access(uid):
     return bool(role_ui.main_button(uid)) or has_admin_access(uid)
 
@@ -251,11 +319,28 @@ def kb_bank():
 
 
 def kb_business():
-    return [["🏭 Купить аэропорт", "📦 Склад"], ["📦 Пополнить склад", "💰 Снять деньги"], ["ℹ️ Инфо", "🏙️ Главное меню"]]
+    return [
+        ["🏭 Купить аэропорт", "🏢 Мои бизнесы"],
+        ["🏪 Купить киоск", "🚿 Купить автомойку"],
+        ["☕ Купить кафе", "🔧 Купить СТО"],
+        ["🚚 Купить логистику", "🏨 Купить отель"],
+        ["💰 Снять доход", "📦 Склад"],
+        ["📦 Пополнить склад", "ℹ️ Инфо"],
+        ["🏙️ Главное меню"],
+    ]
 
 
 def kb_work():
-    return [["🚕 Таксист", "🕵️ Федерал"], ["📦 Блок", "🔗 Рефка"], ["🎓 Обучение"], ["🏙️ Главное меню"]]
+    return [
+        ["🚕 Таксист", "🕵️ Федерал"],
+        ["📦 Блок", "🔗 Рефка"],
+        ["🛵 Курьер", "👷 Строитель"],
+        ["🔧 Автомеханик", "🚑 Медик"],
+        ["👨‍🍳 Повар", "⛏ Шахтёр"],
+        ["🛡 Охранник", "💻 Разработчик"],
+        ["🎓 Обучение"],
+        ["🏙️ Главное меню"],
+    ]
 
 
 def kb_auto():
@@ -451,6 +536,15 @@ def execute_broadcast(uid, message):
 def process(uid, text):
     text = text.strip()
     low = text.lower()
+    try:
+        activity_user = db.get_or_create_user(uid)
+        db.touch_player_activity(activity_user["id"])
+    except Exception:
+        logging.exception("Не удалось обновить активность игрока")
+    if handle_keyboard_paging(uid, text):
+        return
+    # Any ordinary action closes the previous paginated keyboard context.
+    KEYBOARD_PAGES.pop(int(uid), None)
     if process_input(uid, text):
         return
 
@@ -462,16 +556,43 @@ def process(uid, text):
         send(uid, "⛔ Твой аккаунт заблокирован.")
         return
 
-    # Route tutorial buttons before onboarding and normal menu handling.
+    # Guided tutorial is view-only apart from the required first work shift.
+    if db.needs_onboarding(user["id"]):
+        TUTORIAL_ACTIVE.add(int(uid))
     if text == "🎓 Обучение":
-        send(uid, game.tutorial(user["id"]), [["▶️ Далее", "🏙️ Главное меню"]])
+        progress = db.tutorial(user["id"])
+        if progress["completed"]:
+            db.tutorial_set(user["id"], 0, False)
+        TUTORIAL_ACTIVE.add(int(uid))
+        send(uid, game.tutorial(user["id"]), tutorial_keyboard(user["id"]))
         return
-    if text == "▶️ Далее":
+    if text in ("➡️ Далее экскурсии", "▶️ Далее"):
+        TUTORIAL_ACTIVE.add(int(uid))
         message = game.tutorial_next(user["id"])
         if "ЗАВЕРШЕНО" in message:
+            TUTORIAL_ACTIVE.discard(int(uid))
             send_card(uid, message, main_kb(uid))
         else:
-            send(uid, message, [["▶️ Далее", "🏙️ Главное меню"]])
+            send(uid, message, tutorial_keyboard(user["id"]))
+        return
+    if text == "🏁 Завершить экскурсию":
+        message = game.tutorial_next(user["id"])
+        if "ЗАВЕРШЕНО" in message:
+            TUTORIAL_ACTIVE.discard(int(uid))
+            send_card(uid, message, main_kb(uid))
+        else:
+            send(uid, message, tutorial_keyboard(user["id"]))
+        return
+    if text == "↩️ К экскурсии":
+        TUTORIAL_ACTIVE.add(int(uid))
+        send(uid, game.tutorial(user["id"]), tutorial_keyboard(user["id"]))
+        return
+    if text == "🏙️ Главное меню" and not db.needs_onboarding(user["id"]):
+        TUTORIAL_ACTIVE.discard(int(uid))
+    tutorial_progress = db.tutorial(user["id"])
+    first_job_step = db.needs_onboarding(user["id"]) and int(tutorial_progress["step"]) == 1
+    if int(uid) in TUTORIAL_ACTIVE and text in game.TUTORIAL_VIEWS and not (first_job_step and text == "💼 Работа"):
+        send(uid, game.tutorial_view(user["id"], text), [["↩️ К экскурсии"], ["➡️ Далее экскурсии"]])
         return
 
     if db.needs_onboarding(user["id"]):
@@ -479,7 +600,14 @@ def process(uid, text):
         if text == "💼 Работа":
             send_card(uid, "🎓 ЭТАП ОБУЧЕНИЯ: ПЕРВАЯ РАБОТА\n\nВыбери профессию и выполни смену, чтобы получить деньги и опыт.", kb_work(), key="work")
             return
-        onboarding_work_map = {"🚕 Таксист": "taxi", "🕵️ Федерал": "federal", "📦 Блок": "block", "🔗 Рефка": "refwork"}
+        onboarding_work_map = {
+            "🚕 Таксист": "taxi", "🕵️ Федерал": "federal",
+            "📦 Блок": "block", "🔗 Рефка": "refwork",
+            "🛵 Курьер": "courier", "👷 Строитель": "builder",
+            "🔧 Автомеханик": "mechanic", "🚑 Медик": "medic",
+            "👨‍🍳 Повар": "cook", "⛏ Шахтёр": "miner",
+            "🛡 Охранник": "security", "💻 Разработчик": "programmer",
+        }
         if text in onboarding_work_map:
             result = game.work(user["id"], onboarding_work_map[text])
             send_card(uid, result + "\n\n📩 После первой смены вернись в «🎓 Обучение» и продолжи сюжет.", kb_work(), key="work")
@@ -489,8 +617,9 @@ def process(uid, text):
             parts = text.split(maxsplit=1)
             if len(parts) == 2:
                 referral_bonus = bool(game.apply_referral(user["id"], parts[1]))
+        TUTORIAL_ACTIVE.add(int(uid))
         send_card(uid, game.welcome(user["id"], referral_bonus), [["🎓 Обучение"]])
-        send(uid, game.tutorial(user["id"]), [["▶️ Далее"]])
+        send(uid, game.tutorial(user["id"]), tutorial_keyboard(user["id"]))
         return
 
     if low.startswith("/start") or low in ("/menu", "меню", "🏙️ главное меню"):
@@ -532,19 +661,59 @@ def process(uid, text):
     if text == "💼 Работа":
         send_card(uid, "💼 ВЫБЕРИ РАБОТУ", kb_work(), key="work")
         return
-    work_map = {"🚕 Таксист": "taxi", "🕵️ Федерал": "federal", "📦 Блок": "block", "🔗 Рефка": "refwork"}
+    work_map = {
+        "🚕 Таксист": "taxi", "🕵️ Федерал": "federal",
+        "📦 Блок": "block", "🔗 Рефка": "refwork",
+        "🛵 Курьер": "courier", "👷 Строитель": "builder",
+        "🔧 Автомеханик": "mechanic", "🚑 Медик": "medic",
+        "👨‍🍳 Повар": "cook", "⛏ Шахтёр": "miner",
+        "🛡 Охранник": "security", "💻 Разработчик": "programmer",
+    }
     if text in work_map:
         send_card(uid, game.work(user["id"], work_map[text]), kb_work(), key="work")
         return
 
     if text == "🏢 Бизнес":
-        send_card(uid, game.business_info(user["id"]), kb_business(), key="business")
+        from business_expansion import portfolio_text
+        send_card(uid, game.business_info(user["id"]) + "\n\n" + portfolio_text(db, user["id"]), kb_business(), key="business")
         return
     if text == "🏭 Купить аэропорт":
         send_card(uid, game.buy_business(user["id"]), kb_business(), key="business")
         return
+    business_buy_map = {
+        "🏪 Купить киоск": "kiosk",
+        "🚿 Купить автомойку": "car_wash",
+        "☕ Купить кафе": "cafe",
+        "🔧 Купить СТО": "workshop",
+        "🚚 Купить логистику": "logistics",
+        "🏨 Купить отель": "hotel",
+    }
+    if text in business_buy_map:
+        from business_expansion import buy_business, portfolio_text
+        result = buy_business(db, user["id"], business_buy_map[text])
+        if result.startswith("✅ Куплено:"):
+            game.record_event_action(user["id"], "buy_business", 1)
+            if not db.sms_task_rows(user["id"], ["first_business"]).get("first_business", {}).get("completed", 0):
+                db.sms_task_complete(user["id"], "first_business")
+                db.sms_add(
+                    user["id"], "🕴️ Фиксер",
+                    "Теперь у тебя есть своё дело. Деньги любят тех, кто умеет ими управлять.",
+                    "first_business", 100000, 50
+                )
+        send_card(uid, result + "\n\n" + portfolio_text(db, user["id"]), kb_business(), key="business")
+        return
+    if text == "🏢 Мои бизнесы":
+        from business_expansion import portfolio_text
+        send_card(uid, portfolio_text(db, user["id"]), kb_business(), key="business")
+        return
+    if text == "💰 Снять доход":
+        from business_expansion import withdraw_income, portfolio_text
+        result = withdraw_income(db, user["id"])
+        send_card(uid, result + "\n\n" + portfolio_text(db, user["id"]), kb_business(), key="business")
+        return
     if text in ("📦 Склад", "ℹ️ Инфо"):
-        send(uid, game.business_info(user["id"]), kb_business())
+        from business_expansion import portfolio_text
+        send_card(uid, game.business_info(user["id"]) + "\n\n" + portfolio_text(db, user["id"]), kb_business(), key="business")
         return
     if text == "💰 Снять деньги":
         send_card(uid, game.withdraw_business(user["id"]), kb_business(), key="business")
@@ -832,25 +1001,154 @@ def process(uid, text):
 
 def business_worker():
     while True:
-        try: db.tick_all_businesses()
-        except Exception: logging.exception("Ошибка фонового тика бизнеса")
+        try:
+            db.tick_all_businesses()
+            from business_expansion import tick_all_portfolios
+            tick_all_portfolios(db)
+        except Exception:
+            logging.exception("Ошибка фонового тика бизнеса")
         time.sleep(60)
 
 
-def main():
-    # Release announcements run in the background so Long Poll starts immediately.
-    threading.Thread(
-        target=lambda: announce_new_release(db, vk, GROUP_ID),
-        name="release-announcement",
-        daemon=True,
-    ).start()
-    threading.Thread(target=business_worker, daemon=True).start()
-    logging.info("Bandit City запущен.")
-    for event in longpoll.listen():
+def player_reminder_worker():
+    """Send sparse, state-aware reminders; every reminder has its own persistent cooldown."""
+    from vk_api.keyboard import VkKeyboard, VkKeyboardColor
+
+    profile_name_cache = {}
+
+    def display_name(vk_id, nickname):
+        # Prefer a custom in-game nickname; otherwise use the VK profile name.
+        nickname = str(nickname or "").strip()
+        if nickname and not nickname.startswith("Игрок"):
+            return nickname
+        vk_id = int(vk_id)
+        if vk_id not in profile_name_cache:
+            try:
+                profiles = vk.users.get(user_ids=[vk_id], fields="first_name,last_name")
+                profile = profiles[0] if profiles else {}
+                full_name = " ".join(
+                    part.strip() for part in
+                    (str(profile.get("first_name", "")), str(profile.get("last_name", "")))
+                    if part and part.strip()
+                )
+                profile_name_cache[vk_id] = full_name or nickname or "бандит"
+            except Exception:
+                logging.warning("Не удалось получить имя VK для vk_id=%s; использую игровой ник", vk_id)
+                profile_name_cache[vk_id] = nickname or "бандит"
+        return profile_name_cache[vk_id]
+
+    inactive_after = 24 * 60 * 60
+    business_idle_after = 2 * 60 * 60
+    inactivity_cooldown = 72 * 60 * 60
+    business_cooldown = 24 * 60 * 60
+
+    while True:
         try:
-            if event.type == VkEventType.MESSAGE_NEW and event.to_me:
-                process(event.user_id, event.text or "")
-        except Exception: logging.exception("Ошибка обработки сообщения")
+            now = int(time.time())
+            with db.connect() as c:
+                players = c.execute(
+                    "SELECT u.id,u.vk_id,u.nickname,u.onboarding_done,a.last_seen "
+                    "FROM users u JOIN player_activity a ON a.user_id=u.id "
+                    "WHERE u.banned=0"
+                ).fetchall()
+                businesses = {
+                    int(row["user_id"]): row
+                    for row in c.execute("SELECT user_id,stock,balance FROM businesses").fetchall()
+                }
+
+            for player in players:
+                user_id = int(player["id"])
+                vk_id = int(player["vk_id"])
+                name = display_name(vk_id, player["nickname"])
+                last_seen = int(player["last_seen"])
+                idle = now - last_seen
+                if idle < business_idle_after:
+                    continue
+
+                message = None
+                button = "🏙️ Главное меню"
+                reminder_key = None
+                cooldown = business_cooldown
+
+                business = businesses.get(user_id)
+                if business and int(business["stock"]) <= 60 and idle >= business_idle_after:
+                    reminder_key = "low_stock"
+                    if db.reminder_due(user_id, reminder_key, cooldown, now):
+                        message = (
+                            "📦 СКЛАД НА ИСХОДЕ\n\n"
+                            f"{name}, запасы сырья почти закончились. Пополни склад, "
+                            "пока бизнес не остановился и прибыль не просела."
+                        )
+                        button = "💼 Бизнес"
+                elif business and int(business["balance"]) > 0 and idle >= business_idle_after:
+                    reminder_key = "business_profit"
+                    if db.reminder_due(user_id, reminder_key, cooldown, now):
+                        message = (
+                            "💰 ПРИБЫЛЬ ЖДЁТ!\n\n"
+                            f"{name}, твой бизнес накопил деньги. Загляни в город, проверь кассу "
+                            "и забери заработанное."
+                        )
+                        button = "💼 Бизнес"
+                elif idle >= inactive_after and int(player["onboarding_done"]):
+                    reminder_key = "city_return"
+                    cooldown = inactivity_cooldown
+                    if db.reminder_due(user_id, reminder_key, cooldown, now):
+                        message = (
+                            "🏙️ ГОРОД ЗАЖДАЛСЯ!\n\n"
+                            f"{name}, давно тебя не было в городе. Проверь бизнес, загляни в события "
+                            "и посмотри, что изменилось в Bandit City."
+                        )
+                        button = "🏙️ Главное меню"
+
+                if not message or not reminder_key:
+                    continue
+                keyboard = VkKeyboard(one_time=False)
+                keyboard.add_button(button, color=VkKeyboardColor.PRIMARY)
+                try:
+                    vk.messages.send(
+                        user_id=vk_id,
+                        random_id=random.randint(1, 2_147_483_647),
+                        message=message,
+                        keyboard=keyboard.get_keyboard(),
+                    )
+                    db.mark_reminder_sent(user_id, reminder_key, now)
+                    time.sleep(0.15)
+                except Exception:
+                    # Do not advance cooldown on a failed send; retry on a later worker pass.
+                    logging.exception("Не удалось отправить напоминание (vk_id=%s, key=%s)", vk_id, reminder_key)
+        except Exception:
+            logging.exception("Ошибка службы персональных напоминаний")
+        time.sleep(900)
+
+
+def main():
+    # Все фоновые службы изолированы от Long Poll: их сбой не останавливает игру.
+    from diagnostics import diagnostics_worker
+    from event_announcer import event_announcer_worker
+
+    workers = [
+        (lambda: announce_new_release(db, vk, GROUP_ID), "release-announcement"),
+        (business_worker, "business-worker"),
+        (player_reminder_worker, "player-reminders"),
+        (lambda: event_announcer_worker(db, vk, GROUP_ID), "event-announcer"),
+        (lambda: diagnostics_worker(db), "auto-diagnostics"),
+    ]
+    for target, name in workers:
+        threading.Thread(target=target, name=name, daemon=True).start()
+
+    logging.info("Bandit City запущен. Фоновые службы: %s", ", ".join(name for _, name in workers))
+    while True:
+        try:
+            for event in longpoll.listen():
+                try:
+                    if event.type == VkEventType.MESSAGE_NEW and event.to_me:
+                        process(event.user_id, event.text or "")
+                except Exception:
+                    logging.exception("Ошибка обработки сообщения")
+        except Exception:
+            # Автоматически переподключаем Long Poll после временной ошибки сети/API.
+            logging.exception("Long Poll завершился с ошибкой; повтор через 5 секунд")
+            time.sleep(5)
 
 
 if __name__ == "__main__": main()

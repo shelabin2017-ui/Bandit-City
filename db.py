@@ -36,6 +36,16 @@ class Database:
                 onboarding_done INTEGER NOT NULL DEFAULT 0,
                 created_at INTEGER NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS player_activity(
+                user_id INTEGER PRIMARY KEY,
+                last_seen INTEGER NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS player_reminders(
+                user_id INTEGER NOT NULL,
+                reminder_key TEXT NOT NULL,
+                last_sent INTEGER NOT NULL,
+                PRIMARY KEY(user_id, reminder_key)
+            );
             CREATE TABLE IF NOT EXISTS jobs(
                 user_id INTEGER NOT NULL,
                 job TEXT NOT NULL,
@@ -418,18 +428,26 @@ class Database:
             c.execute("UPDATE user_appearance SET "+fields+" WHERE user_id=?", params)
 
     def seed_promos(self):
-        # Temporary legendary campaign; INSERT OR IGNORE preserves the initial expiry.
-        now = int(time.time())
-        expires = now + 72 * 60 * 60
+        # Bandit City October campaign: fixed UTC expiry, inclusive through 31 October.
+        # Upsert only these campaign codes so deployments refresh their rewards and expiry
+        # without resetting redemption counts or touching unrelated promo records.
+        expires = 1793491200
         promos = [
-            ("BC-LEGEND-72H", "Легендарный дроп: образ Бандита", 0, 0, "🏆 Bandit Legend Outfit", "clothes", 100, expires),
-            ("BC-NEON-72H", "Легендарный дроп: неоновый фон", 0, 0, "🌃 Neon City Background", "background", 100, expires),
-            ("BC-NIGHT-72H", "Легендарный дроп: маска Ночного города", 0, 0, "🎭 Nightfall Mask", "head", 100, expires),
+            ("BC-OCT-LEGEND", "Октябрьский легендарный набор", 25000, 250, "🏆 Bandit Legend Outfit", "clothes", 1000, expires),
+            ("BC-OCT-NEON", "Октябрьский неоновый набор", 15000, 200, "🌃 Neon City Background", "background", 1500, expires),
+            ("BC-OCT-NIGHT", "Октябрьский ночной набор", 10000, 150, "🎭 Nightfall Mask", "head", 2000, expires),
         ]
         with self.connect() as c:
             c.execute("UPDATE promo_codes SET active=0 WHERE code IN ('0.20','ANNIVERSARY-2026','BANDIT-PRIME','BLACKOUT-2026','FOUNDER-2026','GOLDEN-2026','LOS-SANTOS-7','NEON-2026','NIGHTFALL-2026','NIGHTFALL-X','PRIME-2026')")
             for promo in promos:
-                c.execute("INSERT OR IGNORE INTO promo_codes(code,title,reward_cash,reward_xp,reward_item,reward_slot,max_uses,expires_at) VALUES(?,?,?,?,?,?,?,?)", promo)
+                c.execute(
+                    "INSERT INTO promo_codes(code,title,reward_cash,reward_xp,reward_item,reward_slot,max_uses,expires_at,active) "
+                    "VALUES(?,?,?,?,?,?,?,?,1) "
+                    "ON CONFLICT(code) DO UPDATE SET title=excluded.title,reward_cash=excluded.reward_cash,"
+                    "reward_xp=excluded.reward_xp,reward_item=excluded.reward_item,reward_slot=excluded.reward_slot,"
+                    "max_uses=excluded.max_uses,expires_at=excluded.expires_at,active=1",
+                    promo,
+                )
     def redeem_promo(self, user_id, code):
         code=code.strip().upper()
         self.seed_promos()
@@ -575,6 +593,33 @@ class Database:
             nickname = f"Игрок{row['id']}"
             c.execute("UPDATE users SET nickname=? WHERE id=?", (nickname, row["id"]))
             return c.execute("SELECT * FROM users WHERE id=?", (row["id"],)).fetchone()
+
+    def touch_player_activity(self, user_id):
+        now = int(time.time())
+        with self.connect() as c:
+            c.execute(
+                "INSERT INTO player_activity(user_id,last_seen) VALUES(?,?) "
+                "ON CONFLICT(user_id) DO UPDATE SET last_seen=excluded.last_seen",
+                (int(user_id), now),
+            )
+
+    def reminder_due(self, user_id, reminder_key, cooldown_seconds, now=None):
+        now = int(now or time.time())
+        with self.connect() as c:
+            row = c.execute(
+                "SELECT last_sent FROM player_reminders WHERE user_id=? AND reminder_key=?",
+                (int(user_id), str(reminder_key)),
+            ).fetchone()
+            return not row or now - int(row["last_sent"]) >= int(cooldown_seconds)
+
+    def mark_reminder_sent(self, user_id, reminder_key, now=None):
+        now = int(now or time.time())
+        with self.connect() as c:
+            c.execute(
+                "INSERT INTO player_reminders(user_id,reminder_key,last_sent) VALUES(?,?,?) "
+                "ON CONFLICT(user_id,reminder_key) DO UPDATE SET last_sent=excluded.last_sent",
+                (int(user_id), str(reminder_key), now),
+            )
 
     def needs_onboarding(self, user_id):
         with self.connect() as c:
