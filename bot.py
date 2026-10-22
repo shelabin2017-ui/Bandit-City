@@ -1014,6 +1014,29 @@ def player_reminder_worker():
     """Send sparse, state-aware reminders; every reminder has its own persistent cooldown."""
     from vk_api.keyboard import VkKeyboard, VkKeyboardColor
 
+    profile_name_cache = {}
+
+    def display_name(vk_id, nickname):
+        # Prefer a custom in-game nickname; otherwise use the VK profile name.
+        nickname = str(nickname or "").strip()
+        if nickname and not nickname.startswith("Игрок"):
+            return nickname
+        vk_id = int(vk_id)
+        if vk_id not in profile_name_cache:
+            try:
+                profiles = vk.users.get(user_ids=[vk_id], fields="first_name,last_name")
+                profile = profiles[0] if profiles else {}
+                full_name = " ".join(
+                    part.strip() for part in
+                    (str(profile.get("first_name", "")), str(profile.get("last_name", "")))
+                    if part and part.strip()
+                )
+                profile_name_cache[vk_id] = full_name or nickname or "бандит"
+            except Exception:
+                logging.warning("Не удалось получить имя VK для vk_id=%s; использую игровой ник", vk_id)
+                profile_name_cache[vk_id] = nickname or "бандит"
+        return profile_name_cache[vk_id]
+
     inactive_after = 24 * 60 * 60
     business_idle_after = 2 * 60 * 60
     inactivity_cooldown = 72 * 60 * 60
@@ -1024,7 +1047,7 @@ def player_reminder_worker():
             now = int(time.time())
             with db.connect() as c:
                 players = c.execute(
-                    "SELECT u.id,u.vk_id,u.onboarding_done,a.last_seen "
+                    "SELECT u.id,u.vk_id,u.nickname,u.onboarding_done,a.last_seen "
                     "FROM users u JOIN player_activity a ON a.user_id=u.id "
                     "WHERE u.banned=0"
                 ).fetchall()
@@ -1036,6 +1059,7 @@ def player_reminder_worker():
             for player in players:
                 user_id = int(player["id"])
                 vk_id = int(player["vk_id"])
+                name = display_name(vk_id, player["nickname"])
                 last_seen = int(player["last_seen"])
                 idle = now - last_seen
                 if idle < business_idle_after:
@@ -1052,7 +1076,7 @@ def player_reminder_worker():
                     if db.reminder_due(user_id, reminder_key, cooldown, now):
                         message = (
                             "📦 СКЛАД НА ИСХОДЕ\n\n"
-                            "Бандит, запасы сырья почти закончились. Пополни склад, "
+                            f"{name}, запасы сырья почти закончились. Пополни склад, "
                             "пока бизнес не остановился и прибыль не просела."
                         )
                         button = "💼 Бизнес"
@@ -1061,7 +1085,7 @@ def player_reminder_worker():
                     if db.reminder_due(user_id, reminder_key, cooldown, now):
                         message = (
                             "💰 ПРИБЫЛЬ ЖДЁТ!\n\n"
-                            "Твой бизнес накопил деньги. Загляни в город, проверь кассу "
+                            f"{name}, твой бизнес накопил деньги. Загляни в город, проверь кассу "
                             "и забери заработанное."
                         )
                         button = "💼 Бизнес"
@@ -1071,7 +1095,7 @@ def player_reminder_worker():
                     if db.reminder_due(user_id, reminder_key, cooldown, now):
                         message = (
                             "🏙️ ГОРОД ЗАЖДАЛСЯ!\n\n"
-                            "Давно тебя не было, бандит. Проверь бизнес, загляни в события "
+                            f"{name}, давно тебя не было в городе. Проверь бизнес, загляни в события "
                             "и посмотри, что изменилось в Bandit City."
                         )
                         button = "🏙️ Главное меню"
