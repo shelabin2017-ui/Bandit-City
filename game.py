@@ -368,15 +368,22 @@ class Game:
         if name == "":
             return "ℹ️ Этот предмет нельзя использовать как еду или напиток."
         lowered=name.lower()
-        if any(word in lowered for word in ("бургер","сэндвич","еда")):
+        # Explicit effects prevent every newly added consumable from becoming
+        # an energy drink by default. Values are clamped by Database.status_change.
+        if "энергетик" in lowered:
+            self.db.status_change(uid,energy=30)
+            effect="⚡ Энергия +30"
+        elif "кофе" in lowered:
+            self.db.status_change(uid,energy=15)
+            effect="☕ Энергия +15"
+        elif any(word in lowered for word in ("бургер","сэндвич","еда")):
             self.db.status_change(uid,hunger=-35,energy=5)
             effect="🍔 Голод −35 • ⚡ Энергия +5"
         elif "вода" in lowered:
             self.db.status_change(uid,hunger=-5,energy=3)
             effect="💧 Голод −5 • ⚡ Энергия +3"
         else:
-            self.db.status_change(uid,energy=25,hunger=5)
-            effect="⚡ Энергия +25 • 🍔 Голод +5"
+            return "ℹ️ Этот предмет нельзя использовать как еду или напиток."
         return f"✅ ИСПОЛЬЗОВАНО: {name}\n\n{effect}"
 
     def city_events(self,uid):
