@@ -102,6 +102,21 @@ class BanditCoreTest(unittest.TestCase):
         ok, _ = roles.revoke(admin, owner)
         self.assertFalse(ok)
 
+    def test_weapon_catalog_is_large_and_paginated_without_dropping_items(self):
+        from v5.bridge import WEAPONS, weapon_shop
+        from keyboard_layout import paginate_rows
+        message, rows = weapon_shop()
+        self.assertGreaterEqual(len(WEAPONS), 35)
+        weapon_rows = [row for row in rows if any(" — $" in button for button in row)]
+        visible = {button.split(" — $", 1)[0] for row in weapon_rows for button in row}
+        self.assertEqual(visible, {name for name, _, _ in WEAPONS})
+        pages = paginate_rows(rows)
+        self.assertGreater(len(pages), 1)
+        self.assertTrue(all(len(page) <= 10 for page in pages))
+        self.assertTrue(any("➡️ Далее меню" in row for page in pages for row in page))
+        self.assertTrue(any("⬅️ Назад меню" in row for page in pages for row in page))
+        self.assertTrue(all(["🏙️ Главное меню"] == page[-1] for page in pages))
+
     def test_item_shop_renders_all_items_with_valid_keyboard_size(self):
         from v5.bridge import ITEMS, item_shop
         message, buttons = item_shop()
