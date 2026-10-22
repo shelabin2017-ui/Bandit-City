@@ -12,7 +12,7 @@ class BusinessExpansionTests(unittest.TestCase):
         handle, self.path = tempfile.mkstemp(suffix=".db")
         os.close(handle)
         self.db = Database(self.path)
-        self.user_id, _ = self.db.get_or_create_user(10001)
+        self.user_id = self.db.get_or_create_user(10001)["id"]
 
     def tearDown(self):
         for suffix in ("", "-wal", "-shm"):
