@@ -555,6 +555,9 @@ def process(uid, text):
     if db.needs_onboarding(user["id"]):
         TUTORIAL_ACTIVE.add(int(uid))
     if text == "🎓 Обучение":
+        progress = db.tutorial(user["id"])
+        if progress["completed"]:
+            db.tutorial_set(user["id"], 0, False)
         TUTORIAL_ACTIVE.add(int(uid))
         send(uid, game.tutorial(user["id"]), tutorial_keyboard(user["id"]))
         return
@@ -579,6 +582,8 @@ def process(uid, text):
         TUTORIAL_ACTIVE.add(int(uid))
         send(uid, game.tutorial(user["id"]), tutorial_keyboard(user["id"]))
         return
+    if text == "🏙️ Главное меню" and not db.needs_onboarding(user["id"]):
+        TUTORIAL_ACTIVE.discard(int(uid))
     tutorial_progress = db.tutorial(user["id"])
     first_job_step = db.needs_onboarding(user["id"]) and int(tutorial_progress["step"]) == 1
     if int(uid) in TUTORIAL_ACTIVE and text in game.TUTORIAL_VIEWS and not (first_job_step and text == "💼 Работа"):
