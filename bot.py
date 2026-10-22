@@ -43,6 +43,7 @@ longpoll = VkLongPoll(session)
 
 CARD_CACHE = {}
 KEYBOARD_PAGES = {}
+TUTORIAL_ACTIVE = set()
 CARD_DIR = Path(__file__).resolve().parent / "assets" / "cards"
 INPUT_STATE = {}
 MAINTENANCE_KEY = "maintenance_mode"
@@ -277,6 +278,36 @@ def main_kb(uid):
     if has_admin_access(uid):
         return kb_main(True)
     return kb_main(False)
+
+
+TUTORIAL_BUTTONS = {
+    0: ["👤 Профиль", "📊 Мой статус"],
+    1: ["💼 Работа"],
+    2: ["👤 Профиль", "📊 Мой статус"],
+    3: ["💼 Работа", "🏢 Бизнес"],
+    4: ["🚗 Авто", "🛒 Магазин"],
+    5: ["🏦 Банк", "🎰 Казино"],
+    6: ["👥 Игроки", "📱 Телефон"],
+    7: ["🎯 Миссии", "🌆 События города"],
+    8: ["🎒 Инвентарь", "🍔 Потребности", "📩 СМС"],
+    9: ["🏆 Рейтинг", "🏆 Достижения", "🎁 Бонус"],
+    10: ["📚 Ещё"],
+    11: ["📖 Сюжет", "🎟 Промокод", "⚙️ Настройки", "❓ Помощь"],
+    12: ["👑 О создателе"],
+    13: [],
+}
+
+
+def tutorial_keyboard(user_id):
+    progress = db.tutorial(user_id)
+    step = min(int(progress["step"]), len(game.TUTORIAL) - 1)
+    rows = [[label] for label in TUTORIAL_BUTTONS.get(step, [])]
+    if step < len(game.TUTORIAL) - 1:
+        rows.append(["➡️ Далее экскурсии"])
+    else:
+        rows.append(["🏁 Завершить экскурсию"])
+    rows.append(["🏙️ Главное меню"])
+    return rows
 
 
 def has_staff_access(uid):
@@ -520,16 +551,36 @@ def process(uid, text):
         send(uid, "⛔ Твой аккаунт заблокирован.")
         return
 
-    # Route tutorial buttons before onboarding and normal menu handling.
+    # Guided tutorial is view-only apart from the required first work shift.
+    if db.needs_onboarding(user["id"]):
+        TUTORIAL_ACTIVE.add(int(uid))
     if text == "🎓 Обучение":
-        send(uid, game.tutorial(user["id"]), [["▶️ Далее", "🏙️ Главное меню"]])
+        TUTORIAL_ACTIVE.add(int(uid))
+        send(uid, game.tutorial(user["id"]), tutorial_keyboard(user["id"]))
         return
-    if text == "▶️ Далее":
+    if text in ("➡️ Далее экскурсии", "▶️ Далее"):
+        TUTORIAL_ACTIVE.add(int(uid))
         message = game.tutorial_next(user["id"])
         if "ЗАВЕРШЕНО" in message:
+            TUTORIAL_ACTIVE.discard(int(uid))
             send_card(uid, message, main_kb(uid))
         else:
-            send(uid, message, [["▶️ Далее", "🏙️ Главное меню"]])
+            send(uid, message, tutorial_keyboard(user["id"]))
+        return
+    if text == "🏁 Завершить экскурсию":
+        message = game.tutorial_next(user["id"])
+        if "ЗАВЕРШЕНО" in message:
+            TUTORIAL_ACTIVE.discard(int(uid))
+            send_card(uid, message, main_kb(uid))
+        else:
+            send(uid, message, tutorial_keyboard(user["id"]))
+        return
+    if text == "↩️ К экскурсии":
+        TUTORIAL_ACTIVE.add(int(uid))
+        send(uid, game.tutorial(user["id"]), tutorial_keyboard(user["id"]))
+        return
+    if int(uid) in TUTORIAL_ACTIVE and text in game.TUTORIAL_VIEWS:
+        send(uid, game.tutorial_view(user["id"], text), [["↩️ К экскурсии"], ["➡️ Далее экскурсии"]])
         return
 
     if db.needs_onboarding(user["id"]):
@@ -547,8 +598,9 @@ def process(uid, text):
             parts = text.split(maxsplit=1)
             if len(parts) == 2:
                 referral_bonus = bool(game.apply_referral(user["id"], parts[1]))
+        TUTORIAL_ACTIVE.add(int(uid))
         send_card(uid, game.welcome(user["id"], referral_bonus), [["🎓 Обучение"]])
-        send(uid, game.tutorial(user["id"]), [["▶️ Далее"]])
+        send(uid, game.tutorial(user["id"]), tutorial_keyboard(user["id"]))
         return
 
     if low.startswith("/start") or low in ("/menu", "меню", "🏙️ главное меню"):
