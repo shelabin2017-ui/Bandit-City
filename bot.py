@@ -620,6 +620,15 @@ def process(uid, text):
     if text in business_buy_map:
         from business_expansion import buy_business, portfolio_text
         result = buy_business(db, user["id"], business_buy_map[text])
+        if result.startswith("✅ Куплено:"):
+            game.record_event_action(user["id"], "buy_business", 1)
+            if not db.sms_task_rows(user["id"], ["first_business"]).get("first_business", {}).get("completed", 0):
+                db.sms_task_complete(user["id"], "first_business")
+                db.sms_add(
+                    user["id"], "🕴️ Фиксер",
+                    "Теперь у тебя есть своё дело. Деньги любят тех, кто умеет ими управлять.",
+                    "first_business", 100000, 50
+                )
         send_card(uid, result + "\n\n" + portfolio_text(db, user["id"]), kb_business(), key="business")
         return
     if text == "🏢 Мои бизнесы":
