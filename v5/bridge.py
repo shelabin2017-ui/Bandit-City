@@ -51,13 +51,11 @@ def item_shop():
     for name,price in ITEMS:
         body += [name,"💵 "+money(price),""]
         item_buttons.append(name+" — "+money(price))
-    # Reserve 3 rows for navigation; VK default keyboards support at most 10 rows.
-    # The catalog itself may therefore use at most 7 rows.
+    # VK keyboards support at most 10 rows. The shop is already open,
+    # so omit the redundant "Магазин" navigation button and show every item.
     for i in range(0, len(item_buttons), 2):
-        if len(buttons) >= 7:
-            break
         buttons.append(item_buttons[i:i + 2])
-    buttons += [["🎒 Инвентарь"],["🛒 Магазин"],["🏙️ Главное меню"]]
+    buttons += [["🎒 Инвентарь"],["🏙️ Главное меню"]]
     return reply("\n".join(body),buttons)
 def inventory(db,vk_id):
     uid=player_id_by_vk(db,vk_id); rows=db.items(uid)
