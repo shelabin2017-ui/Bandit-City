@@ -838,19 +838,32 @@ def business_worker():
 
 
 def main():
-    # Release announcements run in the background so Long Poll starts immediately.
-    threading.Thread(
-        target=lambda: announce_new_release(db, vk, GROUP_ID),
-        name="release-announcement",
-        daemon=True,
-    ).start()
-    threading.Thread(target=business_worker, daemon=True).start()
-    logging.info("Bandit City запущен.")
-    for event in longpoll.listen():
+    # Все фоновые службы изолированы от Long Poll: их сбой не останавливает игру.
+    from diagnostics import diagnostics_worker
+    from event_announcer import event_announcer_worker
+
+    workers = [
+        (lambda: announce_new_release(db, vk, GROUP_ID), "release-announcement"),
+        (business_worker, "business-worker"),
+        (lambda: event_announcer_worker(db, vk, GROUP_ID), "event-announcer"),
+        (lambda: diagnostics_worker(db), "auto-diagnostics"),
+    ]
+    for target, name in workers:
+        threading.Thread(target=target, name=name, daemon=True).start()
+
+    logging.info("Bandit City запущен. Фоновые службы: %s", ", ".join(name for _, name in workers))
+    while True:
         try:
-            if event.type == VkEventType.MESSAGE_NEW and event.to_me:
-                process(event.user_id, event.text or "")
-        except Exception: logging.exception("Ошибка обработки сообщения")
+            for event in longpoll.listen():
+                try:
+                    if event.type == VkEventType.MESSAGE_NEW and event.to_me:
+                        process(event.user_id, event.text or "")
+                except Exception:
+                    logging.exception("Ошибка обработки сообщения")
+        except Exception:
+            # Автоматически переподключаем Long Poll после временной ошибки сети/API.
+            logging.exception("Long Poll завершился с ошибкой; повтор через 5 секунд")
+            time.sleep(5)
 
 
 if __name__ == "__main__": main()
