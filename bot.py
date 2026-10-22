@@ -544,6 +544,10 @@ def process(uid, text):
         return
 
     user = db.get_or_create_user(uid)
+    try:
+        db.touch_player_activity(user["id"])
+    except Exception:
+        logging.exception("Не удалось обновить активность игрока")
     if maintenance_enabled() and not has_staff_access(uid):
         send_card(uid, "🏙️ BANDIT CITY\n\n🚧 ТЕХНИЧЕСКИЕ РАБОТЫ\n\nГород временно закрыт на обслуживание.\n\n🛠️ Мы обновляем систему, исправляем ошибки\nи готовим новые возможности.\n\n⏳ Совсем скоро город снова откроется.\n\n🖤 Спасибо за ожидание.")
         return
@@ -1005,6 +1009,93 @@ def business_worker():
         time.sleep(60)
 
 
+def player_reminder_worker():
+    """Send sparse, state-aware reminders; every reminder has its own persistent cooldown."""
+    from vk_api.keyboard import VkKeyboard, VkKeyboardColor
+
+    inactive_after = 24 * 60 * 60
+    business_idle_after = 2 * 60 * 60
+    inactivity_cooldown = 72 * 60 * 60
+    business_cooldown = 24 * 60 * 60
+
+    while True:
+        try:
+            now = int(time.time())
+            with db.connect() as c:
+                players = c.execute(
+                    "SELECT u.id,u.vk_id,u.onboarding_done,a.last_seen "
+                    "FROM users u JOIN player_activity a ON a.user_id=u.id "
+                    "WHERE u.banned=0"
+                ).fetchall()
+                businesses = {
+                    int(row["user_id"]): row
+                    for row in c.execute("SELECT user_id,stock,balance FROM businesses").fetchall()
+                }
+
+            for player in players:
+                user_id = int(player["id"])
+                vk_id = int(player["vk_id"])
+                last_seen = int(player["last_seen"])
+                idle = now - last_seen
+                if idle < business_idle_after:
+                    continue
+
+                message = None
+                button = "🏙️ Главное меню"
+                reminder_key = None
+                cooldown = business_cooldown
+
+                business = businesses.get(user_id)
+                if business and int(business["stock"]) <= 60 and idle >= business_idle_after:
+                    reminder_key = "low_stock"
+                    if db.reminder_due(user_id, reminder_key, cooldown, now):
+                        message = (
+                            "📦 СКЛАД НА ИСХОДЕ\n\n"
+                            "Бандит, запасы сырья почти закончились. Пополни склад, "
+                            "пока бизнес не остановился и прибыль не просела."
+                        )
+                        button = "💼 Бизнес"
+                elif business and int(business["balance"]) > 0 and idle >= business_idle_after:
+                    reminder_key = "business_profit"
+                    if db.reminder_due(user_id, reminder_key, cooldown, now):
+                        message = (
+                            "💰 ПРИБЫЛЬ ЖДЁТ!\n\n"
+                            "Твой бизнес накопил деньги. Загляни в город, проверь кассу "
+                            "и забери заработанное."
+                        )
+                        button = "💼 Бизнес"
+                elif idle >= inactive_after and int(player["onboarding_done"]):
+                    reminder_key = "city_return"
+                    cooldown = inactivity_cooldown
+                    if db.reminder_due(user_id, reminder_key, cooldown, now):
+                        message = (
+                            "🏙️ ГОРОД ЗАЖДАЛСЯ!\n\n"
+                            "Давно тебя не было, бандит. Проверь бизнес, загляни в события "
+                            "и посмотри, что изменилось в Bandit City."
+                        )
+                        button = "🏙️ Главное меню"
+
+                if not message or not reminder_key:
+                    continue
+                keyboard = VkKeyboard(one_time=False)
+                keyboard.add_button(button, color=VkKeyboardColor.PRIMARY)
+                try:
+                    vk.messages.send(
+                        user_id=vk_id,
+                        random_id=random.randint(1, 2_147_483_647),
+                        message=message,
+                        keyboard=keyboard.get_keyboard(),
+                    )
+                    db.mark_reminder_sent(user_id, reminder_key, now)
+                    time.sleep(0.15)
+                except Exception:
+                    # Do not advance cooldown on a failed send; retry on a later worker pass.
+                    logging.exception("Не удалось отправить напоминание (vk_id=%s, key=%s)", vk_id, reminder_key)
+        except Exception:
+            logging.exception("Ошибка службы персональных напоминаний")
+        time.sleep(900)
+
+
 def main():
     # Все фоновые службы изолированы от Long Poll: их сбой не останавливает игру.
     from diagnostics import diagnostics_worker
@@ -1013,6 +1104,7 @@ def main():
     workers = [
         (lambda: announce_new_release(db, vk, GROUP_ID), "release-announcement"),
         (business_worker, "business-worker"),
+        (player_reminder_worker, "player-reminders"),
         (lambda: event_announcer_worker(db, vk, GROUP_ID), "event-announcer"),
         (lambda: diagnostics_worker(db), "auto-diagnostics"),
     ]
