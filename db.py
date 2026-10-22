@@ -36,6 +36,16 @@ class Database:
                 onboarding_done INTEGER NOT NULL DEFAULT 0,
                 created_at INTEGER NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS player_activity(
+                user_id INTEGER PRIMARY KEY,
+                last_seen INTEGER NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS player_reminders(
+                user_id INTEGER NOT NULL,
+                reminder_key TEXT NOT NULL,
+                last_sent INTEGER NOT NULL,
+                PRIMARY KEY(user_id, reminder_key)
+            );
             CREATE TABLE IF NOT EXISTS jobs(
                 user_id INTEGER NOT NULL,
                 job TEXT NOT NULL,
@@ -583,6 +593,33 @@ class Database:
             nickname = f"Игрок{row['id']}"
             c.execute("UPDATE users SET nickname=? WHERE id=?", (nickname, row["id"]))
             return c.execute("SELECT * FROM users WHERE id=?", (row["id"],)).fetchone()
+
+    def touch_player_activity(self, user_id):
+        now = int(time.time())
+        with self.connect() as c:
+            c.execute(
+                "INSERT INTO player_activity(user_id,last_seen) VALUES(?,?) "
+                "ON CONFLICT(user_id) DO UPDATE SET last_seen=excluded.last_seen",
+                (int(user_id), now),
+            )
+
+    def reminder_due(self, user_id, reminder_key, cooldown_seconds, now=None):
+        now = int(now or time.time())
+        with self.connect() as c:
+            row = c.execute(
+                "SELECT last_sent FROM player_reminders WHERE user_id=? AND reminder_key=?",
+                (int(user_id), str(reminder_key)),
+            ).fetchone()
+            return not row or now - int(row["last_sent"]) >= int(cooldown_seconds)
+
+    def mark_reminder_sent(self, user_id, reminder_key, now=None):
+        now = int(now or time.time())
+        with self.connect() as c:
+            c.execute(
+                "INSERT INTO player_reminders(user_id,reminder_key,last_sent) VALUES(?,?,?) "
+                "ON CONFLICT(user_id,reminder_key) DO UPDATE SET last_sent=excluded.last_sent",
+                (int(user_id), str(reminder_key), now),
+            )
 
     def needs_onboarding(self, user_id):
         with self.connect() as c:
