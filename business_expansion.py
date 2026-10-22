@@ -44,9 +44,10 @@ def _tick(db, user_id, now=None):
                 continue
             rate = BUSINESSES.get(row["business_type"], {}).get("income", 0)
             earned = minutes * rate
+            next_tick = now if now - int(row["last_tick"]) >= 24 * 60 * 60 else int(row["last_tick"]) + minutes * 60
             c.execute(
                 "UPDATE business_portfolio SET balance=balance+?, last_tick=? WHERE id=?",
-                (earned, int(row["last_tick"]) + minutes * 60, row["id"]),
+                (earned, next_tick, row["id"]),
             )
             total += earned
         return total
