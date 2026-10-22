@@ -1,3 +1,7 @@
 BANDIT CITY RELEASE
 Build: 2026-10-22.6
-Announcement: Исправлены эффекты расходников (энергетик и кофе имеют отдельные эффекты; неподдерживаемые предметы не расходуются), магазин предметов показывает весь каталог в пределах лимита клавиатуры VK. Добавлены тесты этих сценариев. Предыдущие обновления: 
+Announcement: Исправлены эффекты расходников: энергетик и кофе имеют отдельные эффекты; неподдерживаемые предметы не расходуются. Магазин предметов показывает весь каталог в пределах лимита клавиатуры VK. Добавлены тесты этих сценариев.
+
+Runtime package for manual deployment.
+GitHub is used for source and release delivery only; GitHub Actions are not required on the VPS.
+Never overwrite the existing .env or bandit.db during deployment.
