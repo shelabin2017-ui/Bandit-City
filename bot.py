@@ -288,11 +288,28 @@ def kb_bank():
 
 
 def kb_business():
-    return [["🏭 Купить аэропорт", "📦 Склад"], ["📦 Пополнить склад", "💰 Снять деньги"], ["ℹ️ Инфо", "🏙️ Главное меню"]]
+    return [
+        ["🏭 Купить аэропорт", "🏢 Мои бизнесы"],
+        ["🏪 Купить киоск", "🚿 Купить автомойку"],
+        ["☕ Купить кафе", "🔧 Купить СТО"],
+        ["🚚 Купить логистику", "🏨 Купить отель"],
+        ["💰 Снять доход", "📦 Склад"],
+        ["📦 Пополнить склад", "ℹ️ Инфо"],
+        ["🏙️ Главное меню"],
+    ]
 
 
 def kb_work():
-    return [["🚕 Таксист", "🕵️ Федерал"], ["📦 Блок", "🔗 Рефка"], ["🎓 Обучение"], ["🏙️ Главное меню"]]
+    return [
+        ["🚕 Таксист", "🕵️ Федерал"],
+        ["📦 Блок", "🔗 Рефка"],
+        ["🛵 Курьер", "👷 Строитель"],
+        ["🔧 Автомеханик", "🚑 Медик"],
+        ["👨‍🍳 Повар", "⛏ Шахтёр"],
+        ["🛡 Охранник", "💻 Разработчик"],
+        ["🎓 Обучение"],
+        ["🏙️ Главное меню"],
+    ]
 
 
 def kb_auto():
@@ -573,19 +590,50 @@ def process(uid, text):
     if text == "💼 Работа":
         send_card(uid, "💼 ВЫБЕРИ РАБОТУ", kb_work(), key="work")
         return
-    work_map = {"🚕 Таксист": "taxi", "🕵️ Федерал": "federal", "📦 Блок": "block", "🔗 Рефка": "refwork"}
+    work_map = {
+        "🚕 Таксист": "taxi", "🕵️ Федерал": "federal",
+        "📦 Блок": "block", "🔗 Рефка": "refwork",
+        "🛵 Курьер": "courier", "👷 Строитель": "builder",
+        "🔧 Автомеханик": "mechanic", "🚑 Медик": "medic",
+        "👨‍🍳 Повар": "cook", "⛏ Шахтёр": "miner",
+        "🛡 Охранник": "security", "💻 Разработчик": "programmer",
+    }
     if text in work_map:
         send_card(uid, game.work(user["id"], work_map[text]), kb_work(), key="work")
         return
 
     if text == "🏢 Бизнес":
-        send_card(uid, game.business_info(user["id"]), kb_business(), key="business")
+        from business_expansion import portfolio_text
+        send_card(uid, game.business_info(user["id"]) + "\\n\\n" + portfolio_text(db, user["id"]), kb_business(), key="business")
         return
     if text == "🏭 Купить аэропорт":
         send_card(uid, game.buy_business(user["id"]), kb_business(), key="business")
         return
+    business_buy_map = {
+        "🏪 Купить киоск": "kiosk",
+        "🚿 Купить автомойку": "car_wash",
+        "☕ Купить кафе": "cafe",
+        "🔧 Купить СТО": "workshop",
+        "🚚 Купить логистику": "logistics",
+        "🏨 Купить отель": "hotel",
+    }
+    if text in business_buy_map:
+        from business_expansion import buy_business, portfolio_text
+        result = buy_business(db, user["id"], business_buy_map[text])
+        send_card(uid, result + "\\n\\n" + portfolio_text(db, user["id"]), kb_business(), key="business")
+        return
+    if text == "🏢 Мои бизнесы":
+        from business_expansion import portfolio_text
+        send_card(uid, portfolio_text(db, user["id"]), kb_business(), key="business")
+        return
+    if text == "💰 Снять доход":
+        from business_expansion import withdraw_income, portfolio_text
+        result = withdraw_income(db, user["id"])
+        send_card(uid, result + "\\n\\n" + portfolio_text(db, user["id"]), kb_business(), key="business")
+        return
     if text in ("📦 Склад", "ℹ️ Инфо"):
-        send(uid, game.business_info(user["id"]), kb_business())
+        from business_expansion import portfolio_text
+        send_card(uid, game.business_info(user["id"]) + "\\n\\n" + portfolio_text(db, user["id"]), kb_business(), key="business")
         return
     if text == "💰 Снять деньги":
         send_card(uid, game.withdraw_business(user["id"]), kb_business(), key="business")
