@@ -604,7 +604,7 @@ def process(uid, text):
 
     if text == "🏢 Бизнес":
         from business_expansion import portfolio_text
-        send_card(uid, game.business_info(user["id"]) + "\\n\\n" + portfolio_text(db, user["id"]), kb_business(), key="business")
+        send_card(uid, game.business_info(user["id"]) + "\n\n" + portfolio_text(db, user["id"]), kb_business(), key="business")
         return
     if text == "🏭 Купить аэропорт":
         send_card(uid, game.buy_business(user["id"]), kb_business(), key="business")
@@ -620,7 +620,7 @@ def process(uid, text):
     if text in business_buy_map:
         from business_expansion import buy_business, portfolio_text
         result = buy_business(db, user["id"], business_buy_map[text])
-        send_card(uid, result + "\\n\\n" + portfolio_text(db, user["id"]), kb_business(), key="business")
+        send_card(uid, result + "\n\n" + portfolio_text(db, user["id"]), kb_business(), key="business")
         return
     if text == "🏢 Мои бизнесы":
         from business_expansion import portfolio_text
@@ -629,11 +629,11 @@ def process(uid, text):
     if text == "💰 Снять доход":
         from business_expansion import withdraw_income, portfolio_text
         result = withdraw_income(db, user["id"])
-        send_card(uid, result + "\\n\\n" + portfolio_text(db, user["id"]), kb_business(), key="business")
+        send_card(uid, result + "\n\n" + portfolio_text(db, user["id"]), kb_business(), key="business")
         return
     if text in ("📦 Склад", "ℹ️ Инфо"):
         from business_expansion import portfolio_text
-        send_card(uid, game.business_info(user["id"]) + "\\n\\n" + portfolio_text(db, user["id"]), kb_business(), key="business")
+        send_card(uid, game.business_info(user["id"]) + "\n\n" + portfolio_text(db, user["id"]), kb_business(), key="business")
         return
     if text == "💰 Снять деньги":
         send_card(uid, game.withdraw_business(user["id"]), kb_business(), key="business")
@@ -921,8 +921,12 @@ def process(uid, text):
 
 def business_worker():
     while True:
-        try: db.tick_all_businesses()
-        except Exception: logging.exception("Ошибка фонового тика бизнеса")
+        try:
+            db.tick_all_businesses()
+            from business_expansion import tick_all_portfolios
+            tick_all_portfolios(db)
+        except Exception:
+            logging.exception("Ошибка фонового тика бизнеса")
         time.sleep(60)
 
 
