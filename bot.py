@@ -19,6 +19,7 @@ from admin_panel import AdminPanel
 from roles import RoleManager
 from role_ui import RoleUI
 from release import announce_new_release
+from keyboard_layout import normalize_rows, paginate_rows
 
 load_dotenv()
 TOKEN = os.getenv("VK_TOKEN", "").strip()
@@ -41,6 +42,7 @@ vk = session.get_api()
 longpoll = VkLongPoll(session)
 
 CARD_CACHE = {}
+KEYBOARD_PAGES = {}
 CARD_DIR = Path(__file__).resolve().parent / "assets" / "cards"
 INPUT_STATE = {}
 MAINTENANCE_KEY = "maintenance_mode"
@@ -69,22 +71,13 @@ def maintenance_enabled():
 
 def build_keyboard(rows):
     k = VkKeyboard(one_time=False)
-    clean = []
-    for row in rows or []:
-        if isinstance(row, str):
-            row = [row]
-        row = [str(x)[:40] for x in row if x]
-        for i in range(0, len(row), 2):
-            clean.append(row[i:i + 2])
-    # VK rejects default keyboards with more than 10 rows.
-    # Keep the bot alive even if a future handler accidentally returns too many.
+    clean = normalize_rows(rows)
     if len(clean) > 10:
-        logging.warning("Keyboard truncated from %s to 10 rows; preserving the final navigation row", len(clean))
-        # Keep the final row (usually Back/Main menu) instead of silently
-        # dropping it when a screen exceeds VK's 10-row limit.
-        clean = clean[:9] + [clean[-1]]
+        # Defensive fallback for any caller bypassing send() pagination.
+        logging.error("Keyboard passed directly with %s rows; rendering first safe page", len(clean))
+        clean = paginate_rows(clean)[0]
     for ri, row in enumerate(clean):
-        for i, label in enumerate(row):
+        for label in row:
             low = label.lower()
             if "назад" in low or "главное меню" in low:
                 color = VkKeyboardColor.SECONDARY
@@ -100,7 +93,7 @@ def build_keyboard(rows):
     return k
 
 
-def send(user_id, text, rows=None, attachment=None):
+def _send_raw(user_id, text, rows=None, attachment=None):
     payload = {"user_id": user_id, "random_id": random.randint(1, 2_147_483_647), "message": str(text)}
     if rows:
         payload["keyboard"] = rows.get_keyboard() if isinstance(rows, VkKeyboard) else build_keyboard(rows).get_keyboard()
@@ -109,11 +102,56 @@ def send(user_id, text, rows=None, attachment=None):
     try:
         vk.messages.send(**payload)
     except Exception:
-        # Do not silently hide keyboard/API errors by retrying without buttons.
-        # Log the exact failure so keyboard regressions can be diagnosed.
         logging.exception("VK messages.send failed (user_id=%s, keyboard=%s)", user_id, bool(payload.get("keyboard")))
         raise
 
+
+def send(user_id, text, rows=None, attachment=None):
+    """Send a VK-safe keyboard; long menus get real pages instead of lost buttons."""
+    uid = int(user_id)
+    if not rows or isinstance(rows, VkKeyboard):
+        KEYBOARD_PAGES.pop(uid, None)
+        _send_raw(uid, text, rows, attachment)
+        return
+
+    pages = paginate_rows(rows)
+    if len(pages) <= 1:
+        KEYBOARD_PAGES.pop(uid, None)
+        _send_raw(uid, text, pages[0] if pages else None, attachment)
+        return
+
+    KEYBOARD_PAGES[uid] = {
+        "text": str(text),
+        "pages": pages,
+        "attachment": attachment,
+        "page": 0,
+    }
+    _send_keyboard_page(uid, 0)
+
+
+def _send_keyboard_page(user_id, page_index):
+    state = KEYBOARD_PAGES.get(int(user_id))
+    if not state:
+        send(user_id, "🏙️ Вернулись в главное меню.", main_kb(user_id))
+        return
+    pages = state["pages"]
+    index = max(0, min(int(page_index), len(pages) - 1))
+    state["page"] = index
+    page_text = "{}\n\n📄 Страница меню: {}/{}".format(state["text"], index + 1, len(pages))
+    _send_raw(user_id, page_text, pages[index], state["attachment"])
+
+
+def handle_keyboard_paging(user_id, text):
+    """Return True when a pagination control was handled."""
+    if text not in ("➡️ Далее меню", "⬅️ Назад меню"):
+        return False
+    state = KEYBOARD_PAGES.get(int(user_id))
+    if not state:
+        send(user_id, "⌨️ Это меню уже закрыто. Открой нужный раздел заново.", main_kb(user_id))
+        return True
+    step = 1 if text == "➡️ Далее меню" else -1
+    _send_keyboard_page(user_id, state["page"] + step)
+    return True
 
 def card_key(text):
     t = str(text).lower()
@@ -451,6 +489,10 @@ def execute_broadcast(uid, message):
 def process(uid, text):
     text = text.strip()
     low = text.lower()
+    if handle_keyboard_paging(uid, text):
+        return
+    # Any ordinary action closes the previous paginated keyboard context.
+    KEYBOARD_PAGES.pop(int(uid), None)
     if process_input(uid, text):
         return
 
