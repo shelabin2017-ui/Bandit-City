@@ -579,7 +579,9 @@ def process(uid, text):
         TUTORIAL_ACTIVE.add(int(uid))
         send(uid, game.tutorial(user["id"]), tutorial_keyboard(user["id"]))
         return
-    if int(uid) in TUTORIAL_ACTIVE and text in game.TUTORIAL_VIEWS:
+    tutorial_progress = db.tutorial(user["id"])
+    first_job_step = db.needs_onboarding(user["id"]) and int(tutorial_progress["step"]) == 1
+    if int(uid) in TUTORIAL_ACTIVE and text in game.TUTORIAL_VIEWS and not (first_job_step and text == "💼 Работа"):
         send(uid, game.tutorial_view(user["id"], text), [["↩️ К экскурсии"], ["➡️ Далее экскурсии"]])
         return
 
@@ -588,7 +590,14 @@ def process(uid, text):
         if text == "💼 Работа":
             send_card(uid, "🎓 ЭТАП ОБУЧЕНИЯ: ПЕРВАЯ РАБОТА\n\nВыбери профессию и выполни смену, чтобы получить деньги и опыт.", kb_work(), key="work")
             return
-        onboarding_work_map = {"🚕 Таксист": "taxi", "🕵️ Федерал": "federal", "📦 Блок": "block", "🔗 Рефка": "refwork"}
+        onboarding_work_map = {
+            "🚕 Таксист": "taxi", "🕵️ Федерал": "federal",
+            "📦 Блок": "block", "🔗 Рефка": "refwork",
+            "🛵 Курьер": "courier", "👷 Строитель": "builder",
+            "🔧 Автомеханик": "mechanic", "🚑 Медик": "medic",
+            "👨‍🍳 Повар": "cook", "⛏ Шахтёр": "miner",
+            "🛡 Охранник": "security", "💻 Разработчик": "programmer",
+        }
         if text in onboarding_work_map:
             result = game.work(user["id"], onboarding_work_map[text])
             send_card(uid, result + "\n\n📩 После первой смены вернись в «🎓 Обучение» и продолжи сюжет.", kb_work(), key="work")
