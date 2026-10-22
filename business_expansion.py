@@ -123,3 +123,14 @@ def withdraw_income(db, user_id):
             (user_id, amount, "business_portfolio_withdraw", int(time.time())),
         )
     return f"💰 Доход снят: {money(amount)}."
+
+
+def tick_all_portfolios(db):
+    """Accrue passive income for every portfolio from the existing business worker."""
+    ensure_schema(db)
+    with db.connect() as c:
+        user_ids = [int(row["user_id"]) for row in c.execute(
+            "SELECT DISTINCT user_id FROM business_portfolio"
+        ).fetchall()]
+    for user_id in user_ids:
+        _tick(db, user_id)
