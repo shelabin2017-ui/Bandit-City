@@ -45,7 +45,7 @@ class GuidedTutorialTests(unittest.TestCase):
         self.db.tutorial_set(self.user_id, 1, False)
         self.db.sms_task_complete(self.user_id, "first_job")
         message = self.game.tutorial_next(self.user_id)
-        self.assertIn("Профиль и статус", message)
+        self.assertIn("Деньги, профиль и статус", message)
         self.assertEqual(int(self.db.tutorial(self.user_id)["step"]), 2)
         self.db.tutorial_set(self.user_id, len(self.game.TUTORIAL) - 1, False)
         final = self.game.tutorial_next(self.user_id)
