@@ -102,6 +102,34 @@ class BanditCoreTest(unittest.TestCase):
         ok, _ = roles.revoke(admin, owner)
         self.assertFalse(ok)
 
+    def test_inventory_actions_use_shared_arrow_pagination_without_truncation(self):
+        from v5.bridge import inventory
+        from keyboard_layout import paginate_rows
+        user = self.db.get_or_create_user(100008)
+        uid = user["id"]
+        expected = set()
+        with self.db.connect() as c:
+            for index in range(18):
+                name = "🎭 Маска {}".format(index + 1)
+                c.execute(
+                    "INSERT INTO items(user_id,name,price,bought_at) VALUES(?,?,?,?)",
+                    (uid, name, 1000 + index, 1),
+                )
+                item_id = c.execute(
+                    "SELECT id FROM items WHERE user_id=? AND name=?",
+                    (uid, name),
+                ).fetchone()["id"]
+                expected.add("🗑 Продать #" + str(item_id))
+        _, rows = inventory(self.db, user["vk_id"])
+        pages = paginate_rows(rows)
+        visible = {label for page in pages for row in page for label in row}
+        self.assertTrue(expected.issubset(visible))
+        self.assertGreater(len(pages), 1)
+        self.assertTrue(all(len(page) <= 10 for page in pages))
+        self.assertTrue(all(["🏙️ Главное меню"] == page[-1] for page in pages))
+        self.assertTrue(any("➡️ Далее меню" in row for page in pages for row in page))
+        self.assertTrue(any("⬅️ Назад меню" in row for page in pages for row in page))
+
     def test_weapon_catalog_is_large_and_paginated_without_dropping_items(self):
         from v5.bridge import WEAPONS, weapon_shop
         from keyboard_layout import paginate_rows
