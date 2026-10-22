@@ -269,7 +269,7 @@ class Game:
     def tutorial_next(self,uid):
         r=self.db.tutorial(uid)
         current=int(r["step"])
-        if current == 1 and not self.db.sms_task_rows(uid,["first_job"]).get("first_job",{}).get("completed",0):
+        if current == 1 and self.db.needs_onboarding(uid) and not self.db.sms_task_rows(uid,["first_job"]).get("first_job",{}).get("completed",0):
             return "🎓 ОБУЧЕНИЕ • ПЕРВАЯ РАБОТА\n\nСначала действительно выполни первую рабочую смену. Нажми «💼 Работа», выбери профессию и вернись сюда. Этот этап нельзя пропустить."
         step=current+1
         if step>=len(self.TUTORIAL):
