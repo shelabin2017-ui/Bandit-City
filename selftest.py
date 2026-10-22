@@ -102,6 +102,53 @@ class BanditCoreTest(unittest.TestCase):
         ok, _ = roles.revoke(admin, owner)
         self.assertFalse(ok)
 
+    def test_consumable_effects_are_type_specific(self):
+        from game import Game
+        user = self.db.get_or_create_user(100006)
+        uid = user["id"]
+        game = Game(self.db, set())
+        self.db.status(uid)
+        with self.db.connect() as c:
+            c.execute(
+                "UPDATE player_status SET energy=20,hunger=50 WHERE user_id=?",
+                (uid,),
+            )
+            c.execute(
+                "INSERT INTO items(user_id,name,price,bought_at) VALUES(?,?,?,?)",
+                (uid, "⚡ Энергетик", 15000, 1),
+            )
+            energy_item = c.execute(
+                "SELECT id FROM items WHERE user_id=? AND name=?",
+                (uid, "⚡ Энергетик"),
+            ).fetchone()["id"]
+        result = game.eat_item(uid, energy_item)
+        self.assertIn("Энергия +30", result)
+        status = self.db.status(uid)
+        self.assertEqual(status["energy"], 50)
+        self.assertEqual(status["hunger"], 50)
+
+    def test_unsupported_inventory_item_is_not_consumed(self):
+        from game import Game
+        user = self.db.get_or_create_user(100007)
+        uid = user["id"]
+        game = Game(self.db, set())
+        with self.db.connect() as c:
+            c.execute(
+                "INSERT INTO items(user_id,name,price,bought_at) VALUES(?,?,?,?)",
+                (uid, "🎭 Маска", 45000, 1),
+            )
+            item_id = c.execute(
+                "SELECT id FROM items WHERE user_id=? AND name=?",
+                (uid, "🎭 Маска"),
+            ).fetchone()["id"]
+        result = game.eat_item(uid, item_id)
+        self.assertIn("нельзя использовать", result)
+        with self.db.connect() as c:
+            self.assertIsNotNone(c.execute(
+                "SELECT id FROM items WHERE id=? AND user_id=?",
+                (item_id, uid),
+            ).fetchone())
+
     def test_attack_runtime(self):
         a = self.db.get_or_create_user(100002)
         b = self.db.get_or_create_user(100003)
