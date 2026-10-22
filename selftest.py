@@ -30,9 +30,9 @@ class BanditCoreTest(unittest.TestCase):
     def test_all_secret_event_promos(self):
         user = self.db.get_or_create_user(100004)
         for code, item in (
-            ("BC-LEGEND-72H", "🏆 Bandit Legend Outfit"),
-            ("BC-NEON-72H", "🌃 Neon City Background"),
-            ("BC-NIGHT-72H", "🎭 Nightfall Mask"),
+            ("BC-OCT-LEGEND", "🏆 Bandit Legend Outfit"),
+            ("BC-OCT-NEON", "🌃 Neon City Background"),
+            ("BC-OCT-NIGHT", "🎭 Nightfall Mask"),
         ):
             ok, message = self.db.redeem_promo(user["id"], code)
             self.assertTrue(ok, (code, message))
@@ -45,7 +45,7 @@ class BanditCoreTest(unittest.TestCase):
 
     def test_event_promo_is_not_public(self):
         user = self.db.get_or_create_user(100001)
-        ok, message = self.db.redeem_promo(user["id"], "BC-LEGEND-72H")
+        ok, message = self.db.redeem_promo(user["id"], "BC-OCT-LEGEND")
         self.assertTrue(ok, message)
         with self.db.connect() as c:
             row = c.execute("SELECT 1 FROM v5_wardrobe WHERE user_id=? AND name=?", (user["id"], "🏆 Bandit Legend Outfit")).fetchone()
@@ -56,7 +56,7 @@ class BanditCoreTest(unittest.TestCase):
     def test_event_exclusive_buttons_are_rendered(self):
         from v5 import bridge as v5
         user = self.db.get_or_create_user(100005)
-        self.db.redeem_promo(user["id"], "BC-LEGEND-72H")
+        self.db.redeem_promo(user["id"], "BC-OCT-LEGEND")
         message, buttons = v5.clothing_catalog(self.db, user["vk_id"], "🎪 Ивент • Эксклюзивы")
         self.assertIn("Bandit Legend Outfit", message)
         self.assertIn(["✅ 🏆 Bandit Legend Outfit"], buttons)
