@@ -107,10 +107,9 @@ def inventory(db,vk_id):
         sell_buttons.append("🗑 Продать #"+str(row["id"]))
         if any(word in str(row["name"]).lower() for word in ("бургер","сэндвич","вода","энергетик","еда","кофе")):
             sell_buttons.append("🍔 Использовать #"+str(row["id"]))
-    # Reserve 3 rows for navigation; keep inventory actions within 7 rows.
+    # Never truncate inventory actions locally. send() applies the shared VK
+    # arrow-pagination helper and keeps the final navigation row available.
     for i in range(0, len(sell_buttons), 2):
-        if len(buttons) >= 7:
-            break
         buttons.append(sell_buttons[i:i + 2])
     buttons += [["🛒 Магазин"],["🏙️ Главное меню"]]
     return reply("\n".join(body),buttons)
