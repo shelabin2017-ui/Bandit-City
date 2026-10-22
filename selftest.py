@@ -102,6 +102,16 @@ class BanditCoreTest(unittest.TestCase):
         ok, _ = roles.revoke(admin, owner)
         self.assertFalse(ok)
 
+    def test_item_shop_renders_all_items_with_valid_keyboard_size(self):
+        from v5.bridge import ITEMS, item_shop
+        message, buttons = item_shop()
+        item_rows = [row for row in buttons if any(" — $" in button for button in row)]
+        visible = {button.split(" — $", 1)[0] for row in item_rows for button in row}
+        self.assertEqual(len(visible), len(ITEMS))
+        self.assertLessEqual(len(buttons), 10)
+        self.assertIn(["🎒 Инвентарь"], buttons)
+        self.assertIn(["🏙️ Главное меню"], buttons)
+
     def test_consumable_effects_are_type_specific(self):
         from game import Game
         user = self.db.get_or_create_user(100006)
