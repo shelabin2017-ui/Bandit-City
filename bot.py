@@ -317,7 +317,7 @@ def kb_more(uid=None):
     if uid is not None:
         player = db.get_or_create_user(int(uid))
         if not db.tutorial(player["id"])["completed"]:
-            rows[0].append("🎓 Обучение")
+            rows[0].append("📖 Сюжетный пролог")
     return rows
 
 
@@ -397,7 +397,7 @@ def kb_work(uid=None):
     if uid is not None:
         player = db.get_or_create_user(int(uid))
         if not db.tutorial(player["id"])["completed"]:
-            rows.append(["🎓 Обучение"])
+            rows.append(["📖 Сюжетный пролог"])
     rows.append(["🏙️ Главное меню"])
     return rows
 
@@ -633,7 +633,7 @@ def process(uid, text):
         TUTORIAL_ACTIVE.add(int(uid))
         send(uid, game.tutorial(user["id"]), tutorial_keyboard(user["id"]))
         return
-    if text == "🎓 Обучение":
+    if text == "📖 Сюжетный пролог":
         progress = db.tutorial(user["id"])
         if progress["completed"]:
             send(uid, "✅ Сюжетный пролог уже пройден и больше не повторяется. Продолжай историю в разделе «📖 Сюжет».", [["📖 Сюжет"], ["🏙️ Главное меню"]])
@@ -673,7 +673,7 @@ def process(uid, text):
     if db.needs_onboarding(user["id"]):
         # Let the required first-job action run while onboarding is still active.
         if text == "💼 Работа":
-            send_card(uid, "🎓 ЭТАП ОБУЧЕНИЯ: ПЕРВАЯ РАБОТА\n\nВыбери профессию и выполни смену, чтобы получить деньги и опыт.", kb_work(uid), key="work")
+            send_card(uid, "📖 ПРОЛОГ • ПЕРВОЕ ДЕЛО\n\n📱 Телефон вибрирует: «Хватит стоять на остановке. Выбирай работу и докажи, что умеешь держать слово». Выбери профессию и заверши смену — получишь первые деньги и опыт.", kb_work(uid), key="work")
             return
         onboarding_work_map = {
             "🚕 Таксист": "taxi", "🕵️ Федерал": "federal",
@@ -689,7 +689,7 @@ def process(uid, text):
                 progression.record(user["id"], "work", 1)
                 progression.record(user["id"], "city", 1)
                 progression.record(user["id"], "earn", Game.JOBS[onboarding_work_map[text]][1])
-            send_card(uid, result + "\n\n📩 После первой смены вернись к сюжетному прологу и продолжи историю.", kb_work(), key="work")
+            send_card(uid, result + "\n\n📩 Первая смена позади. Возвращайся к сюжетному прологу — проводник уже приготовил для тебя следующий шаг.", kb_work(), key="work")
             return
         referral_bonus = False
         if low.startswith("/start"):
@@ -699,7 +699,7 @@ def process(uid, text):
         TUTORIAL_ACTIVE.add(int(uid))
         send_card(uid, game.welcome(user["id"], referral_bonus), [["🎭 Установить ник"]])
         set_state(uid, "nickname_onboarding")
-        send(uid, "🎭 ПЕРЕД НАЧАЛОМ ИГРЫ\n\nПридумай игровой ник, который увидят другие участники и который будет отображаться в рейтингах.\n\n📏 От 3 до 20 символов; буквы, цифры, пробел, _ и -. Ник можно будет изменить позже в ⚙️ Настройки.", [["❌ Отмена"]])
+        send(uid, "🎭 ПЕРЕД НАЧАЛОМ ИГРЫ\n\nНу что, будущая легенда Los Santos, сначала выбери себе имя. Его увидят другие игроки, оно появится в рейтингах и будет сопровождать тебя по всему городу.\n\n📏 От 3 до 20 символов; буквы, цифры, пробел, _ и -. Ник можно будет изменить позже в ⚙️ Настройки.", [["❌ Отмена"]])
         return
 
     if low.startswith("/start") or low in ("/menu", "меню", "🏙️ главное меню"):
