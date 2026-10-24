@@ -244,6 +244,46 @@ class BanditCoreTest(unittest.TestCase):
                 (item_id, uid),
             ).fetchone())
 
+    def test_contract_claim_button_code_parsing_and_reward_idempotency(self):
+        from progression_system import Progression
+        user = self.db.get_or_create_user(100201)
+        progression = Progression(self.db)
+        progression.record(user["id"], "work", 3)
+        with self.db.connect() as c:
+            from progression_system import _period
+            period = _period("daily")
+            c.execute(
+                "UPDATE progression_tasks SET progress=3 WHERE user_id=? AND kind='daily' AND period=? AND task_code='work3'",
+                (user["id"], period),
+            )
+        result = progression.claim(user["id"], "work3", "daily")
+        self.assertIn("Контракт выполнен", result)
+        balance_after = self.db.user(user["id"])["balance"]
+        again = progression.claim(user["id"], "work3", "daily")
+        self.assertIn("уже получена", again)
+        self.assertEqual(self.db.user(user["id"])["balance"], balance_after)
+
+    def test_gift_box_open_consumes_and_grants_once(self):
+        from v5 import bridge as shop
+        user = self.db.get_or_create_user(100202)
+        with self.db.connect() as c:
+            c.execute("INSERT INTO items(user_id,name,price,bought_at) VALUES(?,?,?,?)",
+                      (user["id"], "🎁 Подарочный бокс", 200000, 1))
+            item_id = c.execute("SELECT id FROM items WHERE user_id=? AND name='🎁 Подарочный бокс'",
+                                (user["id"],)).fetchone()["id"]
+        class FixedRng:
+            @staticmethod
+            def choice(options):
+                return next(x for x in options if x[0] == "cash" and x[1] == 25000)
+        before = self.db.user(user["id"])["balance"]
+        message, buttons = shop.open_gift_box(self.db, user["vk_id"], item_id, rng=FixedRng())
+        self.assertIn("$25 000", message)
+        self.assertEqual(self.db.user(user["id"])["balance"], before + 25000)
+        again, _ = shop.open_gift_box(self.db, user["vk_id"], item_id, rng=FixedRng())
+        self.assertIn("не найден", again)
+        with self.db.connect() as c:
+            self.assertEqual(c.execute("SELECT COUNT(*) FROM items WHERE id=?", (item_id,)).fetchone()[0], 0)
+
     def test_attack_runtime(self):
         a = self.db.get_or_create_user(100002)
         b = self.db.get_or_create_user(100003)
