@@ -86,18 +86,67 @@ def _owned(db,user_id,category,name):
 
 def shop_hub():
     return reply("🛒 МАГАЗИН LOS SANTOS\n\nВыбери раздел:",[["🧥 Одежда","🔫 Оружие"],["🚗 Авто","💎 Премиум"],["🛍️ Предметы"],["🎒 Инвентарь"],["🎪 Ивент-дропы"],["🏙️ Главное меню"]])
-def item_shop():
-    body=["🛒 ПРЕДМЕТЫ LOS SANTOS","","Постоянный каталог:",""]; buttons=[]
-    item_buttons=[]
-    for name,price in ITEMS:
-        body += [name,"💵 "+money(price),""]
-        item_buttons.append(name+" — "+money(price))
-    # VK keyboards support at most 10 rows. The shop is already open,
-    # so omit the redundant "Магазин" navigation button and show every item.
-    for i in range(0, len(item_buttons), 2):
-        buttons.append(item_buttons[i:i + 2])
-    buttons += [["🎒 Инвентарь"],["🏙️ Главное меню"]]
-    return reply("\n".join(body),buttons)
+ITEM_CATEGORIES = {
+    "🍔 Еда и напитки": ("🍔", ("бургер", "сэндвич", "вода", "энергетик")),
+    "🩹 Медицина": ("🩹", ("аптечка",)),
+    "🛠️ Инструменты и снаряжение": ("🛠️", ("отмычек", "инструменты", "бронежилет", "маска")),
+    "👕 Одежда и аксессуары": ("👕", ("кроссовки", "куртка", "волосы")),
+    "📱 Электроника": ("📱", ("macbook", "burner phone")),
+    "🎁 Прочее": ("🎁", ("счастливый жетон", "подарочный бокс")),
+}
+
+def item_category(name):
+    lowered = str(name).lower()
+    for category, (_, words) in ITEM_CATEGORIES.items():
+        if any(word in lowered for word in words):
+            return category
+    return "🎁 Прочее"
+
+def item_shop(category=None):
+    if not category:
+        body = ["🛒 ПРЕДМЕТЫ LOS SANTOS", "", "Выбери категорию товаров:"]
+        buttons = [[name] for name in ITEM_CATEGORIES]
+        buttons += [["📦 Все предметы"], ["🎒 Инвентарь"], ["↩️ В магазин"], ["🏙️ Главное меню"]]
+        return reply("\\n".join(body), buttons)
+    if category == "📦 Все предметы":
+        category = None
+    chosen = [(name, price) for name, price in ITEMS if category is None or item_category(name) == category]
+    title = category or "📦 Все предметы"
+    body = ["🛒 " + title.upper(), "", "Выбирай количество — покупка оформляется одним нажатием.", "Доступно: x1, x5, x10."]
+    buttons = []
+    for name, price in chosen:
+        body += ["", name, "💵 За штуку: " + money(price)]
+        buttons.append(["🛒 x1 " + name + " — " + money(price), "🛒 x5 " + name + " — " + money(price)])
+        buttons.append(["🛒 x10 " + name + " — " + money(price)])
+    buttons += [["↩️ К категориям"], ["🎒 Инвентарь"], ["↩️ В магазин"], ["🏙️ Главное меню"]]
+    return reply("\\n".join(body), buttons)
+
+def buy_item_quantity(db, vk_id, name, quantity):
+    match = next((x for x in ITEMS if x[0] == name), None)
+    if not match:
+        return reply("❌ Предмет отсутствует в каталоге.", [["🛍️ Предметы"], ["🛒 Магазин"]])
+    quantity = int(quantity)
+    if quantity < 1 or quantity > 100:
+        return reply("❌ За одну покупку можно приобрести от 1 до 100 единиц.", [["🛍️ Предметы"], ["🛒 Магазин"]])
+    item, price = match
+    uid = player_id_by_vk(db, vk_id)
+    user = db.user(uid)
+    total = price * quantity
+    if not user or int(user["balance"]) < total:
+        return reply("❌ Недостаточно денег.\n\n" + item + "\\nКоличество: " + str(quantity) + "\\nИтого: " + money(total), [["🛍️ Предметы"], ["🛒 Магазин"]])
+    # The balance is checked for the whole basket before writing any item.
+    with _conn(db) as c:
+        current = c.execute("SELECT balance FROM users WHERE id=?", (uid,)).fetchone()
+        if not current or int(current["balance"]) < total:
+            return reply("❌ Баланс изменился: денег на всю покупку не хватает.", [["🛍️ Предметы"], ["🛒 Магазин"]])
+        c.execute("UPDATE users SET balance=balance-? WHERE id=?", (total, uid))
+        now = int(time.time())
+        c.executemany(
+            "INSERT INTO items(user_id,name,price,bought_at) VALUES(?,?,?,?)",
+            [(uid, item, price, now) for _ in range(quantity)]
+        )
+    return reply("✅ ПОКУПКА ОФОРМЛЕНА\\n\\n" + item + "\\n📦 Количество: " + str(quantity) + "\\n💵 За штуку: " + money(price) + "\\n💰 Итого: " + money(total), [["🎒 Инвентарь"], ["🛍️ Предметы"], ["🛒 Магазин"]])
+
 def inventory(db,vk_id):
     uid=player_id_by_vk(db,vk_id); rows=db.items(uid)
     if not rows: return reply("🎒 ИНВЕНТАРЬ LOS SANTOS\n\nКарман пуст.",[["🛒 Магазин"],["🏙️ Главное меню"]])
