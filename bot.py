@@ -189,49 +189,79 @@ def card_key(text):
     return "main"
 
 def upload_card(user_id, key):
+    """Upload SVG cards when possible; fall back to bundled PNG/JPEG assets."""
     try:
-        import cairosvg
-        cache_key = key
-        svg = CARD_DIR / (str(key) + '.svg')
-        if key == 'profile':
+        cache_key = str(key)
+        source = None
+        svg = CARD_DIR / (cache_key + ".svg")
+
+        if key == "profile":
             player = db.get_or_create_user(user_id)
-            if player:
-                appearance = db.appearance(player['id'])
-                cache_key = 'profile-player-{}-{}'.format(user_id, int(appearance['updated_at']))
-                svg = CARD_DIR / (cache_key + '.svg')
-                profile_template = CARD_DIR / 'profile.svg'
-                # Rebuild per-player artwork when the shared template changes.
-                # Otherwise an old profile-player-*.svg survives deployments and
-                # keeps showing the previous card even after the template is updated.
-                if not svg.exists() or svg.stat().st_mtime < profile_template.stat().st_mtime:
-                    base = profile_template.read_text(encoding='utf-8')
-                    slots = [('ГОЛОВА', appearance['head']), ('ВЕРХ', appearance['clothes']), ('АКСЕССУАР', appearance['accessory']), ('БРЮКИ', appearance['pants']), ('ОБУВЬ', appearance['shoes']), ('ВОЛОСЫ', appearance['hair'])]
-                    lines = ['<g font-family="Arial,sans-serif" font-weight="700">', '<rect x="720" y="360" width="410" height="205" rx="20" fill="#05090e" fill-opacity=".86" stroke="#78bfff" stroke-opacity=".9"/>', '<text x="750" y="395" font-size="19" letter-spacing="2" fill="#78bfff">ЭКИПИРОВКА ПЕРСОНАЖА</text>']
+            profile_template = CARD_DIR / "profile.svg"
+            if player and profile_template.exists():
+                appearance = db.appearance(player["id"])
+                cache_key = "profile-player-{}-{}".format(user_id, int(appearance["updated_at"]))
+                svg = CARD_DIR / (cache_key + ".svg")
+                if (not svg.exists()) or svg.stat().st_mtime < profile_template.stat().st_mtime:
+                    base = profile_template.read_text(encoding="utf-8")
+                    slots = [
+                        ("ГОЛОВА", appearance["head"]), ("ВЕРХ", appearance["clothes"]),
+                        ("АКСЕССУАР", appearance["accessory"]), ("БРЮКИ", appearance["pants"]),
+                        ("ОБУВЬ", appearance["shoes"]), ("ВОЛОСЫ", appearance["hair"]),
+                    ]
+                    lines = [
+                        '<g font-family="Arial,sans-serif" font-weight="700">',
+                        '<rect x="720" y="360" width="410" height="205" rx="20" fill="#05090e" fill-opacity=".86" stroke="#78bfff" stroke-opacity=".9"/>',
+                        '<text x="750" y="395" font-size="19" letter-spacing="2" fill="#78bfff">ЭКИПИРОВКА ПЕРСОНАЖА</text>',
+                    ]
                     y = 430
                     for label, value in slots:
-                        value = html.escape(str(value or 'не надето'))[:30]
+                        value = html.escape(str(value or "не надето"))[:30]
                         lines.append('<text x="750" y="{}" font-size="16" fill="#d8e2e8">{}:</text>'.format(y, label))
                         lines.append('<text x="900" y="{}" font-size="16" fill="#ffffff">{}</text>'.format(y, value))
                         y += 23
-                    lines.append('</g>')
-                    svg.write_text(base.replace('</svg>', ''.join(lines) + '</svg>'), encoding='utf-8')
+                    lines.append("</g>")
+                    svg.write_text(base.replace("</svg>", "".join(lines) + "</svg>"), encoding="utf-8")
+
+        # SVG remains preferred so dynamic profile equipment and the existing design are retained.
+        png = CARD_DIR / (cache_key + ".png")
+        if svg.exists():
+            try:
+                import cairosvg
+                if not png.exists() or png.stat().st_mtime < svg.stat().st_mtime:
+                    cairosvg.svg2png(url=str(svg), write_to=str(png), output_width=1200, output_height=630)
+                source = png
+            except Exception:
+                logging.exception("SVG card rendering failed for %s; trying static asset", key)
+
+        if source is None:
+            candidates = {
+                "profile": ["profile-source.jpeg", "profile-source.jpg", "profile.png", "profile.jpg", "main.png"],
+                "garage": ["garage-source.jpeg", "garage-source.jpg", "garage.png", "garage.jpg"],
+                "main": ["main.png", "main.jpg", "main.jpeg"],
+                "shop": ["shop.png", "shop.jpg", "shop.jpeg"],
+                "admin": ["admin.png", "admin.jpg", "admin.jpeg"],
+            }.get(str(key), [str(key) + ".png", str(key) + ".jpg", str(key) + ".jpeg"])
+            source = next((CARD_DIR / name for name in candidates if (CARD_DIR / name).is_file()), None)
+        if source is None or not source.is_file():
+            logging.warning("No usable card asset found for key=%s in %s", key, CARD_DIR)
+            return None
+
+        stat = source.stat()
+        cache_key = "{}-{}-{}".format(key, source.name, int(stat.st_mtime))
         if cache_key in CARD_CACHE:
             return CARD_CACHE[cache_key]
-        png = CARD_DIR / (cache_key + '.png')
-        if not svg.exists():
-            return None
-        if not png.exists() or png.stat().st_mtime < svg.stat().st_mtime:
-            cairosvg.svg2png(url=str(svg), write_to=str(png), output_width=1200, output_height=630)
+
         upload = vk.photos.getMessagesUploadServer(peer_id=user_id)
-        with png.open('rb') as fh:
-            response = requests.post(upload['upload_url'], files={'photo': fh}, timeout=(5, 10)).json()
-        saved = vk.photos.saveMessagesPhoto(server=response['server'], photo=response['photo'], hash=response['hash'])
+        with source.open("rb") as fh:
+            response = requests.post(upload["upload_url"], files={"photo": fh}, timeout=(5, 15)).json()
+        saved = vk.photos.saveMessagesPhoto(server=response["server"], photo=response["photo"], hash=response["hash"])
         photo = saved[0]
-        attachment = 'photo{}_{}'.format(photo['owner_id'], photo['id'])
+        attachment = "photo{}_{}".format(photo["owner_id"], photo["id"])
         CARD_CACHE[cache_key] = attachment
         return attachment
     except Exception:
-        logging.exception('Не удалось сформировать карточку %s', key)
+        logging.exception("Не удалось сформировать карточку %s", key)
         return None
 
 def release_card_attachment():
