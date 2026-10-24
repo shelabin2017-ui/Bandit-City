@@ -418,6 +418,9 @@ def process_input(uid, text):
         return False
     low = text.lower().strip()
     if low in ("отмена", "❌ отмена", "/cancel"):
+        if st.get("mode") == "nickname_onboarding":
+            send(uid, "🎭 Чтобы начать обучение, сначала установи игровой ник. Введи ник от 3 до 20 символов.", [["❌ Отмена"]])
+            return True
         clear_state(uid)
         send_card(uid, "❌ Операция отменена.", main_kb(uid))
         return True
@@ -453,8 +456,13 @@ def process_input(uid, text):
 
             ok, message = db.set_nickname(db.get_or_create_user(uid)["id"], nickname)
             if ok:
+                was_onboarding = st.get("mode") == "nickname_onboarding"
                 clear_state(uid)
-                send_card(uid, message, kb_settings())
+                if was_onboarding:
+                    TUTORIAL_ACTIVE.add(int(uid))
+                    send(uid, message + "\\n\\nТеперь пройдём короткое обучение — оно покажет основные кнопки и поможет начать игру.", [["🎓 Начать обучение"]])
+                else:
+                    send_card(uid, message, kb_settings())
             else:
                 send(uid, message, [["❌ Отмена"]])
             return True
@@ -564,6 +572,10 @@ def process(uid, text):
     # Guided tutorial is view-only apart from the required first work shift.
     if db.needs_onboarding(user["id"]):
         TUTORIAL_ACTIVE.add(int(uid))
+    if text == "🎓 Начать обучение":
+        TUTORIAL_ACTIVE.add(int(uid))
+        send(uid, game.tutorial(user["id"]), tutorial_keyboard(user["id"]))
+        return
     if text == "🎓 Обучение":
         progress = db.tutorial(user["id"])
         if progress["completed"]:
@@ -627,8 +639,9 @@ def process(uid, text):
             if len(parts) == 2:
                 referral_bonus = bool(game.apply_referral(user["id"], parts[1]))
         TUTORIAL_ACTIVE.add(int(uid))
-        send_card(uid, game.welcome(user["id"], referral_bonus), [["🎓 Обучение"]])
-        send(uid, game.tutorial(user["id"]), tutorial_keyboard(user["id"]))
+        send_card(uid, game.welcome(user["id"], referral_bonus), [["🎭 Установить ник"]])
+        set_state(uid, "nickname_onboarding")
+        send(uid, "🎭 ПЕРЕД НАЧАЛОМ ИГРЫ\\n\\nПридумай игровой ник, который увидят другие участники и который будет отображаться в рейтингах.\\n\\n📏 От 3 до 20 символов; буквы, цифры, пробел, _ и -. Ник можно будет изменить позже в ⚙️ Настройки.", [["❌ Отмена"]])
         return
 
     if low.startswith("/start") or low in ("/menu", "меню", "🏙️ главное меню"):
@@ -970,7 +983,16 @@ def process(uid, text):
         send(uid, "👥 ИГРОКИ\n\n💸 Перевод — отправь VK ID и сумму\n/scam VK_ID — скам\n/rob VK_ID — ограбление\n/ref — реферальная ссылка\n/top — рейтинг", [["💸 Перевод", "/ref"], ["🏆 Рейтинг", "🏙️ Главное меню"]]); return
     if text == "💸 Перевод": set_state(uid, "pay"); send(uid, "💸 Введи двумя числами: VK_ID СУММА\n\nПример: 123456789 37500", [["❌ Отмена"]]); return
     if low == "/ref": send(uid, game.ref_link(user["id"]), main_kb(uid)); return
-    if low == "/top" or text == "🏆 Рейтинг": send_card(uid, game.top(), main_kb(uid), key="rating"); return
+    if low == "/top" or text == "🏆 Рейтинг":
+        send_card(uid, "🏆 РЕЙТИНГИ ГОРОДА\\n\\nВыбери категорию и сравни результаты игроков:", [["💰 Богатейшие", "⭐ Уровень"], ["✨ Опыт", "🚗 Автопарк"], ["🏢 Бизнесы", "🤝 Рефералы"], ["🏆 Достижения"], ["🏙️ Главное меню"]], key="rating"); return
+    rating_categories = {
+        "💰 Богатейшие": "wealth", "⭐ Уровень": "level", "✨ Опыт": "xp",
+        "🚗 Автопарк": "cars", "🏢 Бизнесы": "business",
+        "🤝 Рефералы": "referrals", "🏆 Достижения": "achievements",
+    }
+    if text in rating_categories:
+        send_card(uid, db.top_category(rating_categories[text]), [["💰 Богатейшие", "⭐ Уровень"], ["✨ Опыт", "🚗 Автопарк"], ["🏢 Бизнесы", "🤝 Рефералы"], ["🏆 Достижения"], ["🏆 Рейтинг", "🏙️ Главное меню"]], key="rating")
+        return
     if low.startswith("/pay "):
         try:
             p = text.split(); send(uid, game.transfer(user["id"], int(p[1]), int(p[2])), main_kb(uid))
