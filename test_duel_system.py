@@ -41,6 +41,11 @@ class DuelSystemTests(unittest.TestCase):
         self.assertEqual(row["status"], "finished")
         self.assertIn(row["winner_id"], (998871, 998872))
         self.assertIn(row["loser_id"], (998871, 998872))
+        # Replaying the same accept request must not transfer another stake.
+        replay = self.duels.accept(998872, duel_id)
+        self.assertIn("уже завершена", replay)
+        self.assertEqual(self.db.get_or_create_user(998871)["balance"], after_a)
+        self.assertEqual(self.db.get_or_create_user(998872)["balance"], after_b)
 
     def test_insufficient_balance_rejects_challenge(self):
         with self.db.connect() as c:
