@@ -1073,12 +1073,12 @@ class Database:
                 "FROM users u WHERE u.banned=0 ORDER BY score DESC, u.level DESC, u.id ASC LIMIT 10"
             ).fetchall()
         if not rows:
-            return title + "\\n\\nПока никого нет."
+            return title + "\n\nПока никого нет."
         lines = []
         for i, row in enumerate(rows, 1):
             value = money(row["score"]) if kind == "money" else f"{int(row['score']):,}".replace(",", " ")
             lines.append(f"{i}. 🎭 {row['nickname']} — {value}" + (f" | ⭐ {row['level']}" if category != "level" else ""))
-        return title + "\\n\\n" + "\\n".join(lines) + "\\n\\nОбновляется по игровым данным города."
+        return title + "\n\n" + "\n".join(lines) + "\n\nОбновляется по игровым данным города."
 
     def bank_deposit(self, user_id, amount):
         if amount <= 0:
