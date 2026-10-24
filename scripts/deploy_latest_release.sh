@@ -24,13 +24,34 @@ API="https://api.github.com/repos/$REPO/releases/latest"
 curl --fail --silent --show-error --location --retry 3 "$API" -o "/tmp/bandit-release-$NOW.json" || fail "GitHub Releases API request failed."
 TAG="$(jq -r '.tag_name // empty' "/tmp/bandit-release-$NOW.json")"
 [ -n "$TAG" ] && [ "$TAG" != "null" ] || fail "No published release tag found. Publish a vX.Y.Z release first."
+if [ -f "$APP_DIR/VERSION.txt" ] && [ "$(cat "$APP_DIR/VERSION.txt")" = "$TAG" ]; then
+  say "Already running release $TAG; nothing to do."
+  exit 0
+fi
 URL="$(jq -r '[.assets[] | select(.name == "bandit-city-release.zip")][0].browser_download_url // empty' "/tmp/bandit-release-$NOW.json")"
 [ -n "$URL" ] || fail "Release $TAG has no bandit-city-release.zip asset; refusing to deploy source archive."
 say "Latest release: $TAG"
 TMP="$(mktemp -d /tmp/bandit-deploy.XXXXXX)"
 BACKUP="$STATE_DIR/pre-$TAG-$NOW.tar.gz"
-cleanup(){ rm -rf "$TMP"; }
-trap cleanup EXIT
+MUTATED=0
+rollback(){
+  local rc=$?
+  if [ "$MUTATED" -eq 1 ] && [ -f "$BACKUP" ]; then
+    say "Deployment failed (exit $rc); attempting rollback from $BACKUP"
+    systemctl stop "$SERVICE" || true
+    rm -rf "$APP_DIR"
+    tar -xzf "$BACKUP" -C "$(dirname "$APP_DIR")" || say "CRITICAL: could not extract backup"
+    systemctl restart "$SERVICE" || true
+    if systemctl is-active --quiet "$SERVICE"; then
+      say "ROLLBACK SUCCESS: previous version restored and service active."
+    else
+      say "CRITICAL: rollback attempted but service is not active; inspect journalctl -u $SERVICE."
+    fi
+  fi
+  rm -rf "$TMP"
+  exit "$rc"
+}
+trap rollback EXIT
 say "Downloading and validating release archive"
 curl --fail --silent --show-error --location --retry 3 "$URL" -o "$TMP/release.zip" || fail "Release asset download failed."
 unzip -tq "$TMP/release.zip" || fail "ZIP integrity test failed."
@@ -48,7 +69,8 @@ tar -czf "$BACKUP" -C "$(dirname "$APP_DIR")" "$(basename "$APP_DIR")"
 chmod 600 "$BACKUP"
 say "Backup saved: $BACKUP"
 # Release contents are copied over the live directory; secrets and persistent DB are explicitly excluded.
-rsync -a --delete --exclude='/.env' --exclude='/bandit.db' --exclude='/.venv' --exclude='/logs/' --exclude='/backups/' "$SRC/" "$APP_DIR/"
+MUTATED=1
+rsync -a --delete --exclude='/.env' --exclude='/bandit.db' --exclude='/.venv' --exclude='/logs/' --exclude='/backups/' --exclude='/VERSION.txt' "$SRC/" "$APP_DIR/"
 # Confirm critical data survived untouched.
 [ -f "$APP_DIR/.env" ] && [ -f "$APP_DIR/bandit.db" ] || fail "Safety check failed: .env/database missing."
 [ -x "$VENV/bin/python" ] || fail "Existing runtime venv missing: $VENV"
@@ -68,17 +90,7 @@ if systemctl is-active --quiet "$SERVICE"; then
   printf '%s\n' "$TAG" > "$APP_DIR/VERSION.txt"
   say "Version marker written to $APP_DIR/VERSION.txt"
   say "Deployment log: $LOG_FILE"
+  MUTATED=0
   exit 0
 fi
-say "WARNING: service failed after restart; rolling back application from $BACKUP"
-systemctl stop "$SERVICE" || true
-# Restore all application files including prior env/db; archive is private and mode 600.
-rm -rf "$APP_DIR"
-tar -xzf "$BACKUP" -C "$(dirname "$APP_DIR")"
-systemctl restart "$SERVICE" || true
-if systemctl is-active --quiet "$SERVICE"; then
-  say "ROLLBACK SUCCESS: previous version restored and service active."
-else
-  say "CRITICAL: rollback attempted but service is not active; inspect journalctl -u $SERVICE."
-fi
-exit 1
+fail "Service failed to become active after restart"
