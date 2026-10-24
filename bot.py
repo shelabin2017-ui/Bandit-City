@@ -20,6 +20,7 @@ from roles import RoleManager
 from role_ui import RoleUI
 from release import announce_new_release
 from keyboard_layout import normalize_rows, paginate_rows
+from progression_system import Progression, DAILY_TASKS, WEEKLY_TASKS
 
 load_dotenv()
 TOKEN = os.getenv("VK_TOKEN", "").strip()
@@ -36,6 +37,7 @@ for _legacy_uid in ADMIN_IDS:
     roles.ensure_player(_legacy_uid)
 role_ui = RoleUI(roles)
 game = Game(db, ADMIN_IDS)
+progression = Progression(db)
 admin = AdminPanel(db, game, ADMIN_IDS, roles=roles, role_ui=role_ui)
 session = vk_api.VkApi(token=TOKEN)
 vk = session.get_api()
@@ -260,6 +262,7 @@ def kb_main(is_admin=False, panel_label="👑 Админ-панель"):
 def kb_more():
     return [
         ["📖 Сюжет", "🎓 Обучение"],
+        ["📅 Контракты", "🏴 Банды"],
         ["🏆 Ачивки", "🎟 Промокод"],
         ["⚙️ Настройки", "❓ Помощь"],
         ["👑 О создателе"],
@@ -627,6 +630,30 @@ def process(uid, text):
         return
     if low in ("/info", "инфо", "👤 профиль"):
         send_card(uid, game.profile(user["id"]), main_kb(uid))
+        return
+    if text == "📅 Контракты" or low.startswith("/contracts"):
+        kind = "weekly" if "week" in low or "недел" in low else "daily"
+        tasks = WEEKLY_TASKS if kind == "weekly" else DAILY_TASKS
+        send(uid, progression.view(user["id"], kind) + "\n\nЗабрать награду: /contract CODE",
+             [["🎁 " + code for code in tasks], ["🗓️ Еженедельные" if kind == "daily" else "📅 Ежедневные"], ["🏙️ Главное меню"]])
+        return
+    if text == "🗓️ Еженедельные":
+        send(uid, progression.view(user["id"], "weekly") + "\n\nЗабрать награду: /contract CODE", [["🎁 " + code for code in WEEKLY_TASKS], ["📅 Ежедневные"], ["🏙️ Главное меню"]])
+        return
+    if text == "📅 Ежедневные":
+        send(uid, progression.view(user["id"], "daily") + "\n\nЗабрать награду: /contract CODE", [["🎁 " + code for code in DAILY_TASKS], ["🗓️ Еженедельные"], ["🏙️ Главное меню"]])
+        return
+    if low.startswith("/contract "):
+        parts = text.split()
+        code = parts[1] if len(parts) > 1 else ""
+        kind = "weekly" if code in WEEKLY_TASKS else "daily"
+        send(uid, progression.claim(user["id"], code, kind) + "\n\n" + progression.view(user["id"], kind), [["📅 Контракты"], ["🏙️ Главное меню"]])
+        return
+    if text == "🏴 Банды" or low == "/gang":
+        send(uid, progression.gang_status(user["id"]) + "\n\nКоманды: /gang create Название · /gang join КОД · /gang donate СУММА · /gang leave", [["🏴 Банды"], ["🏙️ Главное меню"]])
+        return
+    if low.startswith("/gang "):
+        send(uid, progression.gang_command(user["id"], text) + "\n\n" + progression.gang_status(user["id"]), [["🏴 Банды"], ["🏙️ Главное меню"]])
         return
     if text == "📚 Ещё":
         send_card(uid, "📚 ДОПОЛНИТЕЛЬНО\n\nВыбери нужный раздел:", kb_more())
