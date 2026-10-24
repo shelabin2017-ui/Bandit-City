@@ -304,15 +304,22 @@ def kb_main(is_admin=False, panel_label="👑 Админ-панель"):
     ]
 
 
-def kb_more():
-    return [
-        ["📖 Сюжет", "🎓 Обучение"],
+def kb_more(uid=None):
+    rows = [
+        ["📖 Сюжет"],
         ["📅 Контракты", "🏴 Банды"],
         ["🏆 Ачивки", "🎟 Промокод"],
         ["⚙️ Настройки", "❓ Помощь"],
         ["👑 О создателе"],
         ["🏙️ Главное меню"],
     ]
+    if uid is None:
+        rows[0].append("🎓 Обучение")
+    else:
+        player = db.get_or_create_user(int(uid))
+        if not db.tutorial(player["id"])["completed"]:
+            rows[0].append("🎓 Обучение")
+    return rows
 
 
 def has_admin_access(uid):
@@ -378,17 +385,23 @@ def kb_business():
     ]
 
 
-def kb_work():
-    return [
+def kb_work(uid=None):
+    rows = [
         ["🚕 Таксист", "🕵️ Федерал"],
         ["📦 Блок", "🔗 Рефка"],
         ["🛵 Курьер", "👷 Строитель"],
         ["🔧 Автомеханик", "🚑 Медик"],
         ["👨‍🍳 Повар", "⛏ Шахтёр"],
         ["🛡 Охранник", "💻 Разработчик"],
-        ["🎓 Обучение"],
-        ["🏙️ Главное меню"],
     ]
+    if uid is None:
+        rows.append(["🎓 Обучение"])
+    else:
+        player = db.get_or_create_user(int(uid))
+        if not db.tutorial(player["id"])["completed"]:
+            rows.append(["🎓 Обучение"])
+    rows.append(["🏙️ Главное меню"])
+    return rows
 
 
 def kb_auto():
@@ -616,13 +629,17 @@ def process(uid, text):
     if db.needs_onboarding(user["id"]):
         TUTORIAL_ACTIVE.add(int(uid))
     if text == "🎓 Начать обучение":
+        if db.tutorial(user["id"])["completed"]:
+            send(uid, "✅ Пролог уже пройден. Продолжай историю в разделе «📖 Сюжет».", [["📖 Сюжет"], ["🏙️ Главное меню"]])
+            return
         TUTORIAL_ACTIVE.add(int(uid))
         send(uid, game.tutorial(user["id"]), tutorial_keyboard(user["id"]))
         return
     if text == "🎓 Обучение":
         progress = db.tutorial(user["id"])
         if progress["completed"]:
-            db.tutorial_set(user["id"], 0, False)
+            send(uid, "✅ Пролог уже пройден. Обучение больше не показывается — продолжай историю в разделе «📖 Сюжет».", [["📖 Сюжет"], ["🏙️ Главное меню"]])
+            return
         TUTORIAL_ACTIVE.add(int(uid))
         send(uid, game.tutorial(user["id"]), tutorial_keyboard(user["id"]))
         return
@@ -658,7 +675,7 @@ def process(uid, text):
     if db.needs_onboarding(user["id"]):
         # Let the required first-job action run while onboarding is still active.
         if text == "💼 Работа":
-            send_card(uid, "🎓 ЭТАП ОБУЧЕНИЯ: ПЕРВАЯ РАБОТА\n\nВыбери профессию и выполни смену, чтобы получить деньги и опыт.", kb_work(), key="work")
+            send_card(uid, "🎓 ЭТАП ОБУЧЕНИЯ: ПЕРВАЯ РАБОТА\n\nВыбери профессию и выполни смену, чтобы получить деньги и опыт.", kb_work(uid), key="work")
             return
         onboarding_work_map = {
             "🚕 Таксист": "taxi", "🕵️ Федерал": "federal",
@@ -721,7 +738,7 @@ def process(uid, text):
         send(uid, progression.gang_command(user["id"], text) + "\n\n" + progression.gang_status(user["id"]), [["🏴 Банды"], ["🏙️ Главное меню"]])
         return
     if text == "📚 Ещё":
-        send_card(uid, "📚 ДОПОЛНИТЕЛЬНО\n\nВыбери нужный раздел:", kb_more())
+        send_card(uid, "📚 ДОПОЛНИТЕЛЬНО\n\nВыбери нужный раздел:", kb_more(uid))
         return
 
     if text == "⚙️ Настройки":
