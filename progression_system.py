@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 DAILY_TASKS = {
     "work3": {"title": "💼 Выполни 3 рабочие смены", "target": 3, "cash": 12000, "xp": 25, "action": "work"},
     "earn50": {"title": "💵 Заработай 50 000 игровой валюты", "target": 50000, "cash": 15000, "xp": 30, "action": "earn"},
-    "city2": {"title": "🌆 Соверши 2 городских действия", "target": 2, "cash": 10000, "xp": 20, "action": "city"},
+    "city2": {"title": "🎮 Соверши 2 игровых действия", "target": 2, "cash": 10000, "xp": 20, "action": "city"},
 }
 WEEKLY_TASKS = {
     "work15": {"title": "💼 Выполни 15 рабочих смен", "target": 15, "cash": 85000, "xp": 150, "action": "work"},
