@@ -831,9 +831,8 @@ def process(uid, text):
         try:
             parts = text.split(maxsplit=2)
             quantity = int(parts[1][1:])
-            label = parts[2]
-            item_name = next((name for name, price in v5.ITEMS if label == name + " — " + money(price)), None)
-            if item_name is None:
+            item_name = parts[2]
+            if not any(name == item_name for name, price in v5.ITEMS):
                 raise ValueError("unknown shop item")
             msg, buttons = v5.buy_item_quantity(db, uid, item_name, quantity)
             send(uid, msg, buttons)
