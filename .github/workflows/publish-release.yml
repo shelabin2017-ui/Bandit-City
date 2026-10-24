@@ -35,17 +35,16 @@ jobs:
       - name: Run tests
         run: |
           set -e
-          for f in test_*.py; do
-            [ -f "$f" ] || continue
-            python -m unittest "$f"
-          done
+          python -m unittest discover -v
+          if [ -d tests ]; then python -m unittest discover -s tests -v; fi
           if [ -f selftest.py ]; then python selftest.py; fi
       - name: Build clean runtime archive
         run: |
           mkdir -p dist
           zip -r dist/bandit-city-release.zip . \
             -x '.git/*' '.github/*' '.venv/*' '*/__pycache__/*' '*.pyc' \
-               '.env' '.env.*' 'bandit.db' 'bandit.db-*' 'logs/*' 'backups/*' 'dist/*'
+               '.env' '.env.*' 'bandit.db' 'bandit.db-*' '*.sqlite' '*.sqlite3' \
+               'logs/*' 'backups/*' 'dist/*' 'tests/*' 'test_*.py' '*_test.py'
           unzip -t dist/bandit-city-release.zip
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
