@@ -116,8 +116,8 @@ def item_shop(category=None):
     buttons = []
     for name, price in chosen:
         body += ["", name, "💵 За штуку: " + money(price)]
-        buttons.append(["🛒 x1 " + name + " — " + money(price), "🛒 x5 " + name + " — " + money(price)])
-        buttons.append(["🛒 x10 " + name + " — " + money(price)])
+        buttons.append(["🛒 x1 " + name, "🛒 x5 " + name])
+        buttons.append(["🛒 x10 " + name])
     buttons += [["↩️ К категориям"], ["🎒 Инвентарь"], ["↩️ В магазин"], ["🏙️ Главное меню"]]
     return reply("\n".join(body), buttons)
 
