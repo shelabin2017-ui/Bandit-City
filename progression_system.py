@@ -9,12 +9,12 @@ from datetime import datetime, timezone
 
 DAILY_TASKS = {
     "work3": {"title": "💼 Выполни 3 рабочие смены", "target": 3, "cash": 12000, "xp": 25, "action": "work"},
-    "earn50": {"title": "💵 Заработай 50 000 игровой валюты", "target": 50000, "cash": 15000, "xp": 30, "action": "earn"},
-    "city2": {"title": "🎮 Соверши 2 игровых действия", "target": 2, "cash": 10000, "xp": 20, "action": "city"},
+    "earn50": {"title": "💵 Получи награды за рабочие смены на 50 000 $", "target": 50000, "cash": 15000, "xp": 30, "action": "earn"},
+    "city2": {"title": "🎮 Выполни 2 рабочие смены", "target": 2, "cash": 10000, "xp": 20, "action": "work"},
 }
 WEEKLY_TASKS = {
     "work15": {"title": "💼 Выполни 15 рабочих смен", "target": 15, "cash": 85000, "xp": 150, "action": "work"},
-    "earn300": {"title": "💵 Заработай 300 000 игровой валюты", "target": 300000, "cash": 100000, "xp": 180, "action": "earn"},
+    "earn300": {"title": "💵 Получи награды за рабочие смены на 300 000 $", "target": 300000, "cash": 100000, "xp": 180, "action": "earn"},
 }
 
 def _period(kind, now=None):
