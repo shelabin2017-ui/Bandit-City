@@ -234,6 +234,19 @@ def upload_card(user_id, key):
         logging.exception('Не удалось сформировать карточку %s', key)
         return None
 
+def release_card_attachment():
+    """Upload the cinematic release card once and reuse its VK attachment in the broadcast."""
+    try:
+        with db.connect() as conn:
+            row = conn.execute("SELECT vk_id FROM users WHERE banned=0 ORDER BY id LIMIT 1").fetchone()
+        if not row:
+            return None
+        return upload_card(int(row["vk_id"]), "release")
+    except Exception:
+        logging.exception("Не удалось подготовить карточку анонса")
+        return None
+
+
 def send_card(user_id, text, rows=None, key=None):
     # Для служебных экранов оставляем обычный текст; игровые разделы
     # могут явно указать ключ карточки, чтобы короткий ответ не выбрал main.svg.
@@ -1204,7 +1217,7 @@ def main():
     from event_announcer import event_announcer_worker
 
     workers = [
-        (lambda: announce_new_release(db, vk, GROUP_ID), "release-announcement"),
+        (lambda: announce_new_release(db, vk, GROUP_ID, attachment=release_card_attachment()), "release-announcement"),
         (business_worker, "business-worker"),
         (player_reminder_worker, "player-reminders"),
         (lambda: event_announcer_worker(db, vk, GROUP_ID), "event-announcer"),
