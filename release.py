@@ -34,7 +34,7 @@ def _ensure_schema(db):
         """)
 
 
-def announce_release(db, vk, group_id, release_id, message, delay_seconds=0.35, sleeper=time.sleep):
+def announce_release(db, vk, group_id, release_id, message, delay_seconds=0.35, sleeper=time.sleep, attachment=None):
     """Send one release announcement per eligible player, resuming after interruptions."""
     release_id = str(release_id or "").strip()
     message = str(message or "").strip()
@@ -104,11 +104,14 @@ def announce_release(db, vk, group_id, release_id, message, delay_seconds=0.35, 
                 # Some API wrappers/permissions may not support the permission check.
                 logging.warning("Release permission check failed for %s; trying send: %s", target, exc)
 
-            vk.messages.send(
-                user_id=target,
-                random_id=int(row["random_id"]),
-                message="📢 BANDIT CITY\n\n" + message,
-            )
+            payload = {
+                "user_id": target,
+                "random_id": int(row["random_id"]),
+                "message": "📢 BANDIT CITY\n\n" + message,
+            }
+            if attachment:
+                payload["attachment"] = attachment
+            vk.messages.send(**payload)
             with db.connect() as conn:
                 conn.execute(
                     """UPDATE release_broadcast_recipients
@@ -163,7 +166,7 @@ def announce_release(db, vk, group_id, release_id, message, delay_seconds=0.35, 
     return summary
 
 
-def announce_new_release(db, vk, group_id, release_file=None, delay_seconds=0.35):
+def announce_new_release(db, vk, group_id, release_file=None, delay_seconds=0.35, attachment=None):
     """Read RELEASE.txt and announce its build once per database."""
     path = Path(release_file) if release_file else Path(__file__).resolve().with_name("RELEASE.txt")
     if not path.exists():
@@ -181,4 +184,4 @@ def announce_new_release(db, vk, group_id, release_file=None, delay_seconds=0.35
     if not build:
         logging.warning("Release announcement skipped: RELEASE.txt has no Build field")
         return None
-    return announce_release(db, vk, group_id, build, announcement, delay_seconds=delay_seconds)
+    return announce_release(db, vk, group_id, build, announcement, delay_seconds=delay_seconds, attachment=attachment)
