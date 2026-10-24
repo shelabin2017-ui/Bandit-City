@@ -1053,16 +1053,32 @@ class Database:
         return True, f"✅ Твой игровой ник изменён на: {nickname}"
 
     def top(self):
+        return self.top_category("wealth")
+
+    def top_category(self, category="wealth"):
+        """Player-facing category leaderboards; each category uses persisted game data."""
+        specs = {
+            "wealth": ("💰 САМЫЕ БОГАТЫЕ", "u.balance + u.bank", "money"),
+            "level": ("⭐ САМЫЙ ВЫСОКИЙ УРОВЕНЬ", "u.level", "number"),
+            "xp": ("✨ БОЛЬШЕ ВСЕГО ОПЫТА", "u.xp", "number"),
+            "cars": ("🚗 САМЫЙ БОЛЬШОЙ АВТОПАРК", "(SELECT COUNT(*) FROM cars c WHERE c.user_id=u.id)", "number"),
+            "business": ("🏢 БОЛЬШЕ ВСЕГО БИЗНЕСОВ", "(SELECT COUNT(*) FROM businesses b WHERE b.user_id=u.id)", "number"),
+            "referrals": ("🤝 ЛУЧШИЕ РЕФЕРАЛЫ", "u.referrals", "number"),
+            "achievements": ("🏆 БОЛЬШЕ ВСЕГО ДОСТИЖЕНИЙ", "(SELECT COUNT(*) FROM achievements a WHERE a.user_id=u.id)", "number"),
+        }
+        title, metric, kind = specs.get(str(category), specs["wealth"])
         with self.connect() as c:
-            rows=c.execute(
-                "SELECT nickname,balance,bank,level,referrals FROM users WHERE banned=0 "
-                "ORDER BY balance+bank DESC LIMIT 10"
+            rows = c.execute(
+                "SELECT u.id,u.nickname,u.balance,u.bank,u.level,u.xp,u.referrals, " + metric + " AS score "
+                "FROM users u WHERE u.banned=0 ORDER BY score DESC, u.level DESC, u.id ASC LIMIT 10"
             ).fetchall()
-        if not rows: return "🏆 Пока никого нет."
-        return "🏆 ТОП ИГРОКОВ\n\n" + "\n".join(
-            f"{i}. 🎭 {r['nickname']} — {money(r['balance']+r['bank'])} | ⭐ {r['level']}"
-            for i,r in enumerate(rows,1)
-        )
+        if not rows:
+            return title + "\\n\\nПока никого нет."
+        lines = []
+        for i, row in enumerate(rows, 1):
+            value = money(row["score"]) if kind == "money" else f"{int(row['score']):,}".replace(",", " ")
+            lines.append(f"{i}. 🎭 {row['nickname']} — {value}" + (f" | ⭐ {row['level']}" if category != "level" else ""))
+        return title + "\\n\\n" + "\\n".join(lines) + "\\n\\nОбновляется по игровым данным города."
 
     def bank_deposit(self, user_id, amount):
         if amount <= 0:
