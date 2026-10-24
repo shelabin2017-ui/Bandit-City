@@ -85,6 +85,31 @@ class BanditCoreTest(unittest.TestCase):
         self.assertFalse(panel.is_admin(998))
 
 
+    def test_shop_categories_and_bulk_purchase(self):
+        from v5 import bridge as shop
+        user = self.db.get_or_create_user(100099)
+        uid = user["id"]
+        # Categories keep food/drinks separate from tools and clothing.
+        self.assertEqual(shop.item_category("🍔 Бургер"), "🍔 Еда и напитки")
+        self.assertEqual(shop.item_category("🩹 Аптечка"), "🩹 Медицина")
+        self.assertEqual(shop.item_category("👕 Куртка"), "👕 Одежда и аксессуары")
+        # Give the test user enough cash, then buy five burgers in one operation.
+        with self.db.connect() as c:
+            c.execute("UPDATE users SET balance=100000 WHERE id=?", (uid,))
+        message, buttons = shop.buy_item_quantity(self.db, user["vk_id"], "🍔 Бургер", 5)
+        self.assertIn("Количество: 5", message)
+        self.assertIn("Итого: $60 000", message)
+        with self.db.connect() as c:
+            balance = c.execute("SELECT balance FROM users WHERE id=?", (uid,)).fetchone()["balance"]
+            count = c.execute("SELECT COUNT(*) FROM items WHERE user_id=? AND name='🍔 Бургер'", (uid,)).fetchone()[0]
+        self.assertEqual(balance, 40000)
+        self.assertEqual(count, 5)
+        before = balance
+        message, _ = shop.buy_item_quantity(self.db, user["vk_id"], "🍔 Бургер", 100)
+        self.assertIn("Недостаточно денег", message)
+        with self.db.connect() as c:
+            self.assertEqual(c.execute("SELECT balance FROM users WHERE id=?", (uid,)).fetchone()["balance"], before)
+
     def test_role_hierarchy_and_protection(self):
         roles = RoleManager(self.db)
         owner, admin, moderator, player = 9001, 9002, 9003, 9004
