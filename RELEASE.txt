@@ -1,5 +1,5 @@
 BANDIT CITY RELEASE
-Build: 2026-10-24.1
+Build: 2026-10-24.2
 Announcement: В городе появились ежедневные и еженедельные контракты с наградами, банды игроков с общей казной и дуэли со ставками. Открой меню игры, чтобы попробовать новые возможности.
 Runtime package for manual deployment.
 GitHub is used for source and release delivery only; GitHub Actions are not required on the VPS.
