@@ -1,4 +1,5 @@
 """V5 shop layer. Public catalogue is separated from event-only drops."""
+import random
 import time
 from catalog import EVENTS, EVENT_EXCLUSIVES, active_events, find_event_item
 
@@ -154,6 +155,8 @@ def inventory(db,vk_id):
     for row in rows:
         body += ["📦 "+row["name"],"💵 Цена: "+money(row["price"]),""]
         sell_buttons.append("🗑 Продать #"+str(row["id"]))
+        if str(row["name"]) == "🎁 Подарочный бокс":
+            sell_buttons.append("🎁 Открыть #" + str(row["id"]))
         if any(word in str(row["name"]).lower() for word in ("бургер","сэндвич","вода","энергетик","еда","кофе")):
             sell_buttons.append("🍔 Использовать #"+str(row["id"]))
     # Never truncate inventory actions locally. send() applies the shared VK
@@ -266,6 +269,44 @@ def buy_item(db,vk_id,name):
     item,price=match; uid=player_id_by_vk(db,vk_id); user=db.user(uid)
     if not user or user["balance"]<price:return reply("❌ Недостаточно денег.",[["🛒 Магазин"]])
     return reply(db.buy_item(uid,item,price),[["🎒 Инвентарь"],["🛒 Магазин"]])
+def open_gift_box(db, vk_id, item_id, rng=None):
+    """Consume one owned gift box and grant exactly one random reward atomically."""
+    rng = rng or random
+    uid = player_id_by_vk(db, vk_id)
+    rewards = [
+        ("cash", 25000, "💵 $25 000"),
+        ("cash", 75000, "💵 $75 000"),
+        ("cash", 150000, "💵 $150 000"),
+        ("item", "🍔 Бургер", "🍔 Бургер"),
+        ("item", "⚡ Энергетик", "⚡ Энергетик"),
+        ("item", "💧 Вода", "💧 Вода"),
+    ]
+    with _conn(db) as c:
+        row = c.execute(
+            "SELECT id FROM items WHERE id=? AND user_id=? AND name=?",
+            (int(item_id), uid, "🎁 Подарочный бокс"),
+        ).fetchone()
+        if not row:
+            return reply("❌ Подарочный бокс не найден в твоём инвентаре.", [["🎒 Инвентарь"], ["🛒 Магазин"]])
+        reward = rng.choice(rewards)
+        deleted = c.execute(
+            "DELETE FROM items WHERE id=? AND user_id=? AND name=?",
+            (int(item_id), uid, "🎁 Подарочный бокс"),
+        )
+        if deleted.rowcount != 1:
+            return reply("❌ Не удалось открыть бокс. Обнови инвентарь и попробуй снова.", [["🎒 Инвентарь"]])
+        if reward[0] == "cash":
+            c.execute("UPDATE users SET balance=balance+? WHERE id=?", (int(reward[1]), uid))
+            description = reward[2]
+        else:
+            c.execute(
+                "INSERT INTO items(user_id,name,price,bought_at) VALUES(?,?,?,?)",
+                (uid, str(reward[1]), 0, int(time.time())),
+            )
+            description = reward[2]
+    return reply("🎁 ПОДАРОЧНЫЙ БОКС ОТКРЫТ\n\nТебе выпало:\n" + description,
+                 [["🎒 Инвентарь"], ["🛒 Магазин"], ["🏙️ Главное меню"]])
+
 def sell_item(db,vk_id,item_id): return reply(db.sell_item(player_id_by_vk(db,vk_id),item_id),[["🎒 Инвентарь"],["🛒 Магазин"]])
 def buy_wardrobe(db,vk_id,category,name):
     source=EVENT_CLOTHING if category in EVENT_CLOTHING else CLOTHING; found=next((x for x in source.get(category,[]) if x[0]==name),None)
