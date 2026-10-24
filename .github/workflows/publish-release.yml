@@ -1,0 +1,56 @@
+name: Publish versioned release
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag to build (for example v1.0.0)
+        required: true
+        type: string
+permissions:
+  contents: write
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  test-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout tagged source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+      - name: Compile Python
+        run: python -m compileall -q . -x '(^|/)(\.git|\.venv|__pycache__)/'
+      - name: Run tests
+        run: |
+          set -e
+          for f in test_*.py; do
+            [ -f "$f" ] || continue
+            python -m unittest "$f"
+          done
+          if [ -f selftest.py ]; then python selftest.py; fi
+      - name: Build clean runtime archive
+        run: |
+          mkdir -p dist
+          zip -r dist/bandit-city-release.zip . \
+            -x '.git/*' '.github/*' '.venv/*' '*/__pycache__/*' '*.pyc' \
+               '.env' '.env.*' 'bandit.db' 'bandit.db-*' 'logs/*' 'backups/*' 'dist/*'
+          unzip -t dist/bandit-city-release.zip
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          name: Bandit City ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          generate_release_notes: true
+          files: dist/bandit-city-release.zip
