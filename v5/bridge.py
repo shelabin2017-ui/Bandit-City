@@ -269,8 +269,8 @@ def buy_item(db,vk_id,name):
     item,price=match; uid=player_id_by_vk(db,vk_id); user=db.user(uid)
     if not user or user["balance"]<price:return reply("❌ Недостаточно денег.",[["🛒 Магазин"]])
     return reply(db.buy_item(uid,item,price),[["🎒 Инвентарь"],["🛒 Магазин"]])
-def open_gift_box(db, vk_id, item_id, rng=None):
-    """Consume one owned gift box and grant exactly one random reward atomically."""
+def open_gift_box(db, vk_id, item_id=None, rng=None):
+    """Open one owned gift box; players do not need to know database item IDs."""
     rng = rng or random
     uid = player_id_by_vk(db, vk_id)
     rewards = [
@@ -282,12 +282,19 @@ def open_gift_box(db, vk_id, item_id, rng=None):
         ("item", "💧 Вода", "💧 Вода"),
     ]
     with _conn(db) as c:
-        row = c.execute(
-            "SELECT id FROM items WHERE id=? AND user_id=? AND name=?",
-            (int(item_id), uid, "🎁 Подарочный бокс"),
-        ).fetchone()
+        if item_id is None:
+            row = c.execute(
+                "SELECT id FROM items WHERE user_id=? AND name=? ORDER BY id LIMIT 1",
+                (uid, "🎁 Подарочный бокс"),
+            ).fetchone()
+        else:
+            row = c.execute(
+                "SELECT id FROM items WHERE id=? AND user_id=? AND name=?",
+                (int(item_id), uid, "🎁 Подарочный бокс"),
+            ).fetchone()
         if not row:
-            return reply("❌ Подарочный бокс не найден в твоём инвентаре.", [["🎒 Инвентарь"], ["🛒 Магазин"]])
+            return reply("❌ У тебя нет подарочного бокса. Купи его в магазине и открой через инвентарь.", [["🎒 Инвентарь"], ["🛒 Магазин"]])
+        item_id = int(row["id"])
         reward = rng.choice(rewards)
         deleted = c.execute(
             "DELETE FROM items WHERE id=? AND user_id=? AND name=?",
