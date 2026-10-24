@@ -454,7 +454,7 @@ def process_input(uid, text):
             clear_state(uid)
             send(uid, game.transfer(db.get_or_create_user(uid)["id"], target, amount), main_kb(uid))
             return True
-        if st["mode"] == "nickname":
+        if st["mode"] in ("nickname", "nickname_onboarding"):
             import re
 
             nickname = " ".join(text.strip().split())
