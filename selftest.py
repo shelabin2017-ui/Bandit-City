@@ -276,11 +276,14 @@ class BanditCoreTest(unittest.TestCase):
             def choice(options):
                 return next(x for x in options if x[0] == "cash" and x[1] == 25000)
         before = self.db.user(user["id"])["balance"]
-        message, buttons = shop.open_gift_box(self.db, user["vk_id"], item_id, rng=FixedRng())
+        inventory_message, inventory_buttons = shop.inventory(self.db, user["vk_id"])
+        self.assertIn("🎁 Открыть подарочный бокс", str(inventory_buttons))
+        self.assertIn("Бот сам выберет один бокс", inventory_message)
+        message, buttons = shop.open_gift_box(self.db, user["vk_id"], rng=FixedRng())
         self.assertIn("$25 000", message)
         self.assertEqual(self.db.user(user["id"])["balance"], before + 25000)
-        again, _ = shop.open_gift_box(self.db, user["vk_id"], item_id, rng=FixedRng())
-        self.assertIn("не найден", again)
+        again, _ = shop.open_gift_box(self.db, user["vk_id"], rng=FixedRng())
+        self.assertIn("нет подарочного бокса", again.lower())
         with self.db.connect() as c:
             self.assertEqual(c.execute("SELECT COUNT(*) FROM items WHERE id=?", (item_id,)).fetchone()[0], 0)
 
