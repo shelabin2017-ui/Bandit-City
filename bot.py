@@ -823,6 +823,23 @@ def process(uid, text):
         msg, buttons = v5.shop_hub(); send_card(uid, msg, buttons, key="shop"); return
     if text == "🛍️ Предметы":
         msg, buttons = v5.item_shop(); send_card(uid, msg, buttons, key="shop"); return
+    if text in v5.ITEM_CATEGORIES or text == "📦 Все предметы":
+        msg, buttons = v5.item_shop(text); send_card(uid, msg, buttons, key="shop"); return
+    if text == "↩️ К категориям":
+        msg, buttons = v5.item_shop(); send_card(uid, msg, buttons, key="shop"); return
+    if text.startswith("🛒 x"):
+        try:
+            parts = text.split(maxsplit=2)
+            quantity = int(parts[1][1:])
+            label = parts[2]
+            item_name = next((name for name, price in v5.ITEMS if label == name + " — " + money(price)), None)
+            if item_name is None:
+                raise ValueError("unknown shop item")
+            msg, buttons = v5.buy_item_quantity(db, uid, item_name, quantity)
+            send(uid, msg, buttons)
+        except (ValueError, IndexError):
+            send(uid, "❌ Не удалось распознать товар или количество.", [["🛍️ Предметы"], ["🛒 Магазин"]])
+        return
     if text == "🎒 Инвентарь" or low == "/items":
         msg, buttons = v5.inventory(db, uid); send_card(uid, msg, buttons, key="shop"); return
     if text.startswith("🍔 Использовать #"):
