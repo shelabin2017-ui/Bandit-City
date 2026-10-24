@@ -107,7 +107,7 @@ def item_shop(category=None):
         body = ["🛒 ПРЕДМЕТЫ LOS SANTOS", "", "Выбери категорию товаров:"]
         buttons = [[name] for name in ITEM_CATEGORIES]
         buttons += [["📦 Все предметы"], ["🎒 Инвентарь"], ["↩️ В магазин"], ["🏙️ Главное меню"]]
-        return reply("\\n".join(body), buttons)
+        return reply("\n".join(body), buttons)
     if category == "📦 Все предметы":
         category = None
     chosen = [(name, price) for name, price in ITEMS if category is None or item_category(name) == category]
@@ -119,7 +119,7 @@ def item_shop(category=None):
         buttons.append(["🛒 x1 " + name + " — " + money(price), "🛒 x5 " + name + " — " + money(price)])
         buttons.append(["🛒 x10 " + name + " — " + money(price)])
     buttons += [["↩️ К категориям"], ["🎒 Инвентарь"], ["↩️ В магазин"], ["🏙️ Главное меню"]]
-    return reply("\\n".join(body), buttons)
+    return reply("\n".join(body), buttons)
 
 def buy_item_quantity(db, vk_id, name, quantity):
     match = next((x for x in ITEMS if x[0] == name), None)
@@ -133,7 +133,7 @@ def buy_item_quantity(db, vk_id, name, quantity):
     user = db.user(uid)
     total = price * quantity
     if not user or int(user["balance"]) < total:
-        return reply("❌ Недостаточно денег.\n\n" + item + "\\nКоличество: " + str(quantity) + "\\nИтого: " + money(total), [["🛍️ Предметы"], ["🛒 Магазин"]])
+        return reply("❌ Недостаточно денег.\n\n" + item + "\nКоличество: " + str(quantity) + "\nИтого: " + money(total), [["🛍️ Предметы"], ["🛒 Магазин"]])
     # The balance is checked for the whole basket before writing any item.
     with _conn(db) as c:
         current = c.execute("SELECT balance FROM users WHERE id=?", (uid,)).fetchone()
@@ -145,7 +145,7 @@ def buy_item_quantity(db, vk_id, name, quantity):
             "INSERT INTO items(user_id,name,price,bought_at) VALUES(?,?,?,?)",
             [(uid, item, price, now) for _ in range(quantity)]
         )
-    return reply("✅ ПОКУПКА ОФОРМЛЕНА\\n\\n" + item + "\\n📦 Количество: " + str(quantity) + "\\n💵 За штуку: " + money(price) + "\\n💰 Итого: " + money(total), [["🎒 Инвентарь"], ["🛍️ Предметы"], ["🛒 Магазин"]])
+    return reply("✅ ПОКУПКА ОФОРМЛЕНА\n\n" + item + "\n📦 Количество: " + str(quantity) + "\n💵 За штуку: " + money(price) + "\n💰 Итого: " + money(total), [["🎒 Инвентарь"], ["🛍️ Предметы"], ["🛒 Магазин"]])
 
 def inventory(db,vk_id):
     uid=player_id_by_vk(db,vk_id); rows=db.items(uid)
