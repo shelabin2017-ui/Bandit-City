@@ -21,6 +21,7 @@ from role_ui import RoleUI
 from release import announce_new_release
 from keyboard_layout import normalize_rows, paginate_rows
 from progression_system import Progression, DAILY_TASKS, WEEKLY_TASKS
+from duel_system import DuelSystem
 
 load_dotenv()
 TOKEN = os.getenv("VK_TOKEN", "").strip()
@@ -38,6 +39,7 @@ for _legacy_uid in ADMIN_IDS:
 role_ui = RoleUI(roles)
 game = Game(db, ADMIN_IDS)
 progression = Progression(db)
+duels = DuelSystem(db)
 admin = AdminPanel(db, game, ADMIN_IDS, roles=roles, role_ui=role_ui)
 session = vk_api.VkApi(token=TOKEN)
 vk = session.get_api()
@@ -973,6 +975,23 @@ def process(uid, text):
         try:
             p = text.split(); send(uid, game.transfer(user["id"], int(p[1]), int(p[2])), main_kb(uid))
         except (ValueError, IndexError): send(uid, "Использование: /pay VK_ID SUM", main_kb(uid))
+        return
+    if low == "/duel":
+        send(uid, "⚔️ ДУЭЛИ\n\nВызвать игрока: /duel VK_ID\nПринять вызов: /duel accept ID\nСтавка — 1 000 игровой валюты с каждого. Вызов действует 5 минут.", [["👥 Игроки"], ["🏙️ Главное меню"]])
+        return
+    if low.startswith("/duel accept "):
+        try:
+            duel_id = int(text.split()[2])
+            send(uid, duels.accept(uid, duel_id), [["⚔️ Дуэль"], ["🏙️ Главное меню"]])
+        except (ValueError, IndexError):
+            send(uid, "Использование: /duel accept ID", main_kb(uid))
+        return
+    if low.startswith("/duel "):
+        try:
+            target_vk = int(text.split()[1])
+            send(uid, duels.challenge(uid, target_vk), [["⚔️ Дуэль"], ["🏙️ Главное меню"]])
+        except (ValueError, IndexError):
+            send(uid, "Использование: /duel VK_ID", main_kb(uid))
         return
     if low.startswith("/scam ") or low.startswith("/rob "):
         try:
