@@ -615,6 +615,7 @@ def process(uid, text):
             result = game.work(user["id"], onboarding_work_map[text])
             if result.startswith("✅"):
                 progression.record(user["id"], "work", 1)
+                progression.record(user["id"], "city", 1)
                 progression.record(user["id"], "earn", Game.JOBS[onboarding_work_map[text]][1])
             send_card(uid, result + "\n\n📩 После первой смены вернись в «🎓 Обучение» и продолжи сюжет.", kb_work(), key="work")
             return
@@ -646,9 +647,9 @@ def process(uid, text):
     if text == "📅 Ежедневные":
         send(uid, progression.view(user["id"], "daily") + "\n\nЗабрать награду: /contract CODE", [["🎁 " + code for code in DAILY_TASKS], ["🗓️ Еженедельные"], ["🏙️ Главное меню"]])
         return
-    if low.startswith("/contract "):
+    if low.startswith("/contract ") or low.startswith("🎁 забрать "):
         parts = text.split()
-        code = parts[1] if len(parts) > 1 else ""
+        code = parts[1] if len(parts) > 1 else (text.split(maxsplit=2)[2] if len(text.split(maxsplit=2)) > 2 else "")
         kind = "weekly" if code in WEEKLY_TASKS else "daily"
         send(uid, progression.claim(user["id"], code, kind) + "\n\n" + progression.view(user["id"], kind), [["📅 Контракты"], ["🏙️ Главное меню"]])
         return
@@ -703,6 +704,7 @@ def process(uid, text):
         result = game.work(user["id"], work_map[text])
         if result.startswith("✅"):
             progression.record(user["id"], "work", 1)
+            progression.record(user["id"], "city", 1)
             progression.record(user["id"], "earn", Game.JOBS[work_map[text]][1])
         send_card(uid, result, kb_work(), key="work")
         return
