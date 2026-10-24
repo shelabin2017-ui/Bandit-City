@@ -874,13 +874,9 @@ def process(uid, text):
         return
     if text == "🎒 Инвентарь" or low == "/items":
         msg, buttons = v5.inventory(db, uid); send_card(uid, msg, buttons, key="shop"); return
-    if text.startswith("🎁 Открыть #"):
-        try:
-            item_id = int(text.split("#", 1)[1])
-            msg, buttons = v5.open_gift_box(db, uid, item_id)
-            send(uid, msg, buttons)
-        except (ValueError, IndexError):
-            send(uid, "❌ Неверный номер подарочного бокса.", [["🎒 Инвентарь"], ["🏙️ Главное меню"]])
+    if text == "🎁 Открыть подарочный бокс":
+        msg, buttons = v5.open_gift_box(db, uid)
+        send_card(uid, msg, buttons, key="shop")
         return
     if text.startswith("🍔 Использовать #"):
         try:
