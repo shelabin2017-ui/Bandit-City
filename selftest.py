@@ -170,15 +170,32 @@ class BanditCoreTest(unittest.TestCase):
         self.assertTrue(any("⬅️ Назад меню" in row for page in pages for row in page))
         self.assertTrue(all(["🏙️ Главное меню"] == page[-1] for page in pages))
 
-    def test_item_shop_renders_all_items_with_valid_keyboard_size(self):
-        from v5.bridge import ITEMS, item_shop
-        message, buttons = item_shop()
-        item_rows = [row for row in buttons if any(" — $" in button for button in row)]
-        visible = {button.split(" — $", 1)[0] for row in item_rows for button in row}
-        self.assertEqual(len(visible), len(ITEMS))
-        self.assertLessEqual(len(buttons), 10)
-        self.assertIn(["🎒 Инвентарь"], buttons)
-        self.assertIn(["🏙️ Главное меню"], buttons)
+    def test_item_shop_categories_and_bulk_buttons(self):
+        from v5.bridge import ITEMS, ITEM_CATEGORIES, item_shop
+        message, category_buttons = item_shop()
+        self.assertTrue(all([category] in category_buttons for category in ITEM_CATEGORIES))
+        self.assertIn(["📦 Все предметы"], category_buttons)
+        self.assertIn(["🎒 Инвентарь"], category_buttons)
+        self.assertIn(["🏙️ Главное меню"], category_buttons)
+
+        for category in list(ITEM_CATEGORIES) + ["📦 Все предметы"]:
+            message, buttons = item_shop(category)
+            self.assertIn("x1, x5, x10", message)
+            visible = {
+                button.split(" ", 2)[2]
+                for row in buttons for button in row
+                if button.startswith("🛒 x1 ")
+            }
+            expected = {
+                name for name, _price in ITEMS
+                if category == "📦 Все предметы"
+                or __import__("v5.bridge", fromlist=["item_category"]).item_category(name) == category
+            }
+            self.assertEqual(visible, expected, category)
+            for name in expected:
+                self.assertIn("🛒 x1 " + name, [b for row in buttons for b in row])
+                self.assertIn("🛒 x5 " + name, [b for row in buttons for b in row])
+                self.assertIn("🛒 x10 " + name, [b for row in buttons for b in row])
 
     def test_consumable_effects_are_type_specific(self):
         from game import Game
