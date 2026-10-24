@@ -613,6 +613,9 @@ def process(uid, text):
         }
         if text in onboarding_work_map:
             result = game.work(user["id"], onboarding_work_map[text])
+            if result.startswith("✅"):
+                progression.record(user["id"], "work", 1)
+                progression.record(user["id"], "earn", Game.JOBS[onboarding_work_map[text]][1])
             send_card(uid, result + "\n\n📩 После первой смены вернись в «🎓 Обучение» и продолжи сюжет.", kb_work(), key="work")
             return
         referral_bonus = False
@@ -697,7 +700,11 @@ def process(uid, text):
         "🛡 Охранник": "security", "💻 Разработчик": "programmer",
     }
     if text in work_map:
-        send_card(uid, game.work(user["id"], work_map[text]), kb_work(), key="work")
+        result = game.work(user["id"], work_map[text])
+        if result.startswith("✅"):
+            progression.record(user["id"], "work", 1)
+            progression.record(user["id"], "earn", Game.JOBS[work_map[text]][1])
+        send_card(uid, result, kb_work(), key="work")
         return
 
     if text == "🏢 Бизнес":
