@@ -313,9 +313,8 @@ def kb_more(uid=None):
         ["👑 О создателе"],
         ["🏙️ Главное меню"],
     ]
-    if uid is None:
-        rows[0].append("🎓 Обучение")
-    else:
+    # Показываем пролог только игрокам, которые ещё не завершили его.
+    if uid is not None:
         player = db.get_or_create_user(int(uid))
         if not db.tutorial(player["id"])["completed"]:
             rows[0].append("🎓 Обучение")
@@ -394,9 +393,8 @@ def kb_work(uid=None):
         ["👨‍🍳 Повар", "⛏ Шахтёр"],
         ["🛡 Охранник", "💻 Разработчик"],
     ]
-    if uid is None:
-        rows.append(["🎓 Обучение"])
-    else:
+    # После завершения пролога кнопка не возвращается.
+    if uid is not None:
         player = db.get_or_create_user(int(uid))
         if not db.tutorial(player["id"])["completed"]:
             rows.append(["🎓 Обучение"])
