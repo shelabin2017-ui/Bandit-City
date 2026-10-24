@@ -639,13 +639,13 @@ def process(uid, text):
         kind = "weekly" if "week" in low or "недел" in low else "daily"
         tasks = WEEKLY_TASKS if kind == "weekly" else DAILY_TASKS
         send(uid, progression.view(user["id"], kind) + "\n\nЗабрать награду: /contract CODE",
-             [["🎁 " + code for code in tasks], ["🗓️ Еженедельные" if kind == "daily" else "📅 Ежедневные"], ["🏙️ Главное меню"]])
+             [["🎁 Забрать " + code for code in tasks], ["🗓️ Еженедельные" if kind == "daily" else "📅 Ежедневные"], ["🏙️ Главное меню"]])
         return
     if text == "🗓️ Еженедельные":
-        send(uid, progression.view(user["id"], "weekly") + "\n\nЗабрать награду: /contract CODE", [["🎁 " + code for code in WEEKLY_TASKS], ["📅 Ежедневные"], ["🏙️ Главное меню"]])
+        send(uid, progression.view(user["id"], "weekly") + "\n\nЗабрать награду: /contract CODE", [["🎁 Забрать " + code for code in WEEKLY_TASKS], ["📅 Ежедневные"], ["🏙️ Главное меню"]])
         return
     if text == "📅 Ежедневные":
-        send(uid, progression.view(user["id"], "daily") + "\n\nЗабрать награду: /contract CODE", [["🎁 " + code for code in DAILY_TASKS], ["🗓️ Еженедельные"], ["🏙️ Главное меню"]])
+        send(uid, progression.view(user["id"], "daily") + "\n\nЗабрать награду: /contract CODE", [["🎁 Забрать " + code for code in DAILY_TASKS], ["🗓️ Еженедельные"], ["🏙️ Главное меню"]])
         return
     if low.startswith("/contract ") or low.startswith("🎁 забрать "):
         parts = text.split()
