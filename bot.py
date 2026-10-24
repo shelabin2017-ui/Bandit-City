@@ -475,7 +475,7 @@ def process_input(uid, text):
     low = text.lower().strip()
     if low in ("отмена", "❌ отмена", "/cancel"):
         if st.get("mode") == "nickname_onboarding":
-            send(uid, "🎭 Чтобы начать обучение, сначала установи игровой ник. Введи ник от 3 до 20 символов.", [["❌ Отмена"]])
+            send(uid, "🎭 Чтобы начать сюжетный пролог, сначала установи игровой ник. Введи ник от 3 до 20 символов.", [["❌ Отмена"]])
             return True
         clear_state(uid)
         send_card(uid, "❌ Операция отменена.", main_kb(uid))
@@ -516,7 +516,7 @@ def process_input(uid, text):
                 clear_state(uid)
                 if was_onboarding:
                     TUTORIAL_ACTIVE.add(int(uid))
-                    send(uid, message + "\n\nТеперь пройдём короткое обучение — оно покажет основные кнопки и поможет начать игру.", [["🎓 Начать обучение"]])
+                    send(uid, message + "\n\n📖 Начинается сюжетный пролог: ты освоишься в Los Santos, выполнишь первое дело и откроешь основные возможности города. Пролог проходится один раз.", [["📖 Начать пролог"]])
                 else:
                     send_card(uid, message, kb_settings())
             else:
@@ -628,7 +628,7 @@ def process(uid, text):
     # Guided tutorial is view-only apart from the required first work shift.
     if db.needs_onboarding(user["id"]):
         TUTORIAL_ACTIVE.add(int(uid))
-    if text == "🎓 Начать обучение":
+    if text == "📖 Начать пролог":
         if db.tutorial(user["id"])["completed"]:
             send(uid, "✅ Пролог уже пройден. Продолжай историю в разделе «📖 Сюжет».", [["📖 Сюжет"], ["🏙️ Главное меню"]])
             return
@@ -638,7 +638,7 @@ def process(uid, text):
     if text == "🎓 Обучение":
         progress = db.tutorial(user["id"])
         if progress["completed"]:
-            send(uid, "✅ Пролог уже пройден. Обучение больше не показывается — продолжай историю в разделе «📖 Сюжет».", [["📖 Сюжет"], ["🏙️ Главное меню"]])
+            send(uid, "✅ Сюжетный пролог уже пройден и больше не повторяется. Продолжай историю в разделе «📖 Сюжет».", [["📖 Сюжет"], ["🏙️ Главное меню"]])
             return
         TUTORIAL_ACTIVE.add(int(uid))
         send(uid, game.tutorial(user["id"]), tutorial_keyboard(user["id"]))
@@ -691,7 +691,7 @@ def process(uid, text):
                 progression.record(user["id"], "work", 1)
                 progression.record(user["id"], "city", 1)
                 progression.record(user["id"], "earn", Game.JOBS[onboarding_work_map[text]][1])
-            send_card(uid, result + "\n\n📩 После первой смены вернись в «🎓 Обучение» и продолжи сюжет.", kb_work(), key="work")
+            send_card(uid, result + "\n\n📩 После первой смены вернись к сюжетному прологу и продолжи историю.", kb_work(), key="work")
             return
         referral_bonus = False
         if low.startswith("/start"):
