@@ -676,8 +676,11 @@ def process(uid, text):
         send(uid, progression.view(user["id"], "daily") + "\n\nЗабрать награду: /contract CODE", [["🎁 Забрать " + code for code in DAILY_TASKS], ["🗓️ Еженедельные"], ["🏙️ Главное меню"]])
         return
     if low.startswith("/contract ") or low.startswith("🎁 забрать "):
-        parts = text.split()
-        code = parts[1] if len(parts) > 1 else (text.split(maxsplit=2)[2] if len(text.split(maxsplit=2)) > 2 else "")
+        if low.startswith("/contract "):
+            code = text.split(maxsplit=1)[1].strip().split()[0] if len(text.split()) > 1 else ""
+        else:
+            parts = text.split(maxsplit=2)
+            code = parts[2].strip() if len(parts) > 2 else ""
         kind = "weekly" if code in WEEKLY_TASKS else "daily"
         send(uid, progression.claim(user["id"], code, kind) + "\n\n" + progression.view(user["id"], kind), [["📅 Контракты"], ["🏙️ Главное меню"]])
         return
@@ -841,6 +844,14 @@ def process(uid, text):
         return
     if text == "🎒 Инвентарь" or low == "/items":
         msg, buttons = v5.inventory(db, uid); send_card(uid, msg, buttons, key="shop"); return
+    if text.startswith("🎁 Открыть #"):
+        try:
+            item_id = int(text.split("#", 1)[1])
+            msg, buttons = v5.open_gift_box(db, uid, item_id)
+            send(uid, msg, buttons)
+        except (ValueError, IndexError):
+            send(uid, "❌ Неверный номер подарочного бокса.", [["🎒 Инвентарь"], ["🏙️ Главное меню"]])
+        return
     if text.startswith("🍔 Использовать #"):
         try:
             item_id = int(text.split("#", 1)[1])
