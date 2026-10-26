@@ -44,5 +44,31 @@ class ShopCategoryTests(unittest.TestCase):
         self.assertIn("Выбери категорию", text)
 
 
+class InventoryButtonTests(unittest.TestCase):
+    class FakeDB:
+        def get_or_create_user(self, vk_id):
+            return {"id": 7}
+
+        def items(self, user_id):
+            return [
+                {"id": 5, "name": "🎁 Подарочный бокс", "price": 200000},
+                {"id": 4, "name": "🍔 Бургер", "price": 12000},
+                {"id": 3, "name": "🍔 Бургер", "price": 12000},
+                {"id": 2, "name": "💧 Вода", "price": 3000},
+            ]
+
+    def test_inventory_actions_hide_database_ids_and_deduplicate(self):
+        text, buttons = bridge.inventory(self.FakeDB(), 123)
+        labels = [label for row in buttons for label in row]
+        self.assertTrue(any(label == "🗑 Продать: 🍔 Бургер" for label in labels))
+        self.assertIn("🎁 Открыть бокс", labels)
+        self.assertIn("🍽 Использовать: 🍔 Бургер", labels)
+        self.assertNotIn("🗑 Продать #5", labels)
+        self.assertNotIn("🎁 Открыть #5", labels)
+        self.assertFalse(any("#" in label for label in labels))
+        self.assertEqual(labels.count("🗑 Продать: 🍔 Бургер"), 1)
+        self.assertEqual(labels.count("🍽 Использовать: 🍔 Бургер"), 1)
+
+
 if __name__ == "__main__":
     unittest.main()
