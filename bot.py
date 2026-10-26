@@ -20,7 +20,7 @@ from roles import RoleManager
 from role_ui import RoleUI
 from release import announce_new_release
 from keyboard_layout import normalize_rows, paginate_rows
-from progression_system import Progression, DAILY_TASKS, WEEKLY_TASKS
+from progression_system import Progression, DAILY_TASKS, WEEKLY_TASKS, parse_contract_code
 from duel_system import DuelSystem
 
 load_dotenv()
@@ -739,11 +739,10 @@ def process(uid, text):
         send(uid, progression.view(user["id"], "daily") + "\n\nЗабрать награду: /contract CODE", [["🎁 Забрать " + code for code in DAILY_TASKS], ["🗓️ Еженедельные"], ["🏙️ Главное меню"]])
         return
     if low.startswith("/contract ") or low.startswith("🎁 забрать "):
-        if low.startswith("/contract "):
-            code = text.split(maxsplit=1)[1].strip().split()[0] if len(text.split()) > 1 else ""
-        else:
-            parts = text.split(maxsplit=2)
-            code = parts[2].strip() if len(parts) > 2 else ""
+        code = parse_contract_code(text)
+        if not code:
+            send(uid, "❌ Не удалось определить код контракта. Открой «📅 Контракты» и нажми кнопку нужного задания ещё раз.", [["📅 Контракты"], ["🏙️ Главное меню"]])
+            return
         kind = "weekly" if code in WEEKLY_TASKS else "daily"
         send(uid, progression.claim(user["id"], code, kind) + "\n\n" + progression.view(user["id"], kind), [["📅 Контракты"], ["🏙️ Главное меню"]])
         return
