@@ -906,16 +906,17 @@ def process(uid, text):
         return
     if text == "🎒 Инвентарь" or low == "/items":
         msg, buttons = v5.inventory(db, uid); send_card(uid, msg, buttons, key="shop"); return
-    if text == "🎁 Открыть подарочный бокс":
+    if text in ("🎁 Открыть подарочный бокс", "🎁 Открыть бокс"):
         msg, buttons = v5.open_gift_box(db, uid)
         send_card(uid, msg, buttons, key="shop")
         return
-    if text.startswith("🍔 Использовать #"):
-        try:
-            item_id = int(text.split("#", 1)[1])
-            send(uid, game.eat_item(user["id"], item_id), [["🎒 Инвентарь"], ["🍔 Потребности"], ["🏙️ Главное меню"]])
-        except ValueError:
-            send(uid, "❌ Неверный номер предмета.", [["🎒 Инвентарь"], ["🏙️ Главное меню"]])
+    if text.startswith("🍽 Использовать: "):
+        item_name = text.split(": ", 1)[1].strip()
+        owned = next((row for row in db.items(user["id"]) if str(row["name"]) == item_name), None)
+        if not owned:
+            send(uid, "❌ Такого предмета больше нет в инвентаре.", [["🎒 Инвентарь"], ["🏙️ Главное меню"]])
+        else:
+            send(uid, game.eat_item(user["id"], int(owned["id"])), [["🎒 Инвентарь"], ["🍔 Потребности"], ["🏙️ Главное меню"]])
         return
     if text in ("🧥 Одежда", "👕 Одежда"):
         msg, buttons = v5.clothing_menu(); send_card(uid, msg, buttons, key="shop"); return
@@ -955,11 +956,14 @@ def process(uid, text):
         except (ValueError, IndexError):
             send(uid, "Использование: /sellitem ID", [["🎒 Инвентарь"], ["🏙️ Главное меню"]])
         return
-    if text.startswith("🗑 Продать #"):
-        try:
-            msg, buttons = v5.sell_item(db, uid, int(text.split("#", 1)[1])); send(uid, msg, buttons)
-        except ValueError:
-            send(uid, "❌ Неверный ID вещи.")
+    if text.startswith("🗑 Продать: "):
+        item_name = text.split(": ", 1)[1].strip()
+        owned = next((row for row in db.items(user["id"]) if str(row["name"]) == item_name), None)
+        if not owned:
+            send(uid, "❌ Такого предмета больше нет в инвентаре.", [["🎒 Инвентарь"], ["🏙️ Главное меню"]])
+        else:
+            msg, buttons = v5.sell_item(db, uid, int(owned["id"]))
+            send(uid, msg, buttons)
         return
     if text.startswith("🎪 "):
         title = text[3:].strip()
