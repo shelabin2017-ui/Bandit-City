@@ -277,7 +277,7 @@ class BanditCoreTest(unittest.TestCase):
                 return next(x for x in options if x[0] == "cash" and x[1] == 25000)
         before = self.db.user(user["id"])["balance"]
         inventory_message, inventory_buttons = shop.inventory(self.db, user["vk_id"])
-        self.assertIn("🎁 Открыть бокс", str(inventory_buttons))
+        self.assertIn("🎁 Подарочный бокс", inventory_message)
         self.assertIn("🎁 Открыть бокс", str(inventory_buttons))
         message, buttons = shop.open_gift_box(self.db, user["vk_id"], rng=FixedRng())
         self.assertIn("$25 000", message)
