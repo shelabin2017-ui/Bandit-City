@@ -3,7 +3,7 @@ import tempfile
 import unittest
 
 from db import Database
-from progression_system import Progression, DAILY_TASKS, WEEKLY_TASKS
+from progression_system import Progression, DAILY_TASKS, WEEKLY_TASKS, parse_contract_code
 
 
 class ProgressionSystemTests(unittest.TestCase):
@@ -20,6 +20,13 @@ class ProgressionSystemTests(unittest.TestCase):
                 os.remove(self.path + suffix)
             except FileNotFoundError:
                 pass
+
+    def test_contract_claim_button_extracts_code_not_button_verb(self):
+        self.assertEqual(parse_contract_code("🎁 Забрать work3"), "work3")
+        self.assertEqual(parse_contract_code("🎁 Забрать earn50"), "earn50")
+        self.assertEqual(parse_contract_code("/contract work3"), "work3")
+        self.assertEqual(parse_contract_code("🎁 Забрать "), "")
+        self.assertEqual(parse_contract_code("🎁 Забрать work3 extra"), "work3")
 
     def test_daily_contract_claim_is_idempotent(self):
         before = self.db.get_or_create_user(998877)["balance"]
