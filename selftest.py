@@ -90,7 +90,7 @@ class BanditCoreTest(unittest.TestCase):
         user = self.db.get_or_create_user(100099)
         uid = user["id"]
         # Categories keep food/drinks separate from tools and clothing.
-        self.assertEqual(shop.item_category("🍔 Бургер"), "🍔 Еда и напитки")
+        self.assertEqual(shop.item_category("🍔 Бургер"), "🍔 Еда")
         self.assertEqual(shop.item_category("🩹 Аптечка"), "🩹 Медицина")
         self.assertEqual(shop.item_category("👕 Куртка"), "👕 Одежда и аксессуары")
         # Give the test user enough cash, then buy five burgers in one operation.
@@ -144,7 +144,7 @@ class BanditCoreTest(unittest.TestCase):
                     "SELECT id FROM items WHERE user_id=? AND name=?",
                     (uid, name),
                 ).fetchone()["id"]
-                expected.add("🗑 Продать #" + str(item_id))
+                expected.add("🗑 Продать: " + name)
         _, rows = inventory(self.db, user["vk_id"])
         pages = paginate_rows(rows)
         visible = {label for page in pages for row in page for label in row}
@@ -277,7 +277,7 @@ class BanditCoreTest(unittest.TestCase):
                 return next(x for x in options if x[0] == "cash" and x[1] == 25000)
         before = self.db.user(user["id"])["balance"]
         inventory_message, inventory_buttons = shop.inventory(self.db, user["vk_id"])
-        self.assertIn("🎁 Открыть подарочный бокс", str(inventory_buttons))
+        self.assertIn("🎁 Открыть бокс", str(inventory_buttons))
         self.assertIn("Бот сам выберет один бокс", inventory_message)
         message, buttons = shop.open_gift_box(self.db, user["vk_id"], rng=FixedRng())
         self.assertIn("$25 000", message)
