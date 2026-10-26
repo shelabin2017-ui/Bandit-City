@@ -1,4 +1,5 @@
 """V5 shop layer. Public catalogue is separated from event-only drops."""
+import random
 import time
 from catalog import EVENTS, EVENT_EXCLUSIVES, active_events, find_event_item
 
@@ -32,7 +33,48 @@ EVENT_CLOTHING = {
     ]
 }
 
-WEAPONS = [("🔪 Нож",15000,"knife"),("🔫 Пистолет",75000,"pistol"),("🔫 Desert Eagle",180000,"deagle"),("🔫 Дробовик",250000,"shotgun"),("🔫 SMG",350000,"smg")]
+# Расширенный игровой каталог. Оружие является внутриигровым предметом;
+# цены и коды стабильны, чтобы покупки корректно сохранялись в v5_weapons.
+WEAPONS = [
+    ("🔪 Нож", 15000, "knife"),
+    ("🪓 Тактический топор", 28000, "tactical_axe"),
+    ("🗡️ Боевой кинжал", 35000, "combat_dagger"),
+    ("🏏 Бита", 12000, "baseball_bat"),
+    ("🔧 Тяжёлый лом", 9000, "crowbar"),
+    ("🔫 Пистолет", 75000, "pistol"),
+    ("🔫 Компактный пистолет", 62000, "compact_pistol"),
+    ("🔫 Desert Eagle", 180000, "deagle"),
+    ("🔫 Револьвер", 115000, "revolver"),
+    ("🔫 Тактический пистолет", 145000, "tactical_pistol"),
+    ("🔫 Дробовик", 250000, "shotgun"),
+    ("🔫 Помповый дробовик", 285000, "pump_shotgun"),
+    ("🔫 Обрез", 190000, "sawed_off"),
+    ("🔫 Автоматический дробовик", 420000, "auto_shotgun"),
+    ("🔫 SMG", 350000, "smg"),
+    ("🔫 Компактный SMG", 310000, "compact_smg"),
+    ("🔫 Тактический SMG", 460000, "tactical_smg"),
+    ("🔫 Vector-9", 520000, "vector9"),
+    ("🔫 Карабин", 480000, "carbine"),
+    ("🔫 Штурмовой карабин", 620000, "assault_carbine"),
+    ("🔫 Тактическая винтовка", 700000, "tactical_rifle"),
+    ("🔫 Булл-пап", 760000, "bullpup"),
+    ("🎯 Охотничья винтовка", 540000, "hunting_rifle"),
+    ("🎯 Снайперская винтовка", 950000, "sniper_rifle"),
+    ("🎯 Точная винтовка", 880000, "marksman_rifle"),
+    ("🔫 Лёгкий пулемёт", 1100000, "light_machine_gun"),
+    ("🔫 Тяжёлый пулемёт", 1450000, "heavy_machine_gun"),
+    ("🏹 Арбалет", 160000, "crossbow"),
+    ("💣 Дымовая граната", 45000, "smoke_grenade"),
+    ("💥 Светошумовая граната", 55000, "flash_grenade"),
+    ("🛡️ Электрошокер", 68000, "stun_gun"),
+    ("🎯 Тренировочный пистолет", 25000, "training_pistol"),
+    ("🔫 Киберпанк-бластер", 1250000, "cyber_blaster"),
+    ("🔫 Неоновый SMG", 980000, "neon_smg"),
+    ("🔫 Золотой Desert Eagle", 1750000, "gold_deagle"),
+    ("🔫 Чёрный тактический карабин", 1350000, "black_carbine"),
+    ("🔫 Прототип X-9", 2200000, "prototype_x9"),
+    ("🔫 Легендарный «Фантом»", 3500000, "phantom_legend"),
+]
 PREMIUM = [("💎 VIP-карточка",500000,"vip"),("⚡ Буст XP x2",250000,"xp_boost"),("🎟 Премиум-пропуск",750000,"pass")]
 
 def money(n): return "$" + f"{int(n):,}".replace(","," ")
@@ -45,20 +87,67 @@ def _owned(db,user_id,category,name):
 
 def shop_hub():
     return reply("🛒 МАГАЗИН LOS SANTOS\n\nВыбери раздел:",[["🧥 Одежда","🔫 Оружие"],["🚗 Авто","💎 Премиум"],["🛍️ Предметы"],["🎒 Инвентарь"],["🎪 Ивент-дропы"],["🏙️ Главное меню"]])
-def item_shop():
-    body=["🛒 ПРЕДМЕТЫ LOS SANTOS","","Постоянный каталог:",""]; buttons=[]
-    item_buttons=[]
-    for name,price in ITEMS:
-        body += [name,"💵 "+money(price),""]
-        item_buttons.append(name+" — "+money(price))
-    # Reserve 3 rows for navigation; VK default keyboards support at most 10 rows.
-    # The catalog itself may therefore use at most 7 rows.
-    for i in range(0, len(item_buttons), 2):
-        if len(buttons) >= 7:
-            break
-        buttons.append(item_buttons[i:i + 2])
-    buttons += [["🎒 Инвентарь"],["🛒 Магазин"],["🏙️ Главное меню"]]
-    return reply("\n".join(body),buttons)
+ITEM_CATEGORIES = {
+    "🍔 Еда и напитки": ("🍔", ("бургер", "сэндвич", "вода", "энергетик")),
+    "🩹 Медицина": ("🩹", ("аптечка",)),
+    "🛠️ Инструменты и снаряжение": ("🛠️", ("отмычек", "инструменты", "бронежилет", "маска")),
+    "👕 Одежда и аксессуары": ("👕", ("кроссовки", "куртка", "волосы")),
+    "📱 Электроника": ("📱", ("macbook", "burner phone")),
+    "🎁 Прочее": ("🎁", ("счастливый жетон", "подарочный бокс")),
+}
+
+def item_category(name):
+    lowered = str(name).lower()
+    for category, (_, words) in ITEM_CATEGORIES.items():
+        if any(word in lowered for word in words):
+            return category
+    return "🎁 Прочее"
+
+def item_shop(category=None):
+    if not category:
+        body = ["🛒 ПРЕДМЕТЫ LOS SANTOS", "", "Выбери категорию товаров:"]
+        buttons = [[name] for name in ITEM_CATEGORIES]
+        buttons += [["📦 Все предметы"], ["🎒 Инвентарь"], ["↩️ В магазин"], ["🏙️ Главное меню"]]
+        return reply("\n".join(body), buttons)
+    if category == "📦 Все предметы":
+        category = None
+    chosen = [(name, price) for name, price in ITEMS if category is None or item_category(name) == category]
+    title = category or "📦 Все предметы"
+    body = ["🛒 " + title.upper(), "", "Выбирай количество — покупка оформляется одним нажатием.", "Доступно: x1, x5, x10."]
+    buttons = []
+    for name, price in chosen:
+        body += ["", name, "💵 За штуку: " + money(price)]
+        buttons.append(["🛒 x1 " + name, "🛒 x5 " + name])
+        buttons.append(["🛒 x10 " + name])
+    buttons += [["↩️ К категориям"], ["🎒 Инвентарь"], ["↩️ В магазин"], ["🏙️ Главное меню"]]
+    return reply("\n".join(body), buttons)
+
+def buy_item_quantity(db, vk_id, name, quantity):
+    match = next((x for x in ITEMS if x[0] == name), None)
+    if not match:
+        return reply("❌ Предмет отсутствует в каталоге.", [["🛍️ Предметы"], ["🛒 Магазин"]])
+    quantity = int(quantity)
+    if quantity < 1 or quantity > 100:
+        return reply("❌ За одну покупку можно приобрести от 1 до 100 единиц.", [["🛍️ Предметы"], ["🛒 Магазин"]])
+    item, price = match
+    uid = player_id_by_vk(db, vk_id)
+    user = db.user(uid)
+    total = price * quantity
+    if not user or int(user["balance"]) < total:
+        return reply("❌ Недостаточно денег.\n\n" + item + "\nКоличество: " + str(quantity) + "\nИтого: " + money(total), [["🛍️ Предметы"], ["🛒 Магазин"]])
+    # The balance is checked for the whole basket before writing any item.
+    with _conn(db) as c:
+        current = c.execute("SELECT balance FROM users WHERE id=?", (uid,)).fetchone()
+        if not current or int(current["balance"]) < total:
+            return reply("❌ Баланс изменился: денег на всю покупку не хватает.", [["🛍️ Предметы"], ["🛒 Магазин"]])
+        c.execute("UPDATE users SET balance=balance-? WHERE id=?", (total, uid))
+        now = int(time.time())
+        c.executemany(
+            "INSERT INTO items(user_id,name,price,bought_at) VALUES(?,?,?,?)",
+            [(uid, item, price, now) for _ in range(quantity)]
+        )
+    return reply("✅ ПОКУПКА ОФОРМЛЕНА\n\n" + item + "\n📦 Количество: " + str(quantity) + "\n💵 За штуку: " + money(price) + "\n💰 Итого: " + money(total), [["🎒 Инвентарь"], ["🛍️ Предметы"], ["🛒 Магазин"]])
+
 def inventory(db,vk_id):
     uid=player_id_by_vk(db,vk_id); rows=db.items(uid)
     if not rows: return reply("🎒 ИНВЕНТАРЬ LOS SANTOS\n\nКарман пуст.",[["🛒 Магазин"],["🏙️ Главное меню"]])
@@ -66,12 +155,13 @@ def inventory(db,vk_id):
     for row in rows:
         body += ["📦 "+row["name"],"💵 Цена: "+money(row["price"]),""]
         sell_buttons.append("🗑 Продать #"+str(row["id"]))
+        if str(row["name"]) == "🎁 Подарочный бокс":
+            sell_buttons.append("🎁 Открыть #" + str(row["id"]))
         if any(word in str(row["name"]).lower() for word in ("бургер","сэндвич","вода","энергетик","еда","кофе")):
             sell_buttons.append("🍔 Использовать #"+str(row["id"]))
-    # Reserve 3 rows for navigation; keep inventory actions within 7 rows.
+    # Never truncate inventory actions locally. send() applies the shared VK
+    # arrow-pagination helper and keeps the final navigation row available.
     for i in range(0, len(sell_buttons), 2):
-        if len(buttons) >= 7:
-            break
         buttons.append(sell_buttons[i:i + 2])
     buttons += [["🛒 Магазин"],["🏙️ Главное меню"]]
     return reply("\n".join(body),buttons)
@@ -179,6 +269,51 @@ def buy_item(db,vk_id,name):
     item,price=match; uid=player_id_by_vk(db,vk_id); user=db.user(uid)
     if not user or user["balance"]<price:return reply("❌ Недостаточно денег.",[["🛒 Магазин"]])
     return reply(db.buy_item(uid,item,price),[["🎒 Инвентарь"],["🛒 Магазин"]])
+def open_gift_box(db, vk_id, item_id=None, rng=None):
+    """Open one owned gift box; players do not need to know database item IDs."""
+    rng = rng or random
+    uid = player_id_by_vk(db, vk_id)
+    rewards = [
+        ("cash", 25000, "💵 $25 000"),
+        ("cash", 75000, "💵 $75 000"),
+        ("cash", 150000, "💵 $150 000"),
+        ("item", "🍔 Бургер", "🍔 Бургер"),
+        ("item", "⚡ Энергетик", "⚡ Энергетик"),
+        ("item", "💧 Вода", "💧 Вода"),
+    ]
+    with _conn(db) as c:
+        if item_id is None:
+            row = c.execute(
+                "SELECT id FROM items WHERE user_id=? AND name=? ORDER BY id LIMIT 1",
+                (uid, "🎁 Подарочный бокс"),
+            ).fetchone()
+        else:
+            row = c.execute(
+                "SELECT id FROM items WHERE id=? AND user_id=? AND name=?",
+                (int(item_id), uid, "🎁 Подарочный бокс"),
+            ).fetchone()
+        if not row:
+            return reply("❌ У тебя нет подарочного бокса. Купи его в магазине и открой через инвентарь.", [["🎒 Инвентарь"], ["🛒 Магазин"]])
+        item_id = int(row["id"])
+        reward = rng.choice(rewards)
+        deleted = c.execute(
+            "DELETE FROM items WHERE id=? AND user_id=? AND name=?",
+            (int(item_id), uid, "🎁 Подарочный бокс"),
+        )
+        if deleted.rowcount != 1:
+            return reply("❌ Не удалось открыть бокс. Обнови инвентарь и попробуй снова.", [["🎒 Инвентарь"]])
+        if reward[0] == "cash":
+            c.execute("UPDATE users SET balance=balance+? WHERE id=?", (int(reward[1]), uid))
+            description = reward[2]
+        else:
+            c.execute(
+                "INSERT INTO items(user_id,name,price,bought_at) VALUES(?,?,?,?)",
+                (uid, str(reward[1]), 0, int(time.time())),
+            )
+            description = reward[2]
+    return reply("🎁 ПОДАРОЧНЫЙ БОКС ОТКРЫТ\n\nТебе выпало:\n" + description,
+                 [["🎒 Инвентарь"], ["🛒 Магазин"], ["🏙️ Главное меню"]])
+
 def sell_item(db,vk_id,item_id): return reply(db.sell_item(player_id_by_vk(db,vk_id),item_id),[["🎒 Инвентарь"],["🛒 Магазин"]])
 def buy_wardrobe(db,vk_id,category,name):
     source=EVENT_CLOTHING if category in EVENT_CLOTHING else CLOTHING; found=next((x for x in source.get(category,[]) if x[0]==name),None)

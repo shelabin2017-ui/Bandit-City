@@ -71,7 +71,7 @@ class NeedsAndTutorialTests(unittest.TestCase):
     def test_tutorial_first_job_cannot_be_skipped(self):
         self.db.tutorial_set(self.uid, 1, False)
         result = self.game.tutorial_next(self.uid)
-        self.assertIn("нельзя пропустить", result.lower())
+        self.assertIn("следующая глава не откроется", result.lower())
         self.assertEqual(int(self.db.tutorial(self.uid)["step"]), 1)
         self.db.sms_task_complete(self.uid, "first_job")
         result = self.game.tutorial_next(self.uid)

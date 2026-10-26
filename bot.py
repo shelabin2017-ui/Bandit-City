@@ -20,6 +20,8 @@ from roles import RoleManager
 from role_ui import RoleUI
 from release import announce_new_release
 from keyboard_layout import normalize_rows, paginate_rows
+from progression_system import Progression, DAILY_TASKS, WEEKLY_TASKS, parse_contract_code
+from duel_system import DuelSystem
 
 load_dotenv()
 TOKEN = os.getenv("VK_TOKEN", "").strip()
@@ -36,6 +38,8 @@ for _legacy_uid in ADMIN_IDS:
     roles.ensure_player(_legacy_uid)
 role_ui = RoleUI(roles)
 game = Game(db, ADMIN_IDS)
+progression = Progression(db)
+duels = DuelSystem(db)
 admin = AdminPanel(db, game, ADMIN_IDS, roles=roles, role_ui=role_ui)
 session = vk_api.VkApi(token=TOKEN)
 vk = session.get_api()
@@ -185,50 +189,93 @@ def card_key(text):
     return "main"
 
 def upload_card(user_id, key):
+    """Upload SVG cards when possible; fall back to bundled PNG/JPEG assets."""
     try:
-        import cairosvg
-        cache_key = key
-        svg = CARD_DIR / (str(key) + '.svg')
-        if key == 'profile':
+        cache_key = str(key)
+        source = None
+        svg = CARD_DIR / (cache_key + ".svg")
+
+        if key == "profile":
             player = db.get_or_create_user(user_id)
-            if player:
-                appearance = db.appearance(player['id'])
-                cache_key = 'profile-player-{}-{}'.format(user_id, int(appearance['updated_at']))
-                svg = CARD_DIR / (cache_key + '.svg')
-                profile_template = CARD_DIR / 'profile.svg'
-                # Rebuild per-player artwork when the shared template changes.
-                # Otherwise an old profile-player-*.svg survives deployments and
-                # keeps showing the previous card even after the template is updated.
-                if not svg.exists() or svg.stat().st_mtime < profile_template.stat().st_mtime:
-                    base = profile_template.read_text(encoding='utf-8')
-                    slots = [('ГОЛОВА', appearance['head']), ('ВЕРХ', appearance['clothes']), ('АКСЕССУАР', appearance['accessory']), ('БРЮКИ', appearance['pants']), ('ОБУВЬ', appearance['shoes']), ('ВОЛОСЫ', appearance['hair'])]
-                    lines = ['<g font-family="Arial,sans-serif" font-weight="700">', '<rect x="720" y="360" width="410" height="205" rx="20" fill="#05090e" fill-opacity=".86" stroke="#78bfff" stroke-opacity=".9"/>', '<text x="750" y="395" font-size="19" letter-spacing="2" fill="#78bfff">ЭКИПИРОВКА ПЕРСОНАЖА</text>']
+            profile_template = CARD_DIR / "profile.svg"
+            if player and profile_template.exists():
+                appearance = db.appearance(player["id"])
+                cache_key = "profile-player-{}-{}".format(user_id, int(appearance["updated_at"]))
+                svg = CARD_DIR / (cache_key + ".svg")
+                if (not svg.exists()) or svg.stat().st_mtime < profile_template.stat().st_mtime:
+                    base = profile_template.read_text(encoding="utf-8")
+                    slots = [
+                        ("ГОЛОВА", appearance["head"]), ("ВЕРХ", appearance["clothes"]),
+                        ("АКСЕССУАР", appearance["accessory"]), ("БРЮКИ", appearance["pants"]),
+                        ("ОБУВЬ", appearance["shoes"]), ("ВОЛОСЫ", appearance["hair"]),
+                    ]
+                    lines = [
+                        '<g font-family="Arial,sans-serif" font-weight="700">',
+                        '<rect x="720" y="360" width="410" height="205" rx="20" fill="#05090e" fill-opacity=".86" stroke="#78bfff" stroke-opacity=".9"/>',
+                        '<text x="750" y="395" font-size="19" letter-spacing="2" fill="#78bfff">ЭКИПИРОВКА ПЕРСОНАЖА</text>',
+                    ]
                     y = 430
                     for label, value in slots:
-                        value = html.escape(str(value or 'не надето'))[:30]
+                        value = html.escape(str(value or "не надето"))[:30]
                         lines.append('<text x="750" y="{}" font-size="16" fill="#d8e2e8">{}:</text>'.format(y, label))
                         lines.append('<text x="900" y="{}" font-size="16" fill="#ffffff">{}</text>'.format(y, value))
                         y += 23
-                    lines.append('</g>')
-                    svg.write_text(base.replace('</svg>', ''.join(lines) + '</svg>'), encoding='utf-8')
+                    lines.append("</g>")
+                    svg.write_text(base.replace("</svg>", "".join(lines) + "</svg>"), encoding="utf-8")
+
+        # SVG remains preferred so dynamic profile equipment and the existing design are retained.
+        png = CARD_DIR / (cache_key + ".png")
+        if svg.exists():
+            try:
+                import cairosvg
+                if not png.exists() or png.stat().st_mtime < svg.stat().st_mtime:
+                    cairosvg.svg2png(url=str(svg), write_to=str(png), output_width=1200, output_height=630)
+                source = png
+            except Exception:
+                logging.exception("SVG card rendering failed for %s; trying static asset", key)
+
+        if source is None:
+            candidates = {
+                "profile": ["profile-source.jpeg", "profile-source.jpg", "profile.png", "profile.jpg", "main.png"],
+                "garage": ["garage-source.jpeg", "garage-source.jpg", "garage.png", "garage.jpg"],
+                "main": ["main.png", "main.jpg", "main.jpeg"],
+                "shop": ["shop.png", "shop.jpg", "shop.jpeg"],
+                "admin": ["admin.png", "admin.jpg", "admin.jpeg"],
+            }.get(str(key), [str(key) + ".png", str(key) + ".jpg", str(key) + ".jpeg"])
+            source = next((CARD_DIR / name for name in candidates if (CARD_DIR / name).is_file()), None)
+        if source is None or not source.is_file():
+            logging.warning("No usable card asset found for key=%s in %s", key, CARD_DIR)
+            return None
+
+        stat = source.stat()
+        cache_key = "{}-{}-{}".format(key, source.name, int(stat.st_mtime))
         if cache_key in CARD_CACHE:
             return CARD_CACHE[cache_key]
-        png = CARD_DIR / (cache_key + '.png')
-        if not svg.exists():
-            return None
-        if not png.exists() or png.stat().st_mtime < svg.stat().st_mtime:
-            cairosvg.svg2png(url=str(svg), write_to=str(png), output_width=1200, output_height=630)
+
         upload = vk.photos.getMessagesUploadServer(peer_id=user_id)
-        with png.open('rb') as fh:
-            response = requests.post(upload['upload_url'], files={'photo': fh}, timeout=(5, 10)).json()
-        saved = vk.photos.saveMessagesPhoto(server=response['server'], photo=response['photo'], hash=response['hash'])
+        with source.open("rb") as fh:
+            response = requests.post(upload["upload_url"], files={"photo": fh}, timeout=(5, 15)).json()
+        saved = vk.photos.saveMessagesPhoto(server=response["server"], photo=response["photo"], hash=response["hash"])
         photo = saved[0]
-        attachment = 'photo{}_{}'.format(photo['owner_id'], photo['id'])
+        attachment = "photo{}_{}".format(photo["owner_id"], photo["id"])
         CARD_CACHE[cache_key] = attachment
         return attachment
     except Exception:
-        logging.exception('Не удалось сформировать карточку %s', key)
+        logging.exception("Не удалось сформировать карточку %s", key)
         return None
+
+def release_card_attachment():
+    """Upload the cinematic release card once and reuse its VK attachment in the broadcast."""
+    try:
+        with db.connect() as conn:
+            row = conn.execute("SELECT vk_id FROM users WHERE banned=0 ORDER BY id LIMIT 1").fetchone()
+        if not row:
+            return None
+        return upload_card(int(row["vk_id"]), "release")
+    except Exception:
+        logging.exception("Не удалось подготовить карточку анонса")
+        return None
+
 
 def send_card(user_id, text, rows=None, key=None):
     # Для служебных экранов оставляем обычный текст; игровые разделы
@@ -257,14 +304,21 @@ def kb_main(is_admin=False, panel_label="👑 Админ-панель"):
     ]
 
 
-def kb_more():
-    return [
-        ["📖 Сюжет", "🎓 Обучение"],
+def kb_more(uid=None):
+    rows = [
+        ["📖 Сюжет"],
+        ["📅 Контракты", "🏴 Банды"],
         ["🏆 Ачивки", "🎟 Промокод"],
         ["⚙️ Настройки", "❓ Помощь"],
         ["👑 О создателе"],
         ["🏙️ Главное меню"],
     ]
+    # Показываем пролог только игрокам, которые ещё не завершили его.
+    if uid is not None:
+        player = db.get_or_create_user(int(uid))
+        if not db.tutorial(player["id"])["completed"]:
+            rows[0].append("📖 Сюжетный пролог")
+    return rows
 
 
 def has_admin_access(uid):
@@ -330,17 +384,22 @@ def kb_business():
     ]
 
 
-def kb_work():
-    return [
+def kb_work(uid=None):
+    rows = [
         ["🚕 Таксист", "🕵️ Федерал"],
         ["📦 Блок", "🔗 Рефка"],
         ["🛵 Курьер", "👷 Строитель"],
         ["🔧 Автомеханик", "🚑 Медик"],
         ["👨‍🍳 Повар", "⛏ Шахтёр"],
         ["🛡 Охранник", "💻 Разработчик"],
-        ["🎓 Обучение"],
-        ["🏙️ Главное меню"],
     ]
+    # После завершения пролога кнопка не возвращается.
+    if uid is not None:
+        player = db.get_or_create_user(int(uid))
+        if not db.tutorial(player["id"])["completed"]:
+            rows.append(["📖 Сюжетный пролог"])
+    rows.append(["🏙️ Главное меню"])
+    return rows
 
 
 def kb_auto():
@@ -376,34 +435,52 @@ def kb_settings():
 
 def help_text():
     return (
-        "❓ BANDIT CITY — ПОМОЩЬ\n\n"
-        "🏙️ Ты находишься в криминальном городе, где деньги — только начало.\n\n"
-        "💼 Работа — заработок и XP\n🏢 Бизнес — пассивный доход\n🚗 Авто — каталог и гараж\n🛒 Магазин — вещи, одежда, оружие и премиум\n🏦 Банк — хранилище денег\n🎰 Казино — риск и награда\n👥 Игроки — переводы, атаки и рефералы\n🎟 Промокод — секретные дропы\n🏆 Рейтинг / достижения — твой прогресс\n\n"
-        "⌨️ Команды: /bank in SUM, /bank out SUM, /pay VK_ID SUM, /stock SUM, /top, /daily, /achievements, /ref."
+        "❓ BANDIT CITY • БЫСТРАЯ ПОМОЩЬ\n\n"
+        "🏙️ Добро пожаловать в Los Santos — город больших ставок, короткой памяти и длинных историй. Здесь можно начать с нуля, "
+        "заработать имя, открыть бизнес и собрать собственный автопарк. "
+        "Не знаешь, с чего начать? Выбирай раздел кнопками — город подскажет путь.\n\n"
+        "💼 **Работа** — выбирай профессию, выходи на смены, зарабатывай деньги и опыт. Каждая смена расходует силы.\n"
+        "🏢 **Бизнес** — открывай предприятия, пополняй склад и забирай накопленный доход. Без сырья дело остановится.\n"
+        "🚗 **Авто** — выбирай машины и пополняй гараж.\n"
+        "🛒 **Магазин** — покупай предметы и полезные вещи.\n"
+        "🏦 **Банк** — храни часть капитала отдельно от наличных.\n"
+        "🎰 **Казино** — испытывай удачу, помня о риске.\n"
+        "👥 **Игроки** — знакомься, взаимодействуй и используй доступные действия.\n"
+        "🎒 **Инвентарь** — используй еду и напитки, открывай подарочные боксы и управляй вещами кнопками под предметами.\n"
+        "🎯 **Миссии и события** — выполняй цели и забирай награды.\n"
+        "📖 **Сюжет** — возвращайся к истории города, когда захочешь.\n\n"
+        "💬 В Los Santos даже простая сделка может иметь последствия. Если действие не сработало, открой нужный раздел и прочитай подсказку: "
+        "бот объяснит, чего не хватает и что делать дальше.\n\n"
+        "⌨️ Для опытных игроков доступны команды: /bank in SUM, /bank out SUM, "
+        "/pay VK_ID SUM, /stock SUM, /top, /daily, /achievements, /ref."
     )
 
 
 def creator_text():
     return (
-        "👑 СОЗДАТЕЛЬ BANDIT CITY\n\n"
-        "🏙️ BANDIT CITY — город, который создан с нуля.\n\n"
-        "👤 Автор и создатель проекта — Андрей Шелабин.\n\n"
-        "🎮 Идея проекта — собрать в одном VK-боте живой криминальный город: "
-        "работу, бизнес, машины, магазин, казино, рейтинг, игроков, прокачку "
-        "и собственную атмосферу.\n\n"
-        "🛠️ Проект развивается постепенно. "
-        "Новые механики, события, предметы и возможности появляются по мере "
-        "развития города.\n\n"
-        "🖤 BANDIT CITY — это не просто бот. "
-        "Это город, который строится вместе с игроками.\n\n"
-        "━━━━━━━━━━━━━━━━━━\n"
-        "🔗 МОИ ССЫЛКИ\n"
-        "━━━━━━━━━━━━━━━━━━\n\n"
-        "🌐 VK — [https://vk.ru/zeromer_offical|zeromer_offical]\n"
-        "▶️ YouTube — @zeromertv\n"
-        "🎵 TikTok — @zeroshkayt\n"
-        "💬 Telegram — @zeroshka_greshnika\n"
-        "📢 Telegram-канал — https://t.me/zeroshkaoff"
+        "👑 𝐀𝐍𝐃𝐑𝐄𝐘 𝐒𝐇𝐄𝐋𝐀𝐁𝐈𝐍 • СОЗДАТЕЛЬ BANDIT CITY\n"
+        "━━━━━━━━━━━━━━━━━━━━\n\n"
+        "🏙️ BANDIT CITY — город, который я создаю с нуля: мир, где работа становится капиталом, связи открывают двери, а решения формируют твою репутацию.\n"
+        "🎮 Здесь работа превращается в капитал, капитал — в бизнес, "
+        "а каждое решение становится частью твоей истории.\n\n"
+        "👤 **Автор проекта:** Андрей Шелабин\n"
+        "🛠️ **Роль:** идея, разработка и развитие игрового мира\n\n"
+        "💬 BANDIT CITY задуман как живой криминальный город, а не набор кнопок: у действий есть цена, у решений — последствия, у игроков — собственная история. Я развиваю проект, добавляю механики, "
+        "события и возможности, исправляю ошибки и прислушиваюсь к тому, "
+        "чего не хватает игрокам. Город растёт шаг за шагом — вместе с вами.\n\n"
+        "🖤 Спасибо каждому, кто заходит в игру, предлагает идеи и помогает "
+        "делать проект лучше. Увидимся на улицах Los Santos!\n\n"
+        "━━━━━━━━━━━━━━━━━━━━\n"
+        "🔗 **Я В СОЦСЕТЯХ**\n"
+        "━━━━━━━━━━━━━━━━━━━━\n\n"
+        "🌐 **VK** — новости, общение и обновления: "
+        "[https://vk.ru/zeromer_offical|zeromer_offical]\n"
+        "▶️ **YouTube** — видео и контент: @zeromertv\n"
+        "🎵 **TikTok** — короткие ролики и моменты: @zeroshkayt\n"
+        "✈️ **Telegram** — связь и сообщения: @zeroshka_greshnika\n"
+        "📢 **Telegram-канал** — анонсы и новости проекта: "
+        "[https://t.me/zeroshkaoff|zeroshkaoff]\n\n"
+        "🏙️ BANDIT CITY — не просто игра. Это город, который мы развиваем."
     )
 
 
@@ -413,6 +490,9 @@ def process_input(uid, text):
         return False
     low = text.lower().strip()
     if low in ("отмена", "❌ отмена", "/cancel"):
+        if st.get("mode") == "nickname_onboarding":
+            send(uid, "🎭 Чтобы начать сюжетный пролог, сначала установи игровой ник. Введи ник от 3 до 20 символов.", [["❌ Отмена"]])
+            return True
         clear_state(uid)
         send_card(uid, "❌ Операция отменена.", main_kb(uid))
         return True
@@ -433,7 +513,7 @@ def process_input(uid, text):
             clear_state(uid)
             send(uid, game.transfer(db.get_or_create_user(uid)["id"], target, amount), main_kb(uid))
             return True
-        if st["mode"] == "nickname":
+        if st["mode"] in ("nickname", "nickname_onboarding"):
             import re
 
             nickname = " ".join(text.strip().split())
@@ -448,8 +528,13 @@ def process_input(uid, text):
 
             ok, message = db.set_nickname(db.get_or_create_user(uid)["id"], nickname)
             if ok:
+                was_onboarding = st.get("mode") == "nickname_onboarding"
                 clear_state(uid)
-                send_card(uid, message, kb_settings())
+                if was_onboarding:
+                    TUTORIAL_ACTIVE.add(int(uid))
+                    send(uid, message + "\n\n📖 Начинается сюжетный пролог: ты освоишься в Los Santos, выполнишь первое дело и откроешь основные возможности города. Пролог проходится один раз.", [["📖 Начать пролог"]])
+                else:
+                    send_card(uid, message, kb_settings())
             else:
                 send(uid, message, [["❌ Отмена"]])
             return True
@@ -559,10 +644,18 @@ def process(uid, text):
     # Guided tutorial is view-only apart from the required first work shift.
     if db.needs_onboarding(user["id"]):
         TUTORIAL_ACTIVE.add(int(uid))
-    if text == "🎓 Обучение":
+    if text == "📖 Начать пролог":
+        if db.tutorial(user["id"])["completed"]:
+            send(uid, "✅ Пролог уже пройден. Продолжай историю в разделе «📖 Сюжет».", [["📖 Сюжет"], ["🏙️ Главное меню"]])
+            return
+        TUTORIAL_ACTIVE.add(int(uid))
+        send(uid, game.tutorial(user["id"]), tutorial_keyboard(user["id"]))
+        return
+    if text == "📖 Сюжетный пролог":
         progress = db.tutorial(user["id"])
         if progress["completed"]:
-            db.tutorial_set(user["id"], 0, False)
+            send(uid, "✅ Сюжетный пролог уже пройден и больше не повторяется. Продолжай историю в разделе «📖 Сюжет».", [["📖 Сюжет"], ["🏙️ Главное меню"]])
+            return
         TUTORIAL_ACTIVE.add(int(uid))
         send(uid, game.tutorial(user["id"]), tutorial_keyboard(user["id"]))
         return
@@ -598,7 +691,7 @@ def process(uid, text):
     if db.needs_onboarding(user["id"]):
         # Let the required first-job action run while onboarding is still active.
         if text == "💼 Работа":
-            send_card(uid, "🎓 ЭТАП ОБУЧЕНИЯ: ПЕРВАЯ РАБОТА\n\nВыбери профессию и выполни смену, чтобы получить деньги и опыт.", kb_work(), key="work")
+            send_card(uid, "📖 ПРОЛОГ • ПЕРВОЕ ДЕЛО\n\n📱 Телефон вибрирует: «Хватит стоять на остановке. Выбирай работу и докажи, что умеешь держать слово». Выбери профессию и заверши смену — получишь первые деньги и опыт.", kb_work(uid), key="work")
             return
         onboarding_work_map = {
             "🚕 Таксист": "taxi", "🕵️ Федерал": "federal",
@@ -610,7 +703,11 @@ def process(uid, text):
         }
         if text in onboarding_work_map:
             result = game.work(user["id"], onboarding_work_map[text])
-            send_card(uid, result + "\n\n📩 После первой смены вернись в «🎓 Обучение» и продолжи сюжет.", kb_work(), key="work")
+            if result.startswith("✅"):
+                progression.record(user["id"], "work", 1)
+                progression.record(user["id"], "city", 1)
+                progression.record(user["id"], "earn", Game.JOBS[onboarding_work_map[text]][1])
+            send_card(uid, result + "\n\n📩 Первая смена позади. Возвращайся к сюжетному прологу — проводник уже приготовил для тебя следующий шаг.", kb_work(), key="work")
             return
         referral_bonus = False
         if low.startswith("/start"):
@@ -618,8 +715,9 @@ def process(uid, text):
             if len(parts) == 2:
                 referral_bonus = bool(game.apply_referral(user["id"], parts[1]))
         TUTORIAL_ACTIVE.add(int(uid))
-        send_card(uid, game.welcome(user["id"], referral_bonus), [["🎓 Обучение"]])
-        send(uid, game.tutorial(user["id"]), tutorial_keyboard(user["id"]))
+        send_card(uid, game.welcome(user["id"], referral_bonus), [["🎭 Установить ник"]])
+        set_state(uid, "nickname_onboarding")
+        send(uid, "🎭 ПЕРЕД НАЧАЛОМ ИГРЫ\n\nНу что, будущая легенда Los Santos, сначала выбери себе имя. Его увидят другие игроки, оно появится в рейтингах и будет сопровождать тебя по всему городу.\n\n📏 От 3 до 20 символов; буквы, цифры, пробел, _ и -. Ник можно будет изменить позже в ⚙️ Настройки.", [["❌ Отмена"]])
         return
 
     if low.startswith("/start") or low in ("/menu", "меню", "🏙️ главное меню"):
@@ -628,8 +726,34 @@ def process(uid, text):
     if low in ("/info", "инфо", "👤 профиль"):
         send_card(uid, game.profile(user["id"]), main_kb(uid))
         return
+    if text == "📅 Контракты" or low.startswith("/contracts"):
+        kind = "weekly" if "week" in low or "недел" in low else "daily"
+        tasks = WEEKLY_TASKS if kind == "weekly" else DAILY_TASKS
+        send(uid, progression.view(user["id"], kind) + "\n\nЗабрать награду: /contract CODE",
+             [["🎁 Забрать " + code for code in tasks], ["🗓️ Еженедельные" if kind == "daily" else "📅 Ежедневные"], ["🏙️ Главное меню"]])
+        return
+    if text == "🗓️ Еженедельные":
+        send(uid, progression.view(user["id"], "weekly") + "\n\nЗабрать награду: /contract CODE", [["🎁 Забрать " + code for code in WEEKLY_TASKS], ["📅 Ежедневные"], ["🏙️ Главное меню"]])
+        return
+    if text == "📅 Ежедневные":
+        send(uid, progression.view(user["id"], "daily") + "\n\nЗабрать награду: /contract CODE", [["🎁 Забрать " + code for code in DAILY_TASKS], ["🗓️ Еженедельные"], ["🏙️ Главное меню"]])
+        return
+    if low.startswith("/contract ") or low.startswith("🎁 забрать "):
+        code = parse_contract_code(text)
+        if not code:
+            send(uid, "❌ Не удалось определить код контракта. Открой «📅 Контракты» и нажми кнопку нужного задания ещё раз.", [["📅 Контракты"], ["🏙️ Главное меню"]])
+            return
+        kind = "weekly" if code in WEEKLY_TASKS else "daily"
+        send(uid, progression.claim(user["id"], code, kind) + "\n\n" + progression.view(user["id"], kind), [["📅 Контракты"], ["🏙️ Главное меню"]])
+        return
+    if text == "🏴 Банды" or low == "/gang":
+        send(uid, progression.gang_status(user["id"]) + "\n\nКоманды: /gang create Название · /gang join КОД · /gang donate СУММА · /gang leave", [["🏴 Банды"], ["🏙️ Главное меню"]])
+        return
+    if low.startswith("/gang "):
+        send(uid, progression.gang_command(user["id"], text) + "\n\n" + progression.gang_status(user["id"]), [["🏴 Банды"], ["🏙️ Главное меню"]])
+        return
     if text == "📚 Ещё":
-        send_card(uid, "📚 ДОПОЛНИТЕЛЬНО\n\nВыбери нужный раздел:", kb_more())
+        send_card(uid, "📚 ДОПОЛНИТЕЛЬНО\n\nВыбери нужный раздел:", kb_more(uid))
         return
 
     if text == "⚙️ Настройки":
@@ -670,7 +794,12 @@ def process(uid, text):
         "🛡 Охранник": "security", "💻 Разработчик": "programmer",
     }
     if text in work_map:
-        send_card(uid, game.work(user["id"], work_map[text]), kb_work(), key="work")
+        result = game.work(user["id"], work_map[text])
+        if result.startswith("✅"):
+            progression.record(user["id"], "work", 1)
+            progression.record(user["id"], "city", 1)
+            progression.record(user["id"], "earn", Game.JOBS[work_map[text]][1])
+        send_card(uid, result, kb_work(), key="work")
         return
 
     if text == "🏢 Бизнес":
@@ -759,8 +888,28 @@ def process(uid, text):
         msg, buttons = v5.shop_hub(); send_card(uid, msg, buttons, key="shop"); return
     if text == "🛍️ Предметы":
         msg, buttons = v5.item_shop(); send_card(uid, msg, buttons, key="shop"); return
+    if text in v5.ITEM_CATEGORIES or text == "📦 Все предметы":
+        msg, buttons = v5.item_shop(text); send_card(uid, msg, buttons, key="shop"); return
+    if text == "↩️ К категориям":
+        msg, buttons = v5.item_shop(); send_card(uid, msg, buttons, key="shop"); return
+    if text.startswith("🛒 x"):
+        try:
+            parts = text.split(maxsplit=2)
+            quantity = int(parts[1][1:])
+            item_name = parts[2]
+            if not any(name == item_name for name, price in v5.ITEMS):
+                raise ValueError("unknown shop item")
+            msg, buttons = v5.buy_item_quantity(db, uid, item_name, quantity)
+            send(uid, msg, buttons)
+        except (ValueError, IndexError):
+            send(uid, "❌ Не удалось распознать товар или количество.", [["🛍️ Предметы"], ["🛒 Магазин"]])
+        return
     if text == "🎒 Инвентарь" or low == "/items":
         msg, buttons = v5.inventory(db, uid); send_card(uid, msg, buttons, key="shop"); return
+    if text == "🎁 Открыть подарочный бокс":
+        msg, buttons = v5.open_gift_box(db, uid)
+        send_card(uid, msg, buttons, key="shop")
+        return
     if text.startswith("🍔 Использовать #"):
         try:
             item_id = int(text.split("#", 1)[1])
@@ -932,11 +1081,37 @@ def process(uid, text):
         send(uid, "👥 ИГРОКИ\n\n💸 Перевод — отправь VK ID и сумму\n/scam VK_ID — скам\n/rob VK_ID — ограбление\n/ref — реферальная ссылка\n/top — рейтинг", [["💸 Перевод", "/ref"], ["🏆 Рейтинг", "🏙️ Главное меню"]]); return
     if text == "💸 Перевод": set_state(uid, "pay"); send(uid, "💸 Введи двумя числами: VK_ID СУММА\n\nПример: 123456789 37500", [["❌ Отмена"]]); return
     if low == "/ref": send(uid, game.ref_link(user["id"]), main_kb(uid)); return
-    if low == "/top" or text == "🏆 Рейтинг": send_card(uid, game.top(), main_kb(uid), key="rating"); return
+    if low == "/top" or text == "🏆 Рейтинг":
+        send_card(uid, "🏆 РЕЙТИНГИ ГОРОДА\n\nВыбери категорию и сравни результаты игроков:", [["💰 Богатейшие", "⭐ Уровень"], ["✨ Опыт", "🚗 Автопарк"], ["🏢 Бизнесы", "🤝 Рефералы"], ["🏆 Достижения"], ["🏙️ Главное меню"]], key="rating"); return
+    rating_categories = {
+        "💰 Богатейшие": "wealth", "⭐ Уровень": "level", "✨ Опыт": "xp",
+        "🚗 Автопарк": "cars", "🏢 Бизнесы": "business",
+        "🤝 Рефералы": "referrals", "🏆 Достижения": "achievements",
+    }
+    if text in rating_categories:
+        send_card(uid, db.top_category(rating_categories[text]), [["💰 Богатейшие", "⭐ Уровень"], ["✨ Опыт", "🚗 Автопарк"], ["🏢 Бизнесы", "🤝 Рефералы"], ["🏆 Достижения"], ["🏆 Рейтинг", "🏙️ Главное меню"]], key="rating")
+        return
     if low.startswith("/pay "):
         try:
             p = text.split(); send(uid, game.transfer(user["id"], int(p[1]), int(p[2])), main_kb(uid))
         except (ValueError, IndexError): send(uid, "Использование: /pay VK_ID SUM", main_kb(uid))
+        return
+    if low == "/duel":
+        send(uid, "⚔️ ДУЭЛИ\n\nВызвать игрока: /duel VK_ID\nПринять вызов: /duel accept ID\nСтавка — 1 000 игровой валюты с каждого. Вызов действует 5 минут.", [["👥 Игроки"], ["🏙️ Главное меню"]])
+        return
+    if low.startswith("/duel accept "):
+        try:
+            duel_id = int(text.split()[2])
+            send(uid, duels.accept(uid, duel_id), [["⚔️ Дуэль"], ["🏙️ Главное меню"]])
+        except (ValueError, IndexError):
+            send(uid, "Использование: /duel accept ID", main_kb(uid))
+        return
+    if low.startswith("/duel "):
+        try:
+            target_vk = int(text.split()[1])
+            send(uid, duels.challenge(uid, target_vk), [["⚔️ Дуэль"], ["🏙️ Главное меню"]])
+        except (ValueError, IndexError):
+            send(uid, "Использование: /duel VK_ID", main_kb(uid))
         return
     if low.startswith("/scam ") or low.startswith("/rob "):
         try:
@@ -1127,7 +1302,7 @@ def main():
     from event_announcer import event_announcer_worker
 
     workers = [
-        (lambda: announce_new_release(db, vk, GROUP_ID), "release-announcement"),
+        (lambda: announce_new_release(db, vk, GROUP_ID, attachment=release_card_attachment()), "release-announcement"),
         (business_worker, "business-worker"),
         (player_reminder_worker, "player-reminders"),
         (lambda: event_announcer_worker(db, vk, GROUP_ID), "event-announcer"),

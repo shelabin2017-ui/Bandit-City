@@ -90,12 +90,12 @@ class ProgressionTests(unittest.TestCase):
 
         with patch("game.random.random", return_value=0.1):
             dealer = self.game.npc_action(uid, "dealer")
-        self.assertIn("СДЕЛКА УДАЛАСЬ", dealer)
-        self.assertIn("Вернись через", self.game.npc_action(uid, "dealer"))
+        self.assertIn("СДЕЛКА ЗАШЛА", dealer)
+        self.assertIn("Попробуй снова через", self.game.npc_action(uid, "dealer"))
 
         with patch("game.random.random", return_value=0.1):
             fixer = self.game.npc_action(uid, "fixer")
-        self.assertIn("ЗАКАЗ ВЫПОЛНЕН", fixer)
+        self.assertIn("ЗАКАЗ ЗАКРЫТ", fixer)
 
         before = self.db.cars(uid)[0]["speed"]
         tune = self.game.npc_action(uid, "mechanic")

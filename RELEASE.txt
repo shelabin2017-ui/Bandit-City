@@ -1,7 +1,6 @@
 BANDIT CITY RELEASE
-Build: 2026-10-22.5
-Announcement: Добавлена поэтапная экскурсия по меню, персональные напоминания с кулдаунами (малый запас сырья, прибыль бизнеса, возвращение после долгого отсутствия) и октябрьская промокампания 23–31 октября 2026 года: BC-OCT-LEGEND (+25 000 денег, +250 XP и Bandit Legend Outfit; лимит 1 000), BC-OCT-NEON (+15 000 денег, +200 XP и Neon City Background; лимит 1 500), BC-OCT-NIGHT (+10 000 денег, +150 XP и Nightfall Mask; лимит 2 000). Коды обновляются идемпотентно, счётчики использований не сбрасываются, срок окончания фиксирован на 1 ноября 2026 00:00 UTC. Существующий .env и bandit.db не перезаписываются при ручном развёртывании.
-
-Runtime package for manual VPS deployment.
-GitHub Actions are not required on the VPS.
+Build: 2026-10-26.1
+Announcement: Исправлено получение наград за ежедневные и еженедельные контракты; магазин предметов поддерживает категории и покупки x1/x5/x10; подарочные боксы открываются с выдачей случайной награды; улучшена доставка фотокарточек меню; сюжетный пролог встроен в историю города и скрывается после завершения; оживлены вступление, сюжетные главы, реакции NPC, подсказки и справка в каноне Los Santos. Анонс будущих карточек остаётся отдельной рассылкой и не отправляется автоматически вместе с релизом.
+Runtime package for manual deployment.
+GitHub is used for source and release delivery only; GitHub Actions are not required on the VPS.
 Never overwrite the existing .env or bandit.db during deployment.
