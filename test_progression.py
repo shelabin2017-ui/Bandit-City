@@ -90,7 +90,7 @@ class ProgressionTests(unittest.TestCase):
 
         with patch("game.random.random", return_value=0.1):
             dealer = self.game.npc_action(uid, "dealer")
-        self.assertIn("СДЕЛКА УДАЛАСЬ", dealer)
+        self.assertIn("СДЕЛКА ЗАШЛА", dealer)
         self.assertIn("Вернись через", self.game.npc_action(uid, "dealer"))
 
         with patch("game.random.random", return_value=0.1):
