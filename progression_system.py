@@ -17,6 +17,19 @@ WEEKLY_TASKS = {
     "earn300": {"title": "💵 Получи награды за рабочие смены на 300 000 $", "target": 300000, "cash": 100000, "xp": 180, "action": "earn"},
 }
 
+def parse_contract_code(text):
+    """Extract the task code from either a command or the VK claim button."""
+    raw = str(text or "").strip()
+    lowered = raw.lower()
+    if lowered.startswith("/contract "):
+        parts = raw.split(maxsplit=1)
+        return parts[1].strip().split()[0] if len(parts) > 1 and parts[1].strip() else ""
+    if lowered.startswith("🎁 забрать "):
+        # Button text is "🎁 Забрать work3"; the code is the third token.
+        parts = raw.split(maxsplit=2)
+        return parts[2].strip().split()[0] if len(parts) > 2 and parts[2].strip() else ""
+    return ""
+
 def _period(kind, now=None):
     dt = datetime.fromtimestamp(now or time.time(), timezone.utc)
     if kind == "daily":
