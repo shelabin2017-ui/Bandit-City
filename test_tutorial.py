@@ -37,7 +37,7 @@ class GuidedTutorialTests(unittest.TestCase):
     def test_first_job_step_cannot_be_skipped(self):
         self.db.tutorial_set(self.user_id, 1, False)
         message = self.game.tutorial_next(self.user_id)
-        self.assertIn("первую рабочую смену", message)
+        self.assertIn("первую смену", message)
         self.assertEqual(int(self.db.tutorial(self.user_id)["step"]), 1)
         self.assertTrue(self.db.needs_onboarding(self.user_id))
 
@@ -49,7 +49,7 @@ class GuidedTutorialTests(unittest.TestCase):
         self.assertEqual(int(self.db.tutorial(self.user_id)["step"]), 2)
         self.db.tutorial_set(self.user_id, len(self.game.TUTORIAL) - 1, False)
         final = self.game.tutorial_next(self.user_id)
-        self.assertIn("ОБУЧЕНИЕ ЗАВЕРШЕНО", final)
+        self.assertIn("ПРОЛОГ ЗАВЕРШЁН", final)
         self.assertFalse(self.db.needs_onboarding(self.user_id))
         self.assertTrue(self.db.tutorial(self.user_id)["completed"])
 
@@ -57,7 +57,7 @@ class GuidedTutorialTests(unittest.TestCase):
         self.db.tutorial_set(self.user_id, 4, False)
         before = int(self.db.tutorial(self.user_id)["step"])
         view = self.game.tutorial_view(self.user_id, "🚗 Авто")
-        self.assertIn("гараж и автосалон", view)
+        self.assertIn("В гараже смотри свой автопарк", view)
         self.assertEqual(int(self.db.tutorial(self.user_id)["step"]), before)
 
 
