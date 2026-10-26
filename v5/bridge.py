@@ -164,20 +164,27 @@ def buy_item_quantity(db, vk_id, name, quantity):
 def inventory(db,vk_id):
     uid=player_id_by_vk(db,vk_id); rows=db.items(uid)
     if not rows: return reply("🎒 ИНВЕНТАРЬ LOS SANTOS\n\nКарман пуст.",[["🛒 Магазин"],["🏙️ Главное меню"]])
-    body=["🎒 ИНВЕНТАРЬ LOS SANTOS",""]; buttons=[]; sell_buttons=[]
+    body=["🎒 ИНВЕНТАРЬ LOS SANTOS",""]; buttons=[]; actions=[]; seen_actions=set()
     for row in rows:
-        body += ["📦 "+row["name"],"💵 Цена: "+money(row["price"]),""]
-        sell_buttons.append("🗑 Продать #"+str(row["id"]))
-        if str(row["name"]) == "🎁 Подарочный бокс":
-            sell_buttons.append("🎁 Открыть #" + str(row["id"]))
-        if any(word in str(row["name"]).lower() for word in ("бургер","сэндвич","вода","энергетик","еда","кофе")):
-            sell_buttons.append("🍔 Использовать #"+str(row["id"]))
-    # Never truncate inventory actions locally. send() applies the shared VK
-    # arrow-pagination helper and keeps the final navigation row available.
-    for i in range(0, len(sell_buttons), 2):
-        buttons.append(sell_buttons[i:i + 2])
+        name=str(row["name"])
+        body += ["📦 "+name,"💵 Цена: "+money(row["price"]),""]
+
+        # Player-facing labels never expose internal database IDs.
+        sell_label="🗑 Продать: "+name
+        if sell_label not in seen_actions:
+            actions.append(sell_label); seen_actions.add(sell_label)
+        if name == "🎁 Подарочный бокс" and "🎁 Открыть бокс" not in seen_actions:
+            actions.append("🎁 Открыть бокс"); seen_actions.add("🎁 Открыть бокс")
+        if any(word in name.lower() for word in ("бургер","сэндвич","вода","энергетик","еда","кофе","чай","сок")):
+            label="🍽 Использовать: "+name
+            if label not in seen_actions:
+                actions.append(label); seen_actions.add(label)
+    # Shared VK pagination handles long keyboards without exposing row IDs.
+    for i in range(0, len(actions), 2):
+        buttons.append(actions[i:i + 2])
     buttons += [["🛒 Магазин"],["🏙️ Главное меню"]]
     return reply("\n".join(body),buttons)
+
 def clothing_menu():
     return reply("🧥 ОДЕЖДА LOS SANTOS\n\nПостоянные категории. Эксклюзивы выдаются отдельно.",[["🧢 Головные уборы","👕 Верх"],["👖 Брюки","🥾 Обувь"],["💍 Аксессуары","💇 Волосы"],["↩️ В магазин"],["👤 Персонаж","🏙️ Главное меню"]])
 def event_catalog(db=None,vk_id=None):
