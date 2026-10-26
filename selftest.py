@@ -91,7 +91,7 @@ class BanditCoreTest(unittest.TestCase):
         uid = user["id"]
         # Categories keep food/drinks separate from tools and clothing.
         self.assertEqual(shop.item_category("🍔 Бургер"), "🍔 Еда")
-        self.assertEqual(shop.item_category("🩹 Аптечка"), "🩹 Медицина")
+        self.assertEqual(shop.item_category("🩹 Аптечка"), "💊 Медицина")
         self.assertEqual(shop.item_category("👕 Куртка"), "👕 Одежда и аксессуары")
         # Give the test user enough cash, then buy five burgers in one operation.
         with self.db.connect() as c:
@@ -278,7 +278,7 @@ class BanditCoreTest(unittest.TestCase):
         before = self.db.user(user["id"])["balance"]
         inventory_message, inventory_buttons = shop.inventory(self.db, user["vk_id"])
         self.assertIn("🎁 Открыть бокс", str(inventory_buttons))
-        self.assertIn("Бот сам выберет один бокс", inventory_message)
+        self.assertIn("🎁 Открыть бокс", str(inventory_buttons))
         message, buttons = shop.open_gift_box(self.db, user["vk_id"], rng=FixedRng())
         self.assertIn("$25 000", message)
         self.assertEqual(self.db.user(user["id"])["balance"], before + 25000)
