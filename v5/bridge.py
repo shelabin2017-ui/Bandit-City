@@ -88,24 +88,33 @@ def _owned(db,user_id,category,name):
 def shop_hub():
     return reply("🛒 МАГАЗИН LOS SANTOS\n\nВыбери раздел:",[["🧥 Одежда","🔫 Оружие"],["🚗 Авто","💎 Премиум"],["🛍️ Предметы"],["🎒 Инвентарь"],["🎪 Ивент-дропы"],["🏙️ Главное меню"]])
 ITEM_CATEGORIES = {
-    "🍔 Еда и напитки": ("🍔", ("бургер", "сэндвич", "вода", "энергетик")),
-    "🩹 Медицина": ("🩹", ("аптечка",)),
-    "🛠️ Инструменты и снаряжение": ("🛠️", ("отмычек", "инструменты", "бронежилет", "маска")),
+    "🍔 Еда": ("🍔", ("бургер", "сэндвич", "еда", "тако", "пицца", "хот-дог", "хотдог", "паста", "салат")),
+    "🥤 Напитки": ("🥤", ("вода", "энергетик", "кофе", "чай", "сок", "кола", "напиток")),
+    "💊 Медицина": ("💊", ("аптечка", "лекарств", "медицин")),
+    "🧰 Инструменты": ("🧰", ("отмычек", "инструменты", "набор отмычек", "набор механика")),
+    "🛡️ Снаряжение": ("🛡️", ("бронежилет", "маска", "счастливый жетон", "счастливый жетон")),
     "👕 Одежда и аксессуары": ("👕", ("кроссовки", "куртка", "волосы")),
-    "📱 Электроника": ("📱", ("macbook", "burner phone")),
-    "🎁 Прочее": ("🎁", ("счастливый жетон", "подарочный бокс")),
+    "📱 Электроника": ("📱", ("macbook", "burner phone", "телефон")),
+    "🎁 Боксы": ("🎁", ("подарочный бокс", "подарочный бокс", "бокс", "коробка")),
+    "📦 Прочее": ("📦", ()),
 }
 
 def item_category(name):
     lowered = str(name).lower()
+    # Check specific categories first, so generic terms cannot steal an item.
     for category, (_, words) in ITEM_CATEGORIES.items():
         if any(word in lowered for word in words):
             return category
-    return "🎁 Прочее"
+    return "📦 Прочее"
 
 def item_shop(category=None):
     if not category:
-        body = ["🛒 ПРЕДМЕТЫ LOS SANTOS", "", "Выбери категорию товаров:"]
+        body = [
+            "🛒 ПРЕДМЕТЫ LOS SANTOS",
+            "",
+            "Товары разложены по назначению: еда отдельно, напитки отдельно.",
+            "Выбери категорию:",
+        ]
         buttons = [[name] for name in ITEM_CATEGORIES]
         buttons += [["📦 Все предметы"], ["🎒 Инвентарь"], ["↩️ В магазин"], ["🏙️ Главное меню"]]
         return reply("\n".join(body), buttons)
@@ -113,6 +122,11 @@ def item_shop(category=None):
         category = None
     chosen = [(name, price) for name, price in ITEMS if category is None or item_category(name) == category]
     title = category or "📦 Все предметы"
+    if category is not None and not chosen:
+        return reply(
+            "🛒 " + title.upper() + "\n\nВ этой категории пока нет товаров.",
+            [["↩️ К категориям"], ["🎒 Инвентарь"], ["↩️ В магазин"], ["🏙️ Главное меню"]],
+        )
     body = ["🛒 " + title.upper(), "", "Выбирай количество — покупка оформляется одним нажатием.", "Доступно: x1, x5, x10."]
     buttons = []
     for name, price in chosen:
@@ -121,7 +135,6 @@ def item_shop(category=None):
         buttons.append(["🛒 x10 " + name])
     buttons += [["↩️ К категориям"], ["🎒 Инвентарь"], ["↩️ В магазин"], ["🏙️ Главное меню"]]
     return reply("\n".join(body), buttons)
-
 def buy_item_quantity(db, vk_id, name, quantity):
     match = next((x for x in ITEMS if x[0] == name), None)
     if not match:
