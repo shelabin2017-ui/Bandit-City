@@ -18,7 +18,7 @@ User=root
 Environment=BANDIT_REPO=shelabin2017-ui/Bandit-City
 Environment=BANDIT_APP_DIR=/root/Bandit-City
 Environment=BANDIT_SERVICE=bandit-city.service
-Environment=BANDIT_VENV=/root/Bandit-City-runtime-venv
+Environment=BANDIT_VENV=/root/Bandit-City/.venv
 ExecStart=/usr/local/sbin/bandit-city-deploy-latest
 TimeoutStartSec=15min
 UNIT
