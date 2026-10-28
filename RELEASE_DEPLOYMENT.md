@@ -2,14 +2,14 @@
 
 ## Release flow
 
-1. Commit the intended release to `modernize-gameplay-2026-10` and verify CI.
+1. Merge the intended release into `main` and verify CI.
 2. Create and push a semantic version tag pointing at that commit, e.g. `v1.0.0`.
-3. `.github/workflows/publish-release.yml` runs tests, builds `bandit-city-release.zip` without secrets/database/runtime folders, and publishes a GitHub Release.
+3. Run the `Publish versioned release` workflow manually with a new tag such as `v1.0.0`, or push a new `vX.Y.Z` tag. The workflow tests the code, builds `bandit-city-release.zip` without secrets/database/runtime folders, and publishes a GitHub Release.
 4. The VPS updater polls the public Releases API every 15 minutes after its one-time installation. It deploys only a new tag and records the installed tag in `VERSION.txt`.
 
 ## One-time VPS installation
 
-First publish a release. Then copy the repository's `install_release_updater.sh` and `scripts/deploy_latest_release.sh` to the server (or fetch the two files from the chosen branch), and run:
+First publish a release. For manual deployment, fetch `scripts/deploy_latest_release.sh` from `main` and run it as root. The optional timer installer below enables automatic deployment every 15 minutes; do not run it unless automatic updates are wanted. The deployment script uses the existing `/root/Bandit-City/.venv`.
 
 ```bash
 sudo bash install_release_updater.sh
