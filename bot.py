@@ -1649,7 +1649,7 @@ def main():
         (lambda: announce_new_release(db, vk, GROUP_ID, attachment=release_card_attachment()), "release-announcement"),
         (business_worker, "business-worker"),
         (player_reminder_worker, "player-reminders"),
-        (lambda: event_announcer_worker(db, vk, GROUP_ID), "event-announcer"),
+        (lambda: event_announcer_worker(db, vk, GROUP_ID, admin_ids=ADMIN_IDS), "event-announcer"),
         (lambda: diagnostics_worker(db), "auto-diagnostics"),
     ]
     for target, name in workers:
