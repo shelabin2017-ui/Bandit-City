@@ -680,7 +680,7 @@ def _incoming_photo_attachments(attachments):
         # Long Poll sends attachN="OWNER_ID_PHOTO_ID" when attachN_type="photo";
         # messages.send expects the normalized "photoOWNER_ID_PHOTO_ID" form.
         if not value.startswith("photo"):
-            if not re.fullmatch(r"-?\\d+_\\d+", value):
+            if not re.fullmatch(r"-?\d+_\d+", value):
                 return
             value = "photo" + value
         attachment = value
