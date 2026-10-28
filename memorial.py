@@ -58,7 +58,13 @@ def _upload_memorial_photo(vk, group_id):
 def announce_memorial(db, vk, group_id):
     """Send a persistent, resumable memorial announcement with the poster attached."""
     try:
-        attachment = _upload_memorial_photo(vk, group_id)
+        attachment = None
+        try:
+            attachment = _upload_memorial_photo(vk, group_id)
+        except Exception:
+            # A group token cannot use the wall-photo upload method on some VK setups.
+            # Never let an optional poster block the time-critical memorial text.
+            logging.exception("Could not upload Stas memorial poster; sending the memorial text without the image")
         result = announce_release(
             db,
             vk,
