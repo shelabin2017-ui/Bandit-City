@@ -80,8 +80,8 @@ def scheduled_memorial_worker(db, vk, group_id):
     while True:
         now = datetime.now(MEMORIAL_TIMEZONE)
         if now.date() > target_date:
-            logging.error("Stas memorial schedule expired; not sending late automatically")
-            return
+            logging.warning("Stas memorial schedule is overdue; attempting the pending one-time announcement now")
+            break
         if now.date() == target_date and (now.hour, now.minute) >= (MEMORIAL_HOUR, MEMORIAL_MINUTE):
             break
         target = datetime.combine(target_date, wall_time(MEMORIAL_HOUR, MEMORIAL_MINUTE), tzinfo=MEMORIAL_TIMEZONE)
