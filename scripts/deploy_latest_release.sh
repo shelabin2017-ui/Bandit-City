@@ -74,11 +74,12 @@ set -e
 if [ "$TAR_STATUS" -gt 1 ]; then
   fail "Backup creation failed (tar exit $TAR_STATUS); application has not been changed."
 fi
-if ! tar -tzf "$BACKUP" >/dev/null 2>&1; then
+BACKUP_LIST="$TMP/backup-files.txt"
+if ! tar -tzf "$BACKUP" > "$BACKUP_LIST"; then
   fail "Backup archive validation failed; application has not been changed."
 fi
 for required in "$(basename "$APP_DIR")/.env" "$(basename "$APP_DIR")/bandit.db" "$(basename "$APP_DIR")/run.py"; do
-  if ! tar -tzf "$BACKUP" | grep -Fxq "$required"; then
+  if ! grep -Fxq "$required" "$BACKUP_LIST"; then
     fail "Backup is missing required file $required; application has not been changed."
   fi
 done
