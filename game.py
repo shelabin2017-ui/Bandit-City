@@ -419,7 +419,8 @@ class Game:
         overrides = event_overrides(self.db)
         active = active_events(self.db, now)
         part = daypart_label(now.hour)
-        weather = city_weather(now)\n        lines = ["🌆 BANDIT CITY • ГОРОДСКАЯ ЛЕНТА", "🕒 {} • UTC".format(part), weather["title"] + " — " + weather["description"], ""]
+        weather = city_weather(now)
+        lines = ["🌆 BANDIT CITY • ГОРОДСКАЯ ЛЕНТА", "🕒 {} • UTC".format(part), weather["title"] + " — " + weather["description"], ""]
         lines.extend(city_news_feed(now, db=self.db))
         from city_incidents import active_incident
         incident = active_incident(now)
