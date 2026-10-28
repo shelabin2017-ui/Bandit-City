@@ -60,7 +60,8 @@ class Game:
     def record_event_action(self,uid,action,amount=1):
         """Count actions only while a matching time-limited event is active."""
         from catalog import active_events
-        from event_announcer import active_events as runtime_active_events\n        for event in runtime_active_events(self.db).values():
+        from event_announcer import active_events as runtime_active_events
+        for event in runtime_active_events(self.db).values():
             if event.get("goal_action") == action and event.get("goal_code"):
                 self.db.mission_add(uid,event["goal_code"],amount)
 
