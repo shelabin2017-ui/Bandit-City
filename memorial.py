@@ -27,11 +27,11 @@ MEMORIAL_MINUTE = 33
 
 
 def _upload_memorial_photo(vk, group_id):
-    """Upload the committed memorial poster to VK messages and return its attachment ID."""
+    """Upload the committed memorial poster to the VK group photo storage and return its attachment ID."""
     photo_path = Path(__file__).resolve().parent / "IMG_0874.png"
     if not photo_path.is_file():
         raise FileNotFoundError("Memorial photo is missing from release: " + str(photo_path))
-    upload_info = vk.photos.getMessagesUploadServer(group_id=int(group_id))
+    upload_info = vk.photos.getWallUploadServer(group_id=int(group_id))
     with photo_path.open("rb") as photo_file:
         response = requests.post(
             upload_info["upload_url"],
@@ -40,11 +40,11 @@ def _upload_memorial_photo(vk, group_id):
         )
     response.raise_for_status()
     uploaded = response.json()
-    saved = vk.photos.saveMessagesPhoto(
+    saved = vk.photos.saveWallPhoto(
+        group_id=int(group_id),
         photo=uploaded["photo"],
         server=uploaded["server"],
         hash=uploaded["hash"],
-        group_id=int(group_id),
     )
     if not saved:
         raise RuntimeError("VK did not return a saved memorial photo")
