@@ -1102,6 +1102,9 @@ def process(uid, text, attachments=None):
         send(uid, game.status(user["id"]), [["🎒 Инвентарь"],["🛒 Магазин"],["🌆 События города"],["🏙️ Главное меню"]]); return
     if text == "🌆 События города":
         send(uid, game.city_events(user["id"]), [["📊 Мой статус"],["🏙️ Главное меню"]]); return
+    if text == "🤝 Помочь городу":
+        msg, buttons = game.city_incident_action(user["id"])
+        send(uid, msg, buttons); return
     if text == "💼 Работа":
         send_card(uid, "💼 ВЫБЕРИ РАБОТУ", kb_work(), key="work")
         return
