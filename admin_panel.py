@@ -1,6 +1,7 @@
 import logging
 import re
 import time
+import json
 from roles import Role
 
 
@@ -72,7 +73,8 @@ class AdminPanel:
                 ["🎒 Вещи", "🛡 Безопасность"],
                 ["📢 Рассылка", "🎟 Промокоды"],
                 ["🎨 Внешность", "🧾 Журнал"],
-                ["🎪 Ивенты", "⚙️ Настройки"],
+                ["🎪 Ивенты", "🗞 Новости"],
+                ["⚙️ Настройки"],
                 ["🎮 Обычное меню"],
                 ["🏙️ Главное меню"],
             ],
@@ -726,6 +728,63 @@ class AdminPanel:
             self._log(uid,"appearance_set",target,f"{slot}={value}")
             return True, "✅ Внешность изменена.", [["👑 Админ-панель"]]
 
+        if text == "🗞 Новости" or text == "/news":
+            return True, (
+                "🗞 УПРАВЛЕНИЕ ГОРОДСКОЙ ЛЕНТОЙ\n\n"
+                "/news list — показать пользовательские новости\n"
+                "/news add PERIOD|ЗАГОЛОВОК|ТЕКСТ — добавить новость\n"
+                "/news clear PERIOD — удалить пользовательские новости периода\n\n"
+                "PERIOD: morning, day, evening, night.\n"
+                "Пример: /news add night|СИГНАЛ|На старой частоте услышали странный сигнал."
+            ), [["👑 Админ-панель"], ["🏙️ Главное меню"]]
+        if text.startswith("/news "):
+            parts = text.split(maxsplit=2)
+            action = parts[1].lower() if len(parts) > 1 else ""
+            periods = {"morning": "утро", "day": "день", "evening": "вечер", "night": "ночь"}
+            if action == "list":
+                lines = ["🗞 ПОЛЬЗОВАТЕЛЬСКИЕ НОВОСТИ", ""]
+                for period, label in periods.items():
+                    try:
+                        stories = json.loads(self.db.get_setting("city_news_custom:" + period, "[]") or "[]")
+                    except (TypeError, ValueError):
+                        stories = []
+                    lines.append("• {}: {} новостей".format(label, len(stories) if isinstance(stories, list) else 0))
+                    if isinstance(stories, list):
+                        for story in stories[:5]:
+                            if isinstance(story, dict):
+                                lines.append("  — " + str(story.get("title", "Без заголовка"))[:90])
+                return True, "\n".join(lines), [["🗞 Новости"], ["👑 Админ-панель"]]
+            if action == "add":
+                raw = parts[2] if len(parts) > 2 else ""
+                fields = [field.strip() for field in raw.split("|", 2)]
+                if len(fields) != 3:
+                    return True, "❌ Формат: /news add PERIOD|ЗАГОЛОВОК|ТЕКСТ", [["🗞 Новости"]]
+                period, title, body = fields
+                if period not in periods or not title or not body:
+                    return True, "❌ Укажи период morning/day/evening/night, заголовок и текст.", [["🗞 Новости"]]
+                if len(title) > 100 or len(body) > 500:
+                    return True, "❌ Максимум: 100 символов в заголовке и 500 в тексте.", [["🗞 Новости"]]
+                key = "city_news_custom:" + period
+                try:
+                    stories = json.loads(self.db.get_setting(key, "[]") or "[]")
+                except (TypeError, ValueError):
+                    stories = []
+                if not isinstance(stories, list):
+                    stories = []
+                if len(stories) >= 20:
+                    return True, "❌ В этом периоде уже 20 пользовательских новостей. Сначала очисти список.", [["🗞 Новости"]]
+                stories.append({"title": title, "body": body})
+                self.db.set_setting(key, json.dumps(stories, ensure_ascii=False))
+                self._log(uid, "city_news_add", None, period + ":" + title)
+                return True, "✅ Новость добавлена в период «{}». Она появится в городской ленте.".format(periods[period]), [["🗞 Новости"], ["👑 Админ-панель"]]
+            if action == "clear":
+                period = parts[2].strip().lower() if len(parts) > 2 else ""
+                if period not in periods:
+                    return True, "❌ Формат: /news clear morning|day|evening|night", [["🗞 Новости"]]
+                self.db.set_setting("city_news_custom:" + period, "[]")
+                self._log(uid, "city_news_clear", None, period)
+                return True, "✅ Пользовательские новости периода «{}» очищены. Стандартная лента сохранена.".format(periods[period]), [["🗞 Новости"], ["👑 Админ-панель"]]
+            return True, "❌ Команды: /news list, /news add PERIOD|ЗАГОЛОВОК|ТЕКСТ, /news clear PERIOD", [["🗞 Новости"], ["👑 Админ-панель"]]
         if text == "/events":
             from catalog import EVENTS, _event_is_active
             from event_announcer import event_overrides

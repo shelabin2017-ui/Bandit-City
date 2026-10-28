@@ -1,6 +1,7 @@
 """Time-aware, varied fictional incidents for the Bandit City news feed."""
 import datetime
 import hashlib
+import json
 
 NEWS = {
     "morning": [
@@ -46,7 +47,7 @@ def daypart_label(hour):
     return "НОЧЬ"
 
 
-def city_news_feed(now=None, count=3):
+def city_news_feed(now=None, count=3, db=None):
     """Return a stable-but-changing daily/part-of-day selection without random spam."""
     if now is None:
         now = datetime.datetime.now(datetime.timezone.utc)
@@ -55,7 +56,17 @@ def city_news_feed(now=None, count=3):
     now = now.astimezone(datetime.timezone.utc)
     hour = now.hour
     bucket = "morning" if 5 <= hour < 12 else "day" if 12 <= hour < 17 else "evening" if 17 <= hour < 22 else "night"
-    pool = NEWS[bucket]
+    pool = list(NEWS[bucket])
+    if db is not None:
+        try:
+            custom = json.loads(db.get_setting("city_news_custom:" + bucket, "[]") or "[]")
+            if isinstance(custom, list):
+                valid = [(str(item["title"]), str(item["body"])) for item in custom
+                         if isinstance(item, dict) and item.get("title") and item.get("body")]
+                if valid:
+                    pool = valid + pool
+        except (TypeError, ValueError, KeyError):
+            pass
     seed = "{}:{}:{}".format(now.date().isoformat(), bucket, hour // 3)
     digest = hashlib.sha256(seed.encode("utf-8")).digest()
     offset = int.from_bytes(digest[:4], "big") % len(pool)
