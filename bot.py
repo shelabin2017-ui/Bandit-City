@@ -32,6 +32,13 @@ if not TOKEN or not GROUP_ID:
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 db = Database(os.getenv("DB_PATH", "bandit.db"))
+CAR_PROMO_INITIAL_STATE = db.ensure_car_promo_started()
+if CAR_PROMO_INITIAL_STATE["active"]:
+    logging.info(
+        "Car promotion active: discount=%s%% ends_at=%s",
+        CAR_PROMO_INITIAL_STATE["discount_percent"],
+        CAR_PROMO_INITIAL_STATE["end_at"],
+    )
 roles = RoleManager(db)
 roles.bootstrap_from_env()
 for _legacy_uid in ADMIN_IDS:
@@ -55,6 +62,7 @@ INPUT_STATE = {}
 MAINTENANCE_KEY = "maintenance_mode"
 BROADCAST_COOLDOWN = 60
 BROADCAST_LAST = {}
+CAR_SHOWROOM_STATE = {}
 
 
 def money(n):
@@ -420,6 +428,45 @@ def kb_work(uid=None):
 
 def kb_auto():
     return [["🚙 Обычные", "🏎 Спорт"], ["🔥 Суперкары", "💿 Лоурайдеры"], ["🚘 Спецтранспорт", "🚘 Гараж"], ["🏙️ Главное меню"]]
+
+
+def show_car_card(user_id, category, index, notice=None):
+    """Render one car per message; navigation reuses the existing cached garage card."""
+    cars = game.CARS.get(category, [])
+    if not cars:
+        send(user_id, "❌ В этой категории пока нет автомобилей.", kb_auto())
+        return
+    index = int(index) % len(cars)
+    CAR_SHOWROOM_STATE[int(user_id)] = {"category": category, "index": index}
+    model, speed, base_price = cars[index]
+    promo = db.car_promo_status()
+    price = db.car_purchase_price(base_price)
+    title = {
+        "common": "🚙 ОБЫЧНЫЕ АВТО",
+        "sport": "🏎 СПОРТИВНЫЕ АВТО",
+        "super": "🔥 СУПЕРКАРЫ",
+        "lowrider": "💿 ЛОУРАЙДЕРЫ",
+        "special": "🚘 СПЕЦТРАНСПОРТ",
+    }.get(category, "🚗 АВТОСАЛОН LOS SANTOS")
+    lines = [title, "Автомобиль {} из {}".format(index + 1, len(cars)), "", "🚘 {}".format(model),
+             "⚡ Скорость: {} км/мин".format(speed)]
+    if promo["active"]:
+        lines.extend([
+            "💵 Обычная цена: {}".format(money(base_price)),
+            "🔥 Акция −{}%: {}".format(promo["discount_percent"], money(price)),
+            "⏳ Акция действует до: {}".format(time.strftime("%d.%m.%Y %H:%M UTC", time.gmtime(promo["end_at"]))),
+        ])
+    else:
+        lines.append("💵 Цена: {}".format(money(base_price)))
+    if notice:
+        lines.extend(["", str(notice)])
+    rows = []
+    if len(cars) > 1:
+        rows.append(["⬅️ Предыдущий автомобиль", "➡️ Следующий автомобиль"])
+    rows.append(["🚗 Купить: " + model])
+    rows.append(["🚘 К категориям", "🚘 Гараж"])
+    rows.append(["🏙️ Главное меню"])
+    send_card(user_id, "\n".join(lines), rows, key="garage")
 
 
 def kb_casino():
@@ -1182,20 +1229,31 @@ def process(uid, text, attachments=None):
         return
 
     if text == "🚗 Авто":
-        send_card(uid, "🚗 АВТОСАЛОН LOS SANTOS", kb_auto(), key="garage")
+        promo = db.car_promo_status()
+        intro = "🚗 АВТОСАЛОН LOS SANTOS"
+        if promo["active"]:
+            intro += "\n\n🔥 АКЦИЯ −{}% НА ВСЕ АВТО\n⏳ До {} UTC".format(
+                promo["discount_percent"],
+                time.strftime("%d.%m.%Y %H:%M", time.gmtime(promo["end_at"])),
+            )
+        send_card(uid, intro, kb_auto(), key="garage")
         return
     cats = {"🚙 Обычные": "common", "🏎 Спорт": "sport", "🔥 Суперкары": "super", "💿 Лоурайдеры": "lowrider", "🚘 Спецтранспорт": "special"}
     if text in cats:
-        category = cats[text]
-        cars = game.CARS.get(category, [])
-        title = {"common":"🚙 ОБЫЧНЫЕ АВТО","sport":"🏎 СПОРТ","super":"🔥 СУПЕРКАРЫ","lowrider":"💿 ЛОУРАЙДЕРЫ","special":"🚘 СПЕЦТРАНСПОРТ"}.get(category, "🚗 АВТОСАЛОН")
-        lines = [title, ""]
-        rows = []
-        for model, speed, price in cars:
-            lines.append("🚗 {} · ⚡ {} км/мин · 💵 {}".format(model, speed, money(price)))
-            rows.append(["🚗 Купить: " + model])
-        rows.extend([["🚘 Гараж"], ["🏙️ Главное меню"]])
-        send_card(uid, "\n".join(lines), rows, key="garage")
+        show_car_card(uid, cats[text], 0)
+        return
+    if text in ("⬅️ Предыдущий автомобиль", "➡️ Следующий автомобиль"):
+        state = CAR_SHOWROOM_STATE.get(int(uid))
+        if not state:
+            send(uid, "🚗 Сначала выбери категорию автосалона.", kb_auto())
+            return
+        step = -1 if text == "⬅️ Предыдущий автомобиль" else 1
+        cars = game.CARS.get(state["category"], [])
+        show_car_card(uid, state["category"], (state["index"] + step) % max(1, len(cars)))
+        return
+    if text == "🚘 К категориям":
+        CAR_SHOWROOM_STATE.pop(int(uid), None)
+        send_card(uid, "🚗 АВТОСАЛОН LOS SANTOS", kb_auto(), key="garage")
         return
     if text.startswith("🚗 Купить: "):
         model = text.split(": ", 1)[1].strip()
@@ -1203,9 +1261,19 @@ def process(uid, text, attachments=None):
         if model not in known:
             send(uid, "❌ Не удалось определить автомобиль.", kb_auto())
         else:
-            send(uid, game.buy_car(user["id"], model), kb_auto())
+            result = game.buy_car(user["id"], model)
+            state = CAR_SHOWROOM_STATE.get(int(uid))
+            if state:
+                cars = game.CARS.get(state["category"], [])
+                if 0 <= state["index"] < len(cars) and cars[state["index"]][0] == model:
+                    show_car_card(uid, state["category"], state["index"], notice=result)
+                else:
+                    send(uid, result, kb_auto())
+            else:
+                send(uid, result, kb_auto())
         return
     if text == "🚘 Гараж" or low == "/garage":
+        CAR_SHOWROOM_STATE.pop(int(uid), None)
         send_card(uid, game.garage(user["id"]), kb_auto(), key="garage")
         return
     if low.startswith("/buycar "):
