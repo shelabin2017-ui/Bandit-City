@@ -4,7 +4,7 @@ set -Eeuo pipefail
 REPO="${BANDIT_REPO:-shelabin2017-ui/Bandit-City}"
 APP_DIR="${BANDIT_APP_DIR:-/root/Bandit-City}"
 SERVICE="${BANDIT_SERVICE:-bandit-city.service}"
-VENV="${BANDIT_VENV:-/root/Bandit-City-runtime-venv}"
+VENV="${BANDIT_VENV:-$APP_DIR/.venv}"
 STATE_DIR="${BANDIT_STATE_DIR:-/var/backups/bandit-city}"
 LOG_DIR="${BANDIT_LOG_DIR:-/var/log/bandit-city}"
 NOW="$(date -u +%Y%m%dT%H%M%SZ)"
