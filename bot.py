@@ -674,8 +674,14 @@ def _incoming_photo_attachments(attachments):
     seen = set()
 
     def add(value, access_key=None):
-        if not isinstance(value, str) or not value.startswith("photo"):
+        if not isinstance(value, str):
             return
+        # Long Poll sends attachN="OWNER_ID_PHOTO_ID" when attachN_type="photo";
+        # messages.send expects the normalized "photoOWNER_ID_PHOTO_ID" form.
+        if not value.startswith("photo"):
+            if not re.fullmatch(r"-?\\d+_\\d+", value):
+                return
+            value = "photo" + value
         attachment = value
         if access_key and not attachment.endswith("_" + str(access_key)):
             attachment += "_" + str(access_key)
