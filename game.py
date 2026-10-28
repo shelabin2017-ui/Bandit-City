@@ -393,11 +393,15 @@ class Game:
         import datetime
         from catalog import EVENTS
         from event_announcer import active_events, event_overrides
+        from city_news import city_news_feed, daypart_label
 
         now = datetime.datetime.now(datetime.timezone.utc)
         overrides = event_overrides(self.db)
         active = active_events(self.db, now)
-        lines = ["🌆 СОБЫТИЯ ГОРОДА", ""]
+        part = daypart_label(now.hour)
+        lines = ["🌆 BANDIT CITY • ГОРОДСКАЯ ЛЕНТА", "🕒 {} • UTC".format(part), ""]
+        lines.extend(city_news_feed(now))
+        lines.extend(["", "━━━━━━━━━━━━━━━━", "🎪 СОБЫТИЯ И ЭКСКЛЮЗИВЫ", ""])
         if active:
             lines.append("🔥 СЕЙЧАС ПРОХОДЯТ")
             for code, event in active.items():
@@ -405,6 +409,9 @@ class Game:
                 goal = event.get("goal_label")
                 if goal:
                     lines.append("🎯 Цель: " + str(goal))
+                drops = event.get("drops") or []
+                if drops:
+                    lines.append("🎁 Награда события: " + ", ".join(str(x) for x in drops))
                 end_at = event.get("end_at")
                 if end_at:
                     try:
@@ -412,7 +419,7 @@ class Game:
                         lines.append("⏳ До: " + end.strftime("%d.%m.%Y %H:%M UTC"))
                     except ValueError:
                         pass
-                lines.extend(["🎁 Участвуй, пока событие активно.", ""])
+                lines.extend(["📍 Открой событие и проверь цель участия.", ""])
         upcoming = []
         for code, event in EVENTS.items():
             if overrides.get(code) == "off" or code in active or overrides.get(code) == "on":
@@ -428,14 +435,14 @@ class Game:
                 upcoming.append((start, code, event))
         upcoming.sort(key=lambda item: item[0])
         if upcoming:
-            lines.extend(["🕒 СКОРО"])
+            lines.extend(["🕒 СКОРО В ГОРОДЕ"])
             for start, code, event in upcoming[:3]:
                 lines.append("{} — старт {}".format(event.get("title") or code, start.strftime("%d.%m.%Y %H:%M UTC")))
                 lines.append(str(event.get("description") or "Подробности появятся ближе к началу."))
                 lines.append("")
         if not active and not upcoming:
-            lines.append("Пока нет запланированных событий. Следи за новостями города.")
-        lines.append("📢 Анонсы о старте и ежедневные сообщения приходят автоматически.")
+            lines.append("Пока нет запланированных крупных ивентов — следи за городской лентой.")
+        lines.extend(["📣 Важные старты объявляются игрокам автоматически.", "🗞️ Лента меняется в течение дня; возвращайся за новыми происшествиями."])
         return "\\n".join(lines).strip()
 
     def profile(self, uid):
