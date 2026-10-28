@@ -730,11 +730,11 @@ class AdminPanel:
 
         if text == "🗞 Новости" or text == "/news":
             return True, (
-                "🗞 УПРАВЛЕНИЕ ГОРОДСКОЙ ЛЕНТОЙ\\n\\n"
-                "/news list — показать пользовательские новости\\n"
-                "/news add PERIOD|ЗАГОЛОВОК|ТЕКСТ — добавить новость\\n"
-                "/news clear PERIOD — удалить пользовательские новости периода\\n\\n"
-                "PERIOD: morning, day, evening, night.\\n"
+                "🗞 УПРАВЛЕНИЕ ГОРОДСКОЙ ЛЕНТОЙ\n\n"
+                "/news list — показать пользовательские новости\n"
+                "/news add PERIOD|ЗАГОЛОВОК|ТЕКСТ — добавить новость\n"
+                "/news clear PERIOD — удалить пользовательские новости периода\n\n"
+                "PERIOD: morning, day, evening, night.\n"
                 "Пример: /news add night|СИГНАЛ|На старой частоте услышали странный сигнал."
             ), [["👑 Админ-панель"], ["🏙️ Главное меню"]]
         if text.startswith("/news "):
@@ -753,7 +753,7 @@ class AdminPanel:
                         for story in stories[:5]:
                             if isinstance(story, dict):
                                 lines.append("  — " + str(story.get("title", "Без заголовка"))[:90])
-                return True, "\\n".join(lines), [["🗞 Новости"], ["👑 Админ-панель"]]
+                return True, "\n".join(lines), [["🗞 Новости"], ["👑 Админ-панель"]]
             if action == "add":
                 raw = parts[2] if len(parts) > 2 else ""
                 fields = [field.strip() for field in raw.split("|", 2)]
