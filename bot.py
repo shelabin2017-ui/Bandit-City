@@ -741,9 +741,6 @@ def process(uid, text, attachments=None):
         return
     # Any ordinary action closes the previous paginated keyboard context.
     KEYBOARD_PAGES.pop(int(uid), None)
-    if process_input(uid, text):
-        return
-
     user = db.get_or_create_user(uid)
 
     # Payment screenshots sent as photos are forwarded privately to every donation admin.
@@ -790,6 +787,10 @@ def process(uid, text, attachments=None):
             else:
                 send(uid, "⚠️ Не удалось передать скриншот администрации. Попробуй отправить его ещё раз позже.")
             return
+
+    # Handle photos before any text-input state; VK photo messages often have empty text.
+    if process_input(uid, text):
+        return
 
     if maintenance_enabled() and not has_staff_access(uid):
         send_card(uid, "🏙️ BANDIT CITY\n\n🚧 ТЕХНИЧЕСКИЕ РАБОТЫ\n\nГород временно закрыт на обслуживание.\n\n🛠️ Мы обновляем систему, исправляем ошибки\nи готовим новые возможности.\n\n⏳ Совсем скоро город снова откроется.\n\n🖤 Спасибо за ожидание.")
