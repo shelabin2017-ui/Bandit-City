@@ -668,7 +668,39 @@ def execute_broadcast(uid, message):
         "👥 Всего игроков: {}".format(sent, skipped, failed, len(targets)),
         [[role_ui.main_button(uid) or "👑 Админ-панель"]],
     )
-def process(uid, text):
+def _incoming_photo_attachments(attachments):
+    """Extract VK photo attachment identifiers from Long Poll event metadata."""
+    photos = []
+    if not isinstance(attachments, dict):
+        return photos
+    # vk_api Long Poll normally exposes attachN_type / attachN / attachN_access_key.
+    for key, value in attachments.items():
+        if not key.endswith("_type") or value != "photo":
+            continue
+        prefix = key[:-5]
+        photo = attachments.get(prefix)
+        if not photo:
+            continue
+        access_key = attachments.get(prefix + "_access_key")
+        if isinstance(photo, str) and photo.startswith("photo"):
+            attachment = photo
+            if access_key and "_" in photo:
+                attachment = photo + "_" + str(access_key)
+            photos.append(attachment)
+    # Also support normalized attachment dictionaries used by other VK API wrappers.
+    for item in attachments.get("items", []) if isinstance(attachments.get("items"), list) else []:
+        if isinstance(item, dict) and item.get("type") == "photo":
+            p = item.get("photo") or {}
+            owner_id, photo_id = p.get("owner_id"), p.get("id")
+            if owner_id is not None and photo_id is not None:
+                attachment = "photo{}_{}".format(owner_id, photo_id)
+                if p.get("access_key"):
+                    attachment += "_" + str(p["access_key"])
+                photos.append(attachment)
+    return list(dict.fromkeys(photos))
+
+
+def process(uid, text, attachments=None):
     text = text.strip()
     low = text.lower()
     try:
@@ -684,6 +716,52 @@ def process(uid, text):
         return
 
     user = db.get_or_create_user(uid)
+
+    # Payment screenshots sent as photos are forwarded privately to every donation admin.
+    photo_attachments = _incoming_photo_attachments(attachments)
+    if photo_attachments:
+        from donation import ensure_schema, get_request, public_request_code
+        ensure_schema(db)
+        with db.connect() as c:
+            payment_request = c.execute(
+                "SELECT * FROM donation_requests WHERE vk_id=? "
+                "AND status IN ('new','awaiting') "
+                "AND (service_code!='custom' OR price_rub>0) ORDER BY id DESC LIMIT 1",
+                (int(uid),),
+            ).fetchone()
+        if payment_request:
+            request_code = public_request_code(payment_request)
+            sent = 0
+            for aid in donation_admin_ids():
+                for photo_attachment in photo_attachments:
+                    try:
+                        send(
+                            aid,
+                            "🧾 СКРИНШОТ ОПЛАТЫ\n"
+                            "Заявка: {} (внутренний ID {})\n"
+                            "Игрок VK: {}\nУслуга: {}\nСумма: {} ₽\n"
+                            "Проверь чек и статус перевода вручную.".format(
+                                request_code, payment_request["id"], uid,
+                                payment_request["service_title"],
+                                payment_request["price_rub"] or "договорная",
+                            ),
+                            [["💎 Донат-заявки"], ["👑 Админ-панель"]],
+                            attachment=photo_attachment,
+                        )
+                    except Exception:
+                        logging.exception(
+                            "Failed to forward payment screenshot (admin=%s, request=%s)",
+                            aid, payment_request["id"],
+                        )
+                    else:
+                        sent += 1
+            if sent:
+                send(uid, "📨 Скриншот оплаты передан администрации по заявке {}. Это ещё не подтверждение платежа.".format(request_code),
+                     [["💳 Я оплатил"], ["💎 Поддержать проект"], ["🏙️ Главное меню"]])
+            else:
+                send(uid, "⚠️ Не удалось передать скриншот администрации. Попробуй отправить его ещё раз позже.")
+            return
+
     if maintenance_enabled() and not has_staff_access(uid):
         send_card(uid, "🏙️ BANDIT CITY\n\n🚧 ТЕХНИЧЕСКИЕ РАБОТЫ\n\nГород временно закрыт на обслуживание.\n\n🛠️ Мы обновляем систему, исправляем ошибки\nи готовим новые возможности.\n\n⏳ Совсем скоро город снова откроется.\n\n🖤 Спасибо за ожидание.")
         return
@@ -1560,7 +1638,7 @@ def main():
             for event in longpoll.listen():
                 try:
                     if event.type == VkEventType.MESSAGE_NEW and event.to_me:
-                        process(event.user_id, event.text or "")
+                        process(event.user_id, event.text or "", getattr(event, "attachments", None))
                 except Exception:
                     logging.exception("Ошибка обработки сообщения")
         except Exception:
