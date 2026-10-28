@@ -73,11 +73,13 @@ def announce_active_events(db, vk, group_id, now=None, delay_seconds=0.35):
                 delay_seconds=delay_seconds,
             )
             # Daily reminders are distinct and use varied copy, not the same stale text.
-            daily_id = "city-event-live:{}:{}".format(code, date_key)
-            results[code + ":daily"] = announce_release(
-                db, vk, group_id, daily_id, _announcement(code, event, "daily", now),
-                delay_seconds=delay_seconds,
-            )
+            start_date = start_at[:10] if start_at != "legacy" else ""
+            if start_date != date_key:
+                daily_id = "city-event-live:{}:{}".format(code, date_key)
+                results[code + ":daily"] = announce_release(
+                    db, vk, group_id, daily_id, _announcement(code, event, "daily", now),
+                    delay_seconds=delay_seconds,
+                )
         except Exception:
             logging.exception("Event announcement failed: event=%s", code)
 
