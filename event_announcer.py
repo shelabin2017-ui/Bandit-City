@@ -68,7 +68,7 @@ def announce_active_events(db, vk, group_id, now=None, delay_seconds=0.35):
         start_at = str(event.get("start_at") or "legacy")
         start_id = "city-event-start:{}:{}".format(code, start_at)
         try:
-            results[code + ":start"] = announce_release(
+            results[code] = announce_release(
                 db, vk, group_id, start_id, _announcement(code, event, "start", now),
                 delay_seconds=delay_seconds,
             )
