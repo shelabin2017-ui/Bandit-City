@@ -403,6 +403,8 @@ class Game:
         self.db.set_setting(claim_key, "1")
         self.db.add_money(int(uid), int(incident["cash"]))
         self.db.xp(int(uid), int(incident["xp"]))
+        from progression_system import Progression
+        Progression(self.db).record(int(uid), "city_help")
         message = "{}\n\n{}\n\n{}\n\n💵 Награда: {}\n⭐ Опыт: +{}".format(
             incident["title"], incident["story"], incident["success"],
             money(incident["cash"]), incident["xp"],
