@@ -966,7 +966,10 @@ class Database:
             return "❌ Такой машины нет."
         cat,speed,base_price = cars[model]
         promo = self.car_promo_status()
-        price = self.car_purchase_price(base_price)
+        price = (
+            int(base_price) * (100 - promo["discount_percent"]) // 100
+            if promo["active"] else int(base_price)
+        )
         with self.connect() as c:
             u = c.execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone()
             if not u:
