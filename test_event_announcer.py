@@ -1,3 +1,4 @@
+import datetime
 import os
 import tempfile
 import unittest
@@ -49,9 +50,10 @@ class EventAnnouncementTests(unittest.TestCase):
                 "goal_label": "Выполни тест",
             }
         }
+        start_day = datetime.datetime(2026, 10, 20, 0, 0, tzinfo=datetime.timezone.utc)
         with patch("catalog.EVENTS", events):
-            first = announce_active_events(self.db, self.vk, 77, delay_seconds=0)
-            second = announce_active_events(self.db, self.vk, 77, delay_seconds=0)
+            first = announce_active_events(self.db, self.vk, 77, now=start_day, delay_seconds=0)
+            second = announce_active_events(self.db, self.vk, 77, now=start_day, delay_seconds=0)
         self.assertEqual(len(self.vk.messages.sent), 1)
         self.assertIn("ТЕСТОВОЕ СОБЫТИЕ", self.vk.messages.sent[0]["message"])
         self.assertIn("Выполни тест", self.vk.messages.sent[0]["message"])
