@@ -1,5 +1,5 @@
 BANDIT CITY RELEASE
-Build: 2026-10-28.2
-Announcement: Исправлена обработка служебной команды рассылки, чтобы текст объявления отправлялся игрокам, а не показывался владельцу как внутренний маркер. Автосалон получил кнопки покупки автомобилей; число бизнесов ограничено уровнем игрока (максимум пять); добавлен каталог поддержки проекта с ручными заявками, реквизитами Альфа-Банка, уведомлением владельца, сохранением статусов и шаблонными ответами. Оплата не подтверждается автоматически — администратор проверяет перевод вручную.
+Build: 2026-10-28.3
+Announcement: Исправлена обработка рассылки; в автосалоне доступны кнопки покупки автомобилей; количество бизнесов зависит от уровня (максимум пять); добавлен каталог поддержки с ручными заявками и проверкой оплаты администратором. Инвентарь теперь сгруппирован по типам предметов, отсортирован по категориям и показывает количество одинаковых предметов без внутренних ID. Автоматическая диагностика проверяет целостность БД и восстанавливает только недостающую схему безопасным способом.
 Deployment: VPS downloads source directly from GitHub using deploy_from_github.sh. No ZIP archive is required.
-Safety: Never overwrite the existing .env or bandit.db during deployment. Back up the project before updating and validate tests before restarting the service.
+Safety: Preserve the existing .env and bandit.db. The updater backs up the project and removes files introduced by an unsuccessful update during rollback.
