@@ -1,5 +1,5 @@
 BANDIT CITY RELEASE
-Build: 2026-10-28.7
-Announcement: Вышло обновление игры. В проект добавлено памятное обращение в честь Стаса и просьба почтить его память минутой молчания. Также продолжаем исправлять ошибки и улучшать игровые механики.
+Build: 2026-10-28.8
+Announcement: Добавлено расписание памятной рассылки о Стасе на 28 октября 2026 года, 21:33 по времени Europe/Moscow. Рассылка защищена от повторного запуска через сохранённый идентификатор в базе.
 Deployment: VPS downloads the verified bandit-city-release.zip from GitHub Releases. The manual deploy script backs up the live project, preserves .env and bandit.db, tests before restart, and rolls back on failure.
 Safety: Preserve the existing .env and bandit.db. The updater backs up the project and removes files introduced by an unsuccessful update during rollback.
