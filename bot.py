@@ -2,6 +2,7 @@ import html
 import logging
 import os
 import random
+import re
 import threading
 import time
 from pathlib import Path
