@@ -677,7 +677,7 @@ def _incoming_photo_attachments(attachments):
         if not isinstance(value, str) or not value.startswith("photo"):
             return
         attachment = value
-        if access_key and "_" not in value.rsplit("photo", 1)[-1]:
+        if access_key and not attachment.endswith("_" + str(access_key)):
             attachment += "_" + str(access_key)
         if attachment not in seen:
             seen.add(attachment)
