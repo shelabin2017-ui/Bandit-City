@@ -389,6 +389,26 @@ class Game:
             return "ℹ️ Этот предмет нельзя использовать как еду или напиток."
         return f"✅ ИСПОЛЬЗОВАНО: {name}\n\n{effect}"
 
+    def city_incident_action(self, uid):
+        import datetime
+        from city_incidents import active_incident
+
+        incident = active_incident()
+        claim_key = "city_incident_claim:{}:{}".format(int(uid), incident["period_key"])
+        if str(self.db.get_setting(claim_key, "0")) == "1":
+            return (
+                "🗞️ ГОРОДСКОЕ ПРОИСШЕСТВИЕ\\n\\nТы уже помог городу в этот период. Следующее происшествие появится при смене времени суток.",
+                [["🌆 События города"], ["🏙️ Главное меню"]],
+            )
+        self.db.set_setting(claim_key, "1")
+        self.db.add_money(int(uid), int(incident["cash"]))
+        self.db.xp(int(uid), int(incident["xp"]))
+        message = "{}\\n\\n{}\\n\\n{}\\n\\n💵 Награда: {}\\n⭐ Опыт: +{}".format(
+            incident["title"], incident["story"], incident["success"],
+            money(incident["cash"]), incident["xp"],
+        )
+        return message, [["🌆 События города"], ["🏙️ Главное меню"]]
+
     def city_events(self, uid):
         import datetime
         from catalog import EVENTS
@@ -401,7 +421,9 @@ class Game:
         part = daypart_label(now.hour)
         lines = ["🌆 BANDIT CITY • ГОРОДСКАЯ ЛЕНТА", "🕒 {} • UTC".format(part), ""]
         lines.extend(city_news_feed(now))
-        lines.extend(["", "━━━━━━━━━━━━━━━━", "🎪 СОБЫТИЯ И ЭКСКЛЮЗИВЫ", ""])
+        from city_incidents import active_incident
+        incident = active_incident(now)
+        lines.extend(["", "━━━━━━━━━━━━━━━━", "📰 ГЛАВНОЕ ПРОИСШЕСТВИЕ", incident["title"], incident["story"], "Нажми «🤝 Помочь городу», чтобы принять участие.", "", "━━━━━━━━━━━━━━━━", "🎪 СОБЫТИЯ И ЭКСКЛЮЗИВЫ", ""])
         if active:
             lines.append("🔥 СЕЙЧАС ПРОХОДЯТ")
             for code, event in active.items():
