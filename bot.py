@@ -47,6 +47,7 @@ longpoll = VkLongPoll(session)
 
 CARD_CACHE = {}
 DONATION_ADMIN_SELECTED = {}
+DONATION_TEMPLATE_PREVIEW = {}
 KEYBOARD_PAGES = {}
 TUTORIAL_ACTIVE = set()
 CARD_DIR = Path(__file__).resolve().parent / "assets" / "cards"
@@ -582,8 +583,8 @@ def process_input(uid, text):
                 send(uid, "Не удалось назначить цену. Цена должна быть от 1 до 100000 ₽, заявка — новый индивидуальный заказ.", [[f"💎 Заявка #{rid}"], ["💎 Донат-заявки"]])
                 return True
             r = get_request(db, rid)
-            send(r["vk_id"], "💎 По индивидуальному заказу №{} согласована цена: {} ₽.\n\n{}\n\nПосле перевода нажми «💳 Я оплатил». Оплата будет проверена администратором.".format(rid, price, PAYMENT_DETAILS), [["💳 Я оплатил"], ["💎 Поддержать проект"], ["🏙️ Главное меню"]])
-            send(uid, "Цена {} ₽ назначена для заявки №{}. Игроку отправлены реквизиты.".format(price, rid), [[f"💎 Заявка #{rid}"], ["💎 Донат-заявки"]])
+            send(r["vk_id"], "💎 По индивидуальному заказу №{} предложена цена: {} ₽.\n\nСначала подтверди, что согласен с суммой. Реквизиты появятся только после согласия. Пока не переводи деньги.".format(rid, price), [[f"✅ Согласен с ценой по заказу №{rid}"], [f"❌ Не согласен с ценой по заказу №{rid}"], ["💎 Поддержать проект"]])
+            send(uid, "Цена {} ₽ предложена по заявке №{}. Реквизиты будут отправлены игроку только после его согласия.".format(price, rid), [[f"💎 Заявка #{rid}"], ["💎 Донат-заявки"]])
             return True
     except (ValueError, IndexError):
         send(uid, "❌ Неверный формат. Введи число и попробуй снова.\nИли нажми «❌ Отмена».", [["❌ Отмена"]])
@@ -830,13 +831,69 @@ def process(uid, text):
                 try: send(aid, f"💎 Заявка №{rid}\nИгрок VK {uid}: {SERVICES[text][1]}\nСумма: {SERVICES[text][2] or 'договорная'} ₽", [["💎 Донат-заявки"], ["👑 Админ-панель"]])
                 except Exception: logging.exception("Donation admin notification failed")
         return
+    if text.startswith("✅ Согласен с ценой по заказу №"):
+        try:
+            rid = int(text.rsplit("№", 1)[1])
+        except ValueError:
+            send(uid, "Не удалось определить номер заказа.", [["💎 Поддержать проект"], ["🏙️ Главное меню"]]); return
+        r = get_request(db, rid)
+        if not r or int(r["vk_id"]) != int(uid) or r["service_code"] != "custom" or r["status"] != "quoted" or int(r["price_rub"] or 0) < 1:
+            send(uid, "Предложение не найдено или уже неактуально. Обратись к администрации.", [["💎 Поддержать проект"], ["🏙️ Главное меню"]]); return
+        if not set_status(db, rid, "new", 0):
+            send(uid, "Не удалось подтвердить цену. Обратись к администрации.", [["💎 Поддержать проект"], ["🏙️ Главное меню"]]); return
+        from donation import PAYMENT_DETAILS
+        send(uid, f"✅ Цена по заказу №{rid} принята: {r['price_rub']} ₽.\\n\\n{PAYMENT_DETAILS}\\n\\nПосле перевода нажми «💳 Я оплатил». Оплата будет проверена администратором.", [["💳 Я оплатил"], ["💎 Поддержать проект"], ["🏙️ Главное меню"]])
+        for aid in ADMIN_IDS:
+            send(aid, f"✅ Игрок VK {uid} согласился с ценой {r['price_rub']} ₽ по заказу №{rid}. Ожидается оплата.", [["💎 Донат-заявки"], ["👑 Админ-панель"]])
+        return
+    if text.startswith("❌ Не согласен с ценой по заказу №"):
+        try:
+            rid = int(text.rsplit("№", 1)[1])
+        except ValueError:
+            send(uid, "Не удалось определить номер заказа.", [["💎 Поддержать проект"], ["🏙️ Главное меню"]]); return
+        r = get_request(db, rid)
+        if not r or int(r["vk_id"]) != int(uid) or r["status"] != "quoted":
+            send(uid, "Предложение не найдено или уже неактуально.", [["💎 Поддержать проект"], ["🏙️ Главное меню"]]); return
+        if not set_status(db, rid, "cancelled", 0):
+            send(uid, "Не удалось отменить заказ. Обратись к администрации.", [["💎 Поддержать проект"], ["🏙️ Главное меню"]]); return
+        send(uid, f"Заказ №{rid} отменён. Переводить деньги не нужно.", [["💎 Поддержать проект"], ["🏙️ Главное меню"]])
+        for aid in ADMIN_IDS:
+            send(aid, f"❌ Игрок VK {uid} отклонил цену по индивидуальному заказу №{rid}.", [["💎 Донат-заявки"], ["👑 Админ-панель"]])
+        return
+    if text.startswith("✅ Подтверждаю получение заказа №"):
+        try:
+            rid = int(text.rsplit("№", 1)[1])
+        except ValueError:
+            send(uid, "Не удалось определить номер заказа.", [["💎 Поддержать проект"], ["🏙️ Главное меню"]]); return
+        r = get_request(db, rid)
+        if not r or int(r["vk_id"]) != int(uid) or r["status"] != "granted":
+            send(uid, "Этот заказ не найден или ещё не ожидает подтверждения получения.", [["💎 Поддержать проект"], ["🏙️ Главное меню"]]); return
+        if not set_status(db, rid, "completed", 0):
+            send(uid, "Не удалось завершить заказ. Напиши администрации.", [["💎 Поддержать проект"], ["🏙️ Главное меню"]]); return
+        send(uid, f"✅ Получение по заказу №{rid} подтверждено. Спасибо за поддержку Bandit City!", [["💎 Поддержать проект"], ["🏙️ Главное меню"]])
+        for aid in ADMIN_IDS:
+            send(aid, f"✅ Игрок VK {uid} подтвердил получение по заявке №{rid}. Заявка завершена.", [["💎 Донат-заявки"], ["👑 Админ-панель"]])
+        return
+    if text.startswith("❗ Не получил заказ №"):
+        try:
+            rid = int(text.rsplit("№", 1)[1])
+        except ValueError:
+            send(uid, "Не удалось определить номер заказа.", [["💎 Поддержать проект"], ["🏙️ Главное меню"]]); return
+        r = get_request(db, rid)
+        if not r or int(r["vk_id"]) != int(uid) or r["status"] != "granted":
+            send(uid, "Этот заказ не найден или не ожидает подтверждения получения.", [["💎 Поддержать проект"], ["🏙️ Главное меню"]]); return
+        send(uid, f"⚠️ Сообщил администрации, что заказ №{rid} не получен. Статус не изменён.", [["💎 Поддержать проект"], ["🏙️ Главное меню"]])
+        for aid in ADMIN_IDS:
+            send(aid, f"⚠️ Игрок VK {uid} сообщил, что не получил заказ №{rid}. Проверь выдачу.", [[f"💎 Заявка #{rid}"], ["💎 Донат-заявки"]])
+        return
     if text == "💳 Я оплатил":
         ensure_schema(db)
         with db.connect() as c:
-            r = c.execute("SELECT * FROM donation_requests WHERE vk_id=? AND status IN ('new','awaiting') ORDER BY id DESC LIMIT 1", (int(uid),)).fetchone()
+            r = c.execute("SELECT * FROM donation_requests WHERE vk_id=? AND status IN ('new','awaiting') AND (service_code!='custom' OR price_rub>0) ORDER BY id DESC LIMIT 1", (int(uid),)).fetchone()
         if not r:
-            send(uid, "Активная заявка не найдена.", [["💎 Поддержать проект"], ["🏙️ Главное меню"]]); return
-        set_status(db, r["id"], "awaiting", 0)
+            send(uid, "Активная заявка к оплате не найдена. Индивидуальный заказ сначала должен получить цену от администратора.", [["💎 Поддержать проект"], ["🏙️ Главное меню"]]); return
+        if r["status"] == "new" and not set_status(db, r["id"], "awaiting", 0):
+            send(uid, "Не удалось обновить заявку. Обратись к администрации.", [["💎 Поддержать проект"], ["🏙️ Главное меню"]]); return
         send(uid, f"🕒 Заявка №{r['id']} отмечена для проверки. Это не подтверждение оплаты.", [["💎 Поддержать проект"], ["🏙️ Главное меню"]])
         for aid in ADMIN_IDS: send(aid, f"💳 Игрок VK {uid} сообщил об оплате заявки №{r['id']}. Проверь перевод вручную.", [["💎 Донат-заявки"], ["👑 Админ-панель"]])
         return
@@ -851,10 +908,20 @@ def process(uid, text):
         r = get_request(db,rid)
         if not r: send(uid,"Заявка не найдена.",[["💎 Донат-заявки"]]); return
         DONATION_ADMIN_SELECTED[uid] = rid
-        rows = [["🕒 Ожидает оплаты","💳 Подтвердить оплату"],["📦 Отметить ручную выдачу","✅ Завершить заявку"],["❌ Отменить заявку"]]
+        rows = []
+        if r["status"] == "new":
+            rows.append(["🕒 Ожидает оплаты"])
+        if r["status"] == "awaiting":
+            rows.append(["💳 Подтвердить оплату"])
+        if r["status"] == "paid":
+            rows.append(["📦 Отметить ручную выдачу"])
+        if r["status"] not in ("completed", "cancelled"):
+            rows.append(["❌ Отменить заявку"])
         if r["service_code"] == "custom" and r["status"] == "new" and not r["price_rub"]:
             rows.append(["💰 Назначить цену"])
-        rows += [["💬 Шаблон: заявка","💬 Шаблон: ожидание"],["💬 Шаблон: оплачено","💬 Шаблон: выдано"],["💬 Шаблон: отмена"],["💎 Донат-заявки"]]
+        if r["status"] not in ("completed", "cancelled"):
+            rows += [["💬 Шаблон: заявка","💬 Шаблон: ожидание"],["💬 Шаблон: оплачено","💬 Шаблон: выдано"],["💬 Шаблон: отмена"]]
+        rows.append(["💎 Донат-заявки"])
         details = "\nОписание: {}".format(r["details"]) if r["service_code"] == "custom" else ""
         send(uid,"ЗАЯВКА №{}\nVK {} • {}\n{} • {} ₽{}\nСтатус: {}".format(rid,r["vk_id"],r["nickname"],r["service_title"],r["price_rub"] or "договорная",details,STATUS.get(r["status"],r["status"])),rows); return
     if text == "💰 Назначить цену" and has_admin_access(uid):
@@ -865,24 +932,53 @@ def process(uid, text):
         set_state(uid, "donation_set_price", request_id=rid)
         send(uid, "💰 Введи согласованную цену в рублях для заявки №{} (от 1 до 100000). После этого игрок получит реквизиты.".format(rid), [["❌ Отмена"]])
         return
-    status_actions = {"🕒 Ожидает оплаты":"awaiting","💳 Подтвердить оплату":"paid","📦 Отметить ручную выдачу":"granted","✅ Завершить заявку":"completed","❌ Отменить заявку":"cancelled"}
+    status_actions = {"🕒 Ожидает оплаты":"awaiting","💳 Подтвердить оплату":"paid","📦 Отметить ручную выдачу":"granted","❌ Отменить заявку":"cancelled"}
     if text in status_actions and has_admin_access(uid):
         rid = DONATION_ADMIN_SELECTED.get(uid)
         r = get_request(db,rid) if rid else None
         if not r: send(uid,"Сначала открой заявку.",[["💎 Донат-заявки"]]); return
         st = status_actions[text]
-        if st in ("granted","completed") and r["status"] not in ("paid","granted","completed"):
+        if st == "awaiting" and r["status"] != "new":
+            send(uid,"Перевести в ожидание оплаты можно только новую заявку.",[[f"💎 Заявка #{rid}"]]); return
+        if st == "paid" and r["status"] != "awaiting":
+            send(uid,"Подтвердить оплату можно только у заявки в статусе «ожидает оплаты».",[[f"💎 Заявка #{rid}"]]); return
+        if st == "granted" and r["status"] != "paid":
             send(uid,"Сначала проверь перевод и подтверди оплату.",[[f"💎 Заявка #{rid}"]]); return
-        set_status(db,rid,st,uid)
-        templ = {"paid":"💳 Оплата подтверждена","granted":"🎁 Покупка выдана","cancelled":"❌ Заявка отменена"}.get(st)
-        if templ: send(r["vk_id"],TEMPLATES[templ].format(id=rid,service=r["service_title"]))
-        send(uid, (f"Статус заявки №{rid}: {STATUS[st]}\n\nПодтверди ручную выдачу в игре перед этим действием." if st == "granted" else f"Статус заявки №{rid}: {STATUS[st]}"),[[f"💎 Заявка #{rid}"],["💎 Донат-заявки"]]); return
+        if st == "cancelled" and r["status"] in ("completed", "cancelled"):
+            send(uid,"Эту заявку уже нельзя отменить.",[[f"💎 Заявка #{rid}"]]); return
+        if not set_status(db,rid,st,uid):
+            send(uid,"Недопустимый переход статуса. Обнови заявку и проверь её состояние.",[[f"💎 Заявка #{rid}"]]); return
+        if st == "paid":
+            send(r["vk_id"],TEMPLATES["💳 Оплата подтверждена"].format(id=rid,service=r["service_title"]))
+        elif st == "granted":
+            send(r["vk_id"], TEMPLATES["🎁 Покупка выдана"].format(id=rid,service=r["service_title"]), [[f"✅ Подтверждаю получение заказа №{rid}"], [f"❗ Не получил заказ №{rid}"]])
+        elif st == "cancelled":
+            send(r["vk_id"],TEMPLATES["❌ Заявка отменена"].format(id=rid,service=r["service_title"]))
+        send(uid, f"Статус заявки №{rid}: {STATUS[st]}", [[f"💎 Заявка #{rid}"],["💎 Донат-заявки"]]); return
     if text.startswith("💬 Шаблон:") and has_admin_access(uid):
         rid = DONATION_ADMIN_SELECTED.get(uid); r = get_request(db,rid) if rid else None
         if not r: send(uid,"Сначала открой заявку.",[["💎 Донат-заявки"]]); return
         tm = {"💬 Шаблон: заявка":"📨 Заявка принята","💬 Шаблон: ожидание":"🕒 Ожидаем оплату","💬 Шаблон: оплачено":"💳 Оплата подтверждена","💬 Шаблон: выдано":"🎁 Покупка выдана","💬 Шаблон: отмена":"❌ Заявка отменена"}
-        if text in tm: send(r["vk_id"],TEMPLATES[tm[text]].format(id=rid,service=r["service_title"]))
-        send(uid,"Шаблон обработан.",[[f"💎 Заявка #{rid}"],["💎 Донат-заявки"]]); return
+        if text not in tm:
+            send(uid,"Неизвестный шаблон.",[[f"💎 Заявка #{rid}"]]); return
+        DONATION_TEMPLATE_PREVIEW[uid] = (rid, tm[text])
+        preview = TEMPLATES[tm[text]].format(id=rid,service=r["service_title"])
+        send(uid, "👀 ПРЕДПРОСМОТР — игроку пока не отправлено:\n\n" + preview, [["📨 ОТПРАВИТЬ ЭТОТ ТЕКСТ ИГРОКУ"], ["❌ Отменить отправку"], [f"💎 Заявка #{rid}"]]); return
+    if text == "📨 ОТПРАВИТЬ ЭТОТ ТЕКСТ ИГРОКУ" and has_admin_access(uid):
+        pending = DONATION_TEMPLATE_PREVIEW.get(uid)
+        if not pending:
+            send(uid,"Нет подготовленного шаблона. Выбери шаблон в карточке заявки.",[["💎 Донат-заявки"]]); return
+        rid, template_key = pending
+        r = get_request(db, rid)
+        if not r or r["status"] in ("completed", "cancelled"):
+            DONATION_TEMPLATE_PREVIEW.pop(uid, None)
+            send(uid,"Заявка закрыта или не найдена. Шаблон не отправлен.",[["💎 Донат-заявки"]]); return
+        send(r["vk_id"], TEMPLATES[template_key].format(id=rid,service=r["service_title"]))
+        DONATION_TEMPLATE_PREVIEW.pop(uid, None)
+        send(uid,f"Шаблон по заявке №{rid} отправлен игроку.",[[f"💎 Заявка #{rid}"],["💎 Донат-заявки"]]); return
+    if text == "❌ Отменить отправку" and has_admin_access(uid):
+        DONATION_TEMPLATE_PREVIEW.pop(uid, None)
+        send(uid,"Отправка шаблона отменена. Игрок ничего не получил.",[["💎 Донат-заявки"]]); return
 
     if text in ("📊 Мой статус", "🍔 Потребности"):
         send(uid, game.status(user["id"]), [["🎒 Инвентарь"],["🛒 Магазин"],["🌆 События города"],["🏙️ Главное меню"]]); return
