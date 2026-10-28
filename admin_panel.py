@@ -726,6 +726,44 @@ class AdminPanel:
             self._log(uid,"appearance_set",target,f"{slot}={value}")
             return True, "✅ Внешность изменена.", [["👑 Админ-панель"]]
 
+        if text == "/events":
+            from catalog import EVENTS, _event_is_active
+            from event_announcer import event_overrides
+            overrides = event_overrides(self.db)
+            active = []
+            lines = ["🌆 УПРАВЛЕНИЕ СОБЫТИЯМИ", "", "Команды:", "/event on CODE — запустить/включить", "/event off CODE — остановить", "/event announce CODE — объявить активный ивент", ""]
+            now = time.time()
+            for code, event in EVENTS.items():
+                override = overrides.get(code)
+                is_active = override == "on" or (override != "off" and _event_is_active(event))
+                status = "🟢 ИДЁТ" if is_active else ("⛔ ОТКЛЮЧЕНО" if override == "off" else "🕒 ПО РАСПИСАНИЮ")
+                start = str(event.get("start_at") or "без даты")
+                end = str(event.get("end_at") or "без даты")
+                lines.append("{} • {} — {}".format(code, event.get("title", code), status))
+                lines.append("   {} → {}".format(start, end))
+            return True, "\\n".join(lines), [["👑 Админ-панель"], ["🏙️ Главное меню"]]
+        if text.startswith("/event "):
+            from catalog import EVENTS, _event_is_active
+            parts = text.split()
+            if len(parts) != 3 or parts[1].lower() not in {"on", "off", "announce"}:
+                return True, "❌ Формат: /event on CODE | /event off CODE | /event announce CODE. Список: /events", [["👑 Админ-панель"]]
+            action, code = parts[1].lower(), parts[2].lower()
+            if code not in EVENTS:
+                return True, "❌ Неизвестный код. Список событий: /events", [["👑 Админ-панель"]]
+            if action in {"on", "off"}:
+                self.db.set_setting("city_event:" + code, action)
+                self._log(uid, "city_event_" + action, None, code)
+                if action == "on":
+                    return True, "🟢 Событие {} включено. Оно появится в меню и будет объявлено игрокам в ближайший цикл.".format(code), [["👑 Админ-панель"], ["🏙️ Главное меню"]]
+                return True, "⛔ Событие {} остановлено и больше не показывается как активное.".format(code), [["👑 Админ-панель"], ["🏙️ Главное меню"]]
+            from event_announcer import event_overrides
+            override = event_overrides(self.db).get(code)
+            active = override == "on" or (override != "off" and _event_is_active(EVENTS[code]))
+            if not active:
+                return True, "⏳ Событие {} сейчас не активно. Сначала включи: /event on {}".format(code, code), [["👑 Админ-панель"]]
+            self.db.set_setting("city_event_announce:" + code, "1")
+            self._log(uid, "city_event_announce", None, code)
+            return True, "📣 Готово. Объявление события {} отправится игрокам в ближайший цикл.".format(code), [["👑 Админ-панель"], ["🏙️ Главное меню"]]
         if text.startswith("/maintenance "):
             value = text.split()[1].lower()
             if value not in ("on", "off"):
