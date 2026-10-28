@@ -104,8 +104,21 @@ def announce_active_events(db, vk, group_id, now=None, delay_seconds=0.35):
     return results
 
 
-def event_announcer_worker(db, vk, group_id, interval_seconds=60):
-    """Check event schedules, overrides and announcements once per minute."""
+def event_announcer_worker(db, vk, group_id, interval_seconds=60, admin_ids=None):
+    """Check schedules, broadcast starts, and privately notify admins once per event."""
+    admin_ids = {int(uid) for uid in (admin_ids or set())}
     while True:
-        announce_active_events(db, vk, group_id)
+        now = _utc_now()
+        results = announce_active_events(db, vk, group_id, now=now)
+        for code, event in active_events(db, now).items():
+            notice_key = "city_event_admin_notified:" + code + ":" + str(event.get("start_at") or "legacy")
+            if str(db.get_setting(notice_key, "0")) == "1":
+                continue
+            message = "🔔 BANDIT CITY • УВЕДОМЛЕНИЕ АДМИНУ\\n\\nСобытие активно: {}\\nКод: {}\\nПроверь рассылку и игровую механику.".format(event.get("title") or code, code)
+            for admin_id in admin_ids:
+                try:
+                    vk.messages.send(user_id=admin_id, random_id=int(time.time() * 1000) % 2147483647, message=message)
+                except Exception:
+                    logging.exception("Could not privately notify admin about city event: %s uid=%s", code, admin_id)
+            db.set_setting(notice_key, "1")
         time.sleep(max(15, int(interval_seconds)))
