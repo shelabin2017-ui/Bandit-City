@@ -1,6 +1,9 @@
 name: Publish versioned release
 on:
   push:
+    branches: ["main"]
+    paths:
+      - "RELEASE.txt"
     tags:
       - 'v*.*.*'
   workflow_dispatch:
@@ -44,13 +47,21 @@ jobs:
           zip -r dist/bandit-city-release.zip . \
             -x '.git/*' '.github/*' '.venv/*' '*/__pycache__/*' '*.pyc' \
                '.env' '.env.*' 'bandit.db' 'bandit.db-*' '*.sqlite' '*.sqlite3' \
-               'logs/*' 'backups/*' 'dist/*' 'tests/*' 'test_*.py' '*_test.py'
+               'logs/*' 'backups/*' 'dist/*' 'tests/*' 'test_*.py' '*_test.py' '*.bak' '*.bak.*' '*.before_*' '*.old' '*.log' '*.db' '*.db-*' '*.db-journal' '*.db-wal' '*.db-shm'
           unzip -t dist/bandit-city-release.zip
+      - name: Resolve release version from RELEASE.txt
+        id: version
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          BUILD="$(sed -n 's/^Build: //p' RELEASE.txt | head -n 1)"
+          [[ "$BUILD" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}\.[0-9]+$ ]] || { echo "Invalid Build version in RELEASE.txt: $BUILD"; exit 1; }
+          echo "tag=v$BUILD" >> "$GITHUB_OUTPUT"
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
-          name: Bandit City ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || (startsWith(github.ref, 'refs/tags/') && github.ref_name) || steps.version.outputs.tag }}
+          name: Bandit City ${{ github.event_name == 'workflow_dispatch' && inputs.tag || (startsWith(github.ref, 'refs/tags/') && github.ref_name) || steps.version.outputs.tag }}
           target_commitish: main
           generate_release_notes: true
           files: dist/bandit-city-release.zip
