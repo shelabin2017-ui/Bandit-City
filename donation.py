@@ -1,12 +1,20 @@
 """Manual donation/order requests for Bandit City. No payment automation."""
 import time
 
+# Стартовые скидки для молодого проекта. В подписи указана реальная скидка
+# относительно обычной цены; при необходимости проценты и цены можно обновить.
 SERVICES = {
-    "💵 500 000 игровой валюты — 99 ₽": ("cash_500k", "500 000 игровой валюты", 99),
-    "💵 2 000 000 игровой валюты — 249 ₽": ("cash_2m", "2 000 000 игровой валюты", 249),
-    "💵 10 000 000 игровой валюты — 699 ₽": ("cash_10m", "10 000 000 игровой валюты", 699),
-    "⭐ +1 уровень — 149 ₽": ("level_plus", "+1 уровень", 149),
-    "🚗 Автомобиль — от 199 ₽": ("car", "Выбранный автомобиль", 199),
+    "💵 500 000 игровой валюты — 99 ₽ (скидка 23%)": ("cash_500k", "500 000 игровой валюты", 99),
+    "💵 1 000 000 игровой валюты — 179 ₽ (скидка 22%)": ("cash_1m", "1 000 000 игровой валюты", 179),
+    "💵 2 000 000 игровой валюты — 249 ₽ (скидка 24%)": ("cash_2m", "2 000 000 игровой валюты", 249),
+    "💵 5 000 000 игровой валюты — 449 ₽ (скидка 25%)": ("cash_5m", "5 000 000 игровой валюты", 449),
+    "💵 10 000 000 игровой валюты — 699 ₽ (скидка 22%)": ("cash_10m", "10 000 000 игровой валюты", 699),
+    "💵 25 000 000 игровой валюты — 1 299 ₽ (скидка 24%)": ("cash_25m", "25 000 000 игровой валюты", 1299),
+    "⭐ +1 уровень — 149 ₽ (скидка 25%)": ("level_plus", "+1 уровень", 149),
+    "⭐ +3 уровня — 399 ₽ (скидка 27%)": ("level_plus_3", "+3 уровня", 399),
+    "⭐ +5 уровней — 599 ₽ (скидка 25%)": ("level_plus_5", "+5 уровней", 599),
+    "🚗 Автомобиль — от 199 ₽ (скидка 33%)": ("car", "Выбранный автомобиль", 199),
+    "🚘 Премиум-автомобиль — от 399 ₽ (скидка 27%)": ("premium_car", "Премиум-автомобиль на выбор", 399),
     "📝 Индивидуальный заказ": ("custom", "Индивидуальный заказ (цена по договорённости)", 0),
 }
 PAYMENT_DETAILS = "🏦 Альфа-Банк\nПолучатель: Шелабин Андрей В.\nТелефон: +79083017733"
@@ -29,7 +37,7 @@ def ensure_schema(db):
         )""")
         c.execute("CREATE INDEX IF NOT EXISTS idx_donation_requests_status ON donation_requests(status,id)")
 
-def create_request(db, user, service_label):
+def create_request(db, user, service_label, details=''):
     ensure_schema(db)
     service = SERVICES.get(service_label)
     if not service:
@@ -40,14 +48,33 @@ def create_request(db, user, service_label):
         cur = c.execute("""INSERT INTO donation_requests
             (user_id,vk_id,nickname,service_code,service_title,price_rub,details,status,created_at,updated_at)
             VALUES(?,?,?,?,?,?,?,'new',?,?)""",
-            (int(user["id"]), int(user["vk_id"]), str(user["nickname"] or ""), code, title, price, "", now, now))
+            (int(user["id"]), int(user["vk_id"]), str(user["nickname"] or ""), code, title, price, str(details or ""), now, now))
         rid = cur.lastrowid
+    if code == "custom":
+        return rid, (
+            f"📝 ЗАЯВКА НА ИНДИВИДУАЛЬНЫЙ ЗАКАЗ №{rid}\n\n"
+            f"Описание: {details}\n\n"
+            "Администратор проверит возможность выполнения и сообщит окончательную цену. "
+            "Пока не переводи деньги: эта заявка не является счётом на оплату."
+        )
     return rid, (
         f"💎 ЗАЯВКА №{rid}\n\nУслуга: {title}\n"
         + (f"Сумма: {price} ₽\n\n" if price else "Стоимость: по договорённости\n\n")
         + PAYMENT_DETAILS + "\n\nПосле перевода нажми «💳 Я оплатил» в меню доната. "
           "Оплата будет проверена вручную администратором. Создание заявки не означает, что платёж получен."
     )
+
+def set_price(db, request_id, price, admin_vk):
+    price = int(price)
+    if price < 1 or price > 100000:
+        return False
+    ensure_schema(db)
+    with db.connect() as c:
+        cur = c.execute(
+            "UPDATE donation_requests SET price_rub=?,updated_at=?,admin_vk=? WHERE id=? AND service_code='custom' AND status='new'",
+            (price, int(time.time()), int(admin_vk), int(request_id)),
+        )
+        return cur.rowcount > 0
 
 def get_request(db, request_id):
     ensure_schema(db)
