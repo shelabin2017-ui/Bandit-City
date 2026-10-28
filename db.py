@@ -901,6 +901,52 @@ class Database:
             )
             return f"🕶 УСПЕХ!\n🎯 VK {target_vk}\n💰 Добыча: {money(gain)}"
 
+    CAR_PROMO_START_KEY = "car_promo_72h_start"
+    CAR_PROMO_DURATION_SECONDS = 72 * 60 * 60
+    CAR_PROMO_DISCOUNT_PERCENT = 20
+
+    def car_promo_status(self, now=None):
+        """Return the persisted 72-hour vehicle promotion state without mutating it."""
+        current = int(time.time() if now is None else now)
+        raw_start = self.get_setting(self.CAR_PROMO_START_KEY)
+        if raw_start is None:
+            return {
+                "configured": False, "active": False, "start_at": None,
+                "end_at": None, "discount_percent": self.CAR_PROMO_DISCOUNT_PERCENT,
+            }
+        try:
+            start_at = int(raw_start)
+        except (TypeError, ValueError):
+            return {
+                "configured": True, "active": False, "start_at": None,
+                "end_at": None, "discount_percent": self.CAR_PROMO_DISCOUNT_PERCENT,
+            }
+        end_at = start_at + self.CAR_PROMO_DURATION_SECONDS
+        return {
+            "configured": True,
+            "active": start_at <= current < end_at,
+            "start_at": start_at,
+            "end_at": end_at,
+            "discount_percent": self.CAR_PROMO_DISCOUNT_PERCENT,
+        }
+
+    def ensure_car_promo_started(self, now=None):
+        """Start the promotion once; restarts never reset its original deadline."""
+        current = int(time.time() if now is None else now)
+        with self.connect() as c:
+            c.execute(
+                "INSERT OR IGNORE INTO settings(key,value) VALUES(?,?)",
+                (self.CAR_PROMO_START_KEY, str(current)),
+            )
+        return self.car_promo_status(current)
+
+    def car_purchase_price(self, base_price, now=None):
+        status = self.car_promo_status(now)
+        price = max(0, int(base_price))
+        if status["active"]:
+            return price * (100 - status["discount_percent"]) // 100
+        return price
+
     def cars(self, user_id):
         with self.connect() as c:
             return c.execute("SELECT * FROM cars WHERE user_id=? ORDER BY id DESC", (user_id,)).fetchall()
@@ -918,9 +964,13 @@ class Database:
         }
         if model not in cars:
             return "❌ Такой машины нет."
-        cat,speed,price = cars[model]
+        cat,speed,base_price = cars[model]
+        promo = self.car_promo_status()
+        price = self.car_purchase_price(base_price)
         with self.connect() as c:
             u = c.execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone()
+            if not u:
+                return "❌ Игрок не найден."
             if u["balance"] < price:
                 return "❌ Недостаточно денег."
             c.execute("UPDATE users SET balance=balance-? WHERE id=?", (price,user_id))
@@ -928,6 +978,11 @@ class Database:
                 "INSERT INTO cars(user_id,model,category,speed,price,bought_at) VALUES(?,?,?,?,?,?)",
                 (user_id,model,cat,speed,price,int(time.time()))
             )
+            if promo["active"]:
+                return (
+                    f"✅ {model} куплен за {money(price)} "
+                    f"(скидка {promo['discount_percent']}%, обычная цена {money(base_price)})"
+                )
             return f"✅ {model} куплен за {money(price)}"
 
     def sell_car(self,user_id,car_id):
