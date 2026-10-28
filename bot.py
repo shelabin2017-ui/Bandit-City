@@ -2,6 +2,7 @@ import html
 import logging
 import os
 import random
+import re
 import threading
 import time
 from pathlib import Path
@@ -674,8 +675,14 @@ def _incoming_photo_attachments(attachments):
     seen = set()
 
     def add(value, access_key=None):
-        if not isinstance(value, str) or not value.startswith("photo"):
+        if not isinstance(value, str):
             return
+        # Long Poll sends attachN="OWNER_ID_PHOTO_ID" when attachN_type="photo";
+        # messages.send expects the normalized "photoOWNER_ID_PHOTO_ID" form.
+        if not value.startswith("photo"):
+            if not re.fullmatch(r"-?\d+_\d+", value):
+                return
+            value = "photo" + value
         attachment = value
         if access_key and not attachment.endswith("_" + str(access_key)):
             attachment += "_" + str(access_key)
@@ -714,7 +721,7 @@ def _incoming_photo_attachments(attachments):
 
         # Some vk_api versions expose the message object, raw update, or an
         # attachments list instead of the flat attachN keys.
-        for key in ("attachments", "items", "object", "raw", "message"):
+        for key in ("attachments", "items", "object", "raw", "message", "data", "extra"):
             if key in value:
                 walk(value[key], depth + 1)
 
@@ -734,9 +741,6 @@ def process(uid, text, attachments=None):
         return
     # Any ordinary action closes the previous paginated keyboard context.
     KEYBOARD_PAGES.pop(int(uid), None)
-    if process_input(uid, text):
-        return
-
     user = db.get_or_create_user(uid)
 
     # Payment screenshots sent as photos are forwarded privately to every donation admin.
@@ -783,6 +787,10 @@ def process(uid, text, attachments=None):
             else:
                 send(uid, "⚠️ Не удалось передать скриншот администрации. Попробуй отправить его ещё раз позже.")
             return
+
+    # Handle photos before any text-input state; VK photo messages often have empty text.
+    if process_input(uid, text):
+        return
 
     if maintenance_enabled() and not has_staff_access(uid):
         send_card(uid, "🏙️ BANDIT CITY\n\n🚧 ТЕХНИЧЕСКИЕ РАБОТЫ\n\nГород временно закрыт на обслуживание.\n\n🛠️ Мы обновляем систему, исправляем ошибки\nи готовим новые возможности.\n\n⏳ Совсем скоро город снова откроется.\n\n🖤 Спасибо за ожидание.")
@@ -1667,6 +1675,8 @@ def main():
                                 "attachments": getattr(event, "attachments", None),
                                 "object": getattr(event, "object", None),
                                 "raw": getattr(event, "raw", None),
+                                "data": getattr(event, "data", None),
+                                "extra": getattr(event, "extra", None),
                             },
                         )
                 except Exception:
