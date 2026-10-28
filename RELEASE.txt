@@ -1,5 +1,5 @@
 BANDIT CITY RELEASE
-Build: 2026-10-28.12
-Announcement: Исправлена загрузка мемориального постера через VK wall photo API; просроченная однократная рассылка автоматически пробует отправиться после обновления. Сохранена защита от повторной отправки.
+Build: 2026-10-28.13
+Announcement: Мемориальное сообщение отправляется даже при отказе VK загрузить постер; сбой необязательного изображения больше не блокирует текст. Просроченная однократная рассылка повторно пробуется после обновления.
 Deployment: VPS downloads the verified bandit-city-release.zip from GitHub Releases. The deploy script preserves .env, bandit.db, and .venv, tests before restart, and rolls back on failure.
 Safety: No destructive retry is required. Validate the backup before changing live files.
