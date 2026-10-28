@@ -19,6 +19,16 @@ SERVICES = {
 }
 PAYMENT_DETAILS = "🏦 Альфа-Банк\nПолучатель: Шелабин Андрей В.\nТелефон: +79083017733"
 
+def resolve_service_label(text):
+    """Resolve exact labels and sufficiently long VK-truncated keyboard labels."""
+    if text in SERVICES:
+        return text
+    if len(text) >= 24:
+        matches = [label for label in SERVICES if label.startswith(text)]
+        if len(matches) == 1:
+            return matches[0]
+    return None
+
 def ensure_schema(db):
     with db.connect() as c:
         c.execute("""CREATE TABLE IF NOT EXISTS donation_requests (
