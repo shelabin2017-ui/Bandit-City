@@ -1,6 +1,8 @@
 import json
 import unittest
+from unittest.mock import patch
 
+import diagnostics
 from diagnostics import _read_current_status, _write_current_status
 
 
@@ -33,6 +35,20 @@ class DiagnosticsStatusTests(unittest.TestCase):
         status = json.loads(db.values["diagnostics_current_status"])
         self.assertIn("checked_at", status)
         self.assertEqual(status["reason"], "test_issue")
+
+    def test_worker_clears_stale_error_after_recovery(self):
+        db = FakeDB()
+        failure = {"ok": False, "repaired": False, "reason": "database_integrity", "detail": "old failure"}
+        success = {"ok": True, "repaired": False, "tables": 20}
+        with patch.object(diagnostics, "run_diagnostics", side_effect=[failure, success]), \
+             patch.object(diagnostics.time, "sleep", side_effect=[None, RuntimeError("stop worker")]):
+            with self.assertRaisesRegex(RuntimeError, "stop worker"):
+                diagnostics.diagnostics_worker(db, interval_seconds=30)
+
+        current = _read_current_status(db)
+        self.assertTrue(current["ok"])
+        self.assertEqual(current["reason"], "")
+        self.assertEqual(current["detail"], "")
 
 
 if __name__ == "__main__":
