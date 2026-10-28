@@ -89,4 +89,4 @@ echo "[6/6] Update complete"
 echo "Ref: $REF"
 echo "Backup: $BACKUP_DIR"
 echo "Config/database preserved: .env and bandit.db"
-systemctl --no-pager --full status "$SERVICE" | head -n 18
+systemctl --no-pager --full status "$SERVICE" | sed -n '1,18p'
