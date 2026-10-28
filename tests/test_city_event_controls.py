@@ -2,6 +2,7 @@ import os
 import tempfile
 import unittest
 import datetime
+from unittest.mock import patch
 
 from catalog import EVENTS, active_events as catalog_active_events
 from db import Database
@@ -35,6 +36,43 @@ class CityEventControlTests(unittest.TestCase):
         self.assertEqual(nightfall["drops"], ["nightfall_mask"])
         self.assertEqual(prime["start_at"], "2026-11-10T00:00:00Z")
         self.assertEqual(prime["end_at"], "2026-11-24T00:00:00Z")
+
+
+    def test_admin_event_alert_retries_after_send_failure(self):
+        class FakeMessages:
+            def __init__(self, fail):
+                self.fail = fail
+                self.sent = []
+
+            def send(self, **kwargs):
+                self.sent.append(kwargs)
+                if self.fail:
+                    self.fail = False
+                    raise RuntimeError("temporary VK error")
+                return 1
+
+        class FakeVK:
+            def __init__(self, fail):
+                self.messages = FakeMessages(fail)
+
+        event = {"title": "💎 BANDIT PRIME", "start_at": "2026-11-10T00:00:00Z"}
+        vk = FakeVK(True)
+        with patch("event_announcer.announce_active_events", return_value={}), \
+             patch("event_announcer.active_events", return_value={"prime": event}), \
+             patch("event_announcer.time.sleep", side_effect=StopIteration):
+            with self.assertRaises(StopIteration):
+                from event_announcer import event_announcer_worker
+                event_announcer_worker(self.db, vk, 1, interval_seconds=60, admin_ids={12345})
+        key = "city_event_admin_notified:prime:2026-11-10T00:00:00Z:12345"
+        self.assertIsNone(self.db.get_setting(key))
+        vk.messages.fail = False
+        with patch("event_announcer.announce_active_events", return_value={}), \
+             patch("event_announcer.active_events", return_value={"prime": event}), \
+             patch("event_announcer.time.sleep", side_effect=StopIteration):
+            with self.assertRaises(StopIteration):
+                event_announcer_worker(self.db, vk, 1, interval_seconds=60, admin_ids={12345})
+        self.assertEqual(self.db.get_setting(key), "1")
+        self.assertEqual(len(vk.messages.sent), 2)
 
     def test_daily_event_copy_changes_by_date(self):
         event = EVENTS["prime"]
