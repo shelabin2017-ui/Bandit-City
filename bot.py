@@ -552,6 +552,7 @@ def process_input(uid, text):
             send(uid, game.refill_stock(db.get_or_create_user(uid)["id"], amount), kb_business())
             return True
         if st["mode"] == "donation_custom_details":
+            from donation import create_request
             details = " ".join(text.strip().split())
             if len(details) < 5 or len(details) > 1000:
                 send(uid, "Опиши заказ подробнее — от 5 до 1000 символов. Или нажми «❌ Отмена».", [["❌ Отмена"]])
@@ -569,6 +570,7 @@ def process_input(uid, text):
                     logging.exception("Custom donation admin notification failed")
             return True
         if st["mode"] == "donation_set_price":
+            from donation import set_price, get_request, PAYMENT_DETAILS
             try:
                 price = int(text.replace(" ", "").replace("₽", ""))
             except ValueError:
