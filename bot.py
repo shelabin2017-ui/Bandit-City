@@ -567,7 +567,7 @@ def process_input(uid, text):
             send(uid, game.refill_stock(db.get_or_create_user(uid)["id"], amount), kb_business())
             return True
         if st["mode"] == "donation_custom_details":
-            from donation import create_request
+            from donation import create_request, get_request, public_request_code
             details = " ".join(text.strip().split())
             if len(details) < 5 or len(details) > 1000:
                 send(uid, "Опиши заказ подробнее — от 5 до 1000 символов. Или нажми «❌ Отмена».", [["❌ Отмена"]])
@@ -580,7 +580,7 @@ def process_input(uid, text):
             send(uid, msg, [["💎 Поддержать проект"], ["🏙️ Главное меню"]])
             for aid in donation_admin_ids():
                 try:
-                    send(aid, "📝 ИНДИВИДУАЛЬНЫЙ ЗАКАЗ №{}\nИгрок VK {}\nОписание: {}\n\nНазначь цену после проверки заказа.".format(rid, uid, details), [[f"💎 Заявка #{rid}"], ["💎 Донат-заявки"]])
+                    send(aid, "📝 ИНДИВИДУАЛЬНЫЙ ЗАКАЗ {}\nИгрок VK {}\nОписание: {}\n\nНазначь цену после проверки заказа.".format(public_request_code(get_request(db, rid)), uid, details), [[f"💎 Заявка #{rid}"], ["💎 Донат-заявки"]])
                 except Exception:
                     logging.exception("Custom donation admin notification failed")
             return True
@@ -828,7 +828,7 @@ def process(uid, text):
         send_card(uid, creator_text(), [["🏙️ Главное меню"]])
         return
 
-    from donation import SERVICES, create_request, ensure_schema, list_requests, set_status, get_request, set_price, PAYMENT_DETAILS, STATUS, TEMPLATES, resolve_service_label
+    from donation import SERVICES, create_request, ensure_schema, list_requests, set_status, get_request, set_price, PAYMENT_DETAILS, STATUS, TEMPLATES, resolve_service_label, public_request_code
     matched_service = resolve_service_label(text)
     if matched_service:
         text = matched_service
@@ -845,7 +845,7 @@ def process(uid, text):
         if rid:
             send(uid, msg + "\n\n⚠️ ВАЖНО ПРИ ОПЛАТЕ\n1. В назначении платежа обязательно укажи, за какую услугу Bandit City платишь: «" + SERVICES[text][1] + "» (заявка №" + str(rid) + ").\n2. После перевода обязательно пришли в этот чат скриншот или чек успешной оплаты. На скриншоте должны быть видны сумма, дата и статус платежа; можешь закрыть лишние личные данные.\n3. Затем нажми «💳 Я оплатил». Администрация вручную проверит перевод и чек. Одного нажатия кнопки недостаточно для подтверждения оплаты.", [["💳 Я оплатил"], ["💎 Поддержать проект"], ["🏙️ Главное меню"]])
             for aid in donation_admin_ids():
-                try: send(aid, f"💎 Заявка №{rid}\nИгрок VK {uid}: {SERVICES[text][1]}\nСумма: {SERVICES[text][2] or 'договорная'} ₽", [["💎 Донат-заявки"], ["👑 Админ-панель"]])
+                try: send(aid, f"💎 Заявка {public_request_code(get_request(db, rid))}\nИгрок VK {uid}: {SERVICES[text][1]}\nСумма: {SERVICES[text][2] or 'договорная'} ₽", [["💎 Донат-заявки"], ["👑 Админ-панель"]])
                 except Exception: logging.exception("Donation admin notification failed")
         return
     if text.startswith("✅ Согласен с ценой по заказу №"):
@@ -911,13 +911,13 @@ def process(uid, text):
             send(uid, "Активная заявка к оплате не найдена. Индивидуальный заказ сначала должен получить цену от администратора.", [["💎 Поддержать проект"], ["🏙️ Главное меню"]]); return
         if r["status"] == "new" and not set_status(db, r["id"], "awaiting", 0):
             send(uid, "Не удалось обновить заявку. Обратись к администрации.", [["💎 Поддержать проект"], ["🏙️ Главное меню"]]); return
-        send(uid, f"🕒 Заявка №{r['id']} отмечена для проверки. Это не подтверждение оплаты.", [["💎 Поддержать проект"], ["🏙️ Главное меню"]])
-        for aid in donation_admin_ids(): send(aid, f"💳 Игрок VK {uid} сообщил об оплате заявки №{r['id']}. Проверь перевод вручную.", [["💎 Донат-заявки"], ["👑 Админ-панель"]])
+        send(uid, f"🕒 Заявка {public_request_code(r)} отмечена для проверки. Это не подтверждение оплаты.", [["💎 Поддержать проект"], ["🏙️ Главное меню"]])
+        for aid in donation_admin_ids(): send(aid, f"💳 Игрок VK {uid} сообщил об оплате заявки {public_request_code(r)}. Проверь перевод вручную.", [["💎 Донат-заявки"], ["👑 Админ-панель"]])
         return
     if text == "💎 Донат-заявки" and has_admin_access(uid):
         requests = list_requests(db)
         rows = [[f"💎 Заявка #{r['id']}"] for r in requests] + [["👑 Админ-панель"]]
-        body = ["💎 ДОНАТ-ЗАЯВКИ"] + [f"№{r['id']} • VK {r['vk_id']} • {r['service_title']} • {STATUS.get(r['status'],r['status'])}" for r in requests]
+        body = ["💎 ДОНАТ-ЗАЯВКИ"] + [f"{public_request_code(r)} • VK {r['vk_id']} • {r['service_title']} • {STATUS.get(r['status'],r['status'])}" for r in requests]
         send(uid, "\n".join(body) if requests else "Заявок пока нет.", rows); return
     if text.startswith("💎 Заявка #") and has_admin_access(uid):
         try: rid = int(text.split("#",1)[1])
@@ -940,7 +940,7 @@ def process(uid, text):
             rows += [["💬 Шаблон: заявка","💬 Шаблон: ожидание"],["💬 Шаблон: оплачено","💬 Шаблон: выдано"],["💬 Шаблон: отмена"]]
         rows.append(["💎 Донат-заявки"])
         details = "\nОписание: {}".format(r["details"]) if r["service_code"] == "custom" else ""
-        send(uid,"ЗАЯВКА №{}\nVK {} • {}\n{} • {} ₽{}\nСтатус: {}".format(rid,r["vk_id"],r["nickname"],r["service_title"],r["price_rub"] or "договорная",details,STATUS.get(r["status"],r["status"])),rows); return
+        send(uid,"ЗАЯВКА {}\nВнутренний ID: {}\nVK {} • {}\n{} • {} ₽{}\nСтатус: {}".format(public_request_code(r),rid,r["vk_id"],r["nickname"],r["service_title"],r["price_rub"] or "договорная",details,STATUS.get(r["status"],r["status"])),rows); return
     if text == "💰 Назначить цену" and has_admin_access(uid):
         rid = DONATION_ADMIN_SELECTED.get(uid)
         r = get_request(db, rid) if rid else None
