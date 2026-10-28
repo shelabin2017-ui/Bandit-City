@@ -71,7 +71,7 @@ def set_price(db, request_id, price, admin_vk):
     ensure_schema(db)
     with db.connect() as c:
         cur = c.execute(
-            "UPDATE donation_requests SET price_rub=?,updated_at=?,admin_vk=? WHERE id=? AND service_code='custom' AND status='new'",
+            "UPDATE donation_requests SET price_rub=?,status='quoted',updated_at=?,admin_vk=? WHERE id=? AND service_code='custom' AND status='new'",
             (price, int(time.time()), int(admin_vk), int(request_id)),
         )
         return cur.rowcount > 0
@@ -84,6 +84,7 @@ def get_request(db, request_id):
 def set_status(db, request_id, status, admin_vk):
     allowed = {
         "new": {"awaiting", "cancelled"},
+        "quoted": {"new", "cancelled"},
         "awaiting": {"paid", "cancelled"},
         "paid": {"granted", "cancelled"},
         "granted": {"completed"},
@@ -110,7 +111,7 @@ def list_requests(db, limit=10):
             (int(limit),),
         ).fetchall()
 
-STATUS = {"new":"🆕 Новая","awaiting":"🕒 Ожидает оплаты","paid":"💳 Оплата подтверждена","granted":"🎁 Выдача выполнена","completed":"✅ Завершена","cancelled":"❌ Отменена"}
+STATUS = {"new":"🆕 Новая","quoted":"💬 Цена предложена, ждём согласия","awaiting":"🕒 Ожидает оплаты","paid":"💳 Оплата подтверждена","granted":"🎁 Выдача выполнена","completed":"✅ Завершена","cancelled":"❌ Отменена"}
 TEMPLATES = {
     "📨 Заявка принята": "📨 Заявка №{id} принята. Услуга: {service}. Это сообщение не подтверждает оплату.",
     "🕒 Ожидаем оплату": "🕒 По заявке №{id} ожидаем оплату. После перевода сообщи об этом в меню доната. Не отправляй данные карты или коды подтверждения.",
