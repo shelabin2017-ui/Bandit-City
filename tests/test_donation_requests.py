@@ -3,7 +3,7 @@ import tempfile
 import unittest
 
 from db import Database
-from donation import SERVICES, create_request, get_request, list_requests, set_status, set_price
+from donation import SERVICES, create_request, get_request, list_requests, set_status, set_price, resolve_service_label
 
 
 class DonationRequestTests(unittest.TestCase):
@@ -14,6 +14,11 @@ class DonationRequestTests(unittest.TestCase):
 
     def tearDown(self):
         self.tmp.cleanup()
+
+    def test_truncated_vk_service_button_resolves_to_full_service(self):
+        truncated = "💵 500 000 игровой валюты — 99 ₽ (скидка"
+        self.assertEqual(resolve_service_label(truncated), "💵 500 000 игровой валюты — 99 ₽ (скидка 23%)")
+        self.assertIsNone(resolve_service_label("неизвестная команда"))
 
     def test_request_is_saved_and_status_changes(self):
         label = "💵 500 000 игровой валюты — 99 ₽ (скидка 23%)"
