@@ -65,9 +65,25 @@ if [ ! -f "$SRC/run.py" ]; then
 fi
 [ -f "$SRC/requirements.txt" ] || fail "Release archive has no requirements.txt."
 say "Backing up current application, .env, and database"
+# GNU tar returns status 1 when a live file changes during the read. The archive
+# can still be valid, so check the result and required files before proceeding.
+set +e
 tar -czf "$BACKUP" -C "$(dirname "$APP_DIR")" "$(basename "$APP_DIR")"
+TAR_STATUS=$?
+set -e
+if [ "$TAR_STATUS" -gt 1 ]; then
+  fail "Backup creation failed (tar exit $TAR_STATUS); application has not been changed."
+fi
+if ! tar -tzf "$BACKUP" >/dev/null 2>&1; then
+  fail "Backup archive validation failed; application has not been changed."
+fi
+for required in "$(basename "$APP_DIR")/.env" "$(basename "$APP_DIR")/bandit.db" "$(basename "$APP_DIR")/run.py"; do
+  if ! tar -tzf "$BACKUP" | grep -Fxq "$required"; then
+    fail "Backup is missing required file $required; application has not been changed."
+  fi
+done
 chmod 600 "$BACKUP"
-say "Backup saved: $BACKUP"
+say "Backup validated and saved: $BACKUP (tar exit $TAR_STATUS; exit 1 is accepted only after archive validation)"
 # Release contents are copied over the live directory; secrets and persistent DB are explicitly excluded.
 MUTATED=1
 rsync -a --delete --exclude='/.env' --exclude='/bandit.db' --exclude='/.venv' --exclude='/logs/' --exclude='/backups/' --exclude='/VERSION.txt' "$SRC/" "$APP_DIR/"
