@@ -413,13 +413,14 @@ class Game:
         import datetime
         from catalog import EVENTS
         from event_announcer import active_events, event_overrides
-        from city_news import city_news_feed, daypart_label
+        from city_news import city_news_feed, daypart_label, city_weather
 
         now = datetime.datetime.now(datetime.timezone.utc)
         overrides = event_overrides(self.db)
         active = active_events(self.db, now)
         part = daypart_label(now.hour)
-        lines = ["🌆 BANDIT CITY • ГОРОДСКАЯ ЛЕНТА", "🕒 {} • UTC".format(part), ""]
+        weather = city_weather(now)
+        lines = ["🌆 BANDIT CITY • ГОРОДСКАЯ ЛЕНТА", "🕒 {} • UTC".format(part), weather["title"] + " — " + weather["description"], ""]
         lines.extend(city_news_feed(now, db=self.db))
         from city_incidents import active_incident
         incident = active_incident(now)

@@ -37,6 +37,42 @@ NEWS = {
 }
 
 
+
+WEATHER = [
+    ("☀️ ЯСНО", "На улицах хорошая видимость, город живёт в обычном ритме."),
+    ("🌧 ДОЖДЬ", "Дороги мокрые, водителям стоит быть внимательнее."),
+    ("🌫 ТУМАН", "Видимость снижена, набережную и промзону окутал туман."),
+    ("💨 ВЕТЕР", "Порывы ветра разносят листовки по улицам и дворам."),
+    ("☁️ ОБЛАЧНО", "Небо затянуто облаками, но город не сбавляет темп."),
+    ("🌦 КОРОТКИЙ ЛИВЕНЬ", "После короткого ливня на асфальте отражаются городские огни."),
+]
+
+
+def city_weather(now=None):
+    """Stable fictional city weather, refreshed by date and three-hour block."""
+    if now is None:
+        now = datetime.datetime.now(datetime.timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=datetime.timezone.utc)
+    now = now.astimezone(datetime.timezone.utc)
+    # Seasonal weighting keeps the atmosphere plausible without external weather APIs.
+    month = now.month
+    pool = list(WEATHER)
+    if month in (12, 1, 2):
+        pool.extend([("❄️ СНЕГ", "Снег укрыл тротуары, коммунальные службы работают на улицах."),
+                     ("🌨 МОКРЫЙ СНЕГ", "На дорогах снежная каша, движение стало медленнее.")])
+    elif month in (10, 11, 3):
+        pool.extend([("🌁 СЫРАЯ ПОГОДА", "Холодный воздух и сырой асфальт придают городу осеннее настроение."),
+                     ("🌧 МЕЛКИЙ ДОЖДЬ", "Мелкий дождь не прекращается, прохожие прячутся под навесами.")])
+    elif month in (6, 7, 8):
+        pool.extend([("🌤 ТЁПЛЫЙ ВЕЧЕР", "Тёплая погода задержала людей на улицах и набережной."),
+                     ("⛈ ГРОЗА ВДАЛИ", "На горизонте гремит гром, горожане следят за небом.")])
+    seed = "{}:{}".format(now.date().isoformat(), now.hour // 3)
+    digest = hashlib.sha256(seed.encode("utf-8")).digest()
+    title, description = pool[int.from_bytes(digest[:4], "big") % len(pool)]
+    return {"title": title, "description": description, "period": now.strftime("%Y-%m-%d:%H")}
+
+
 def daypart_label(hour):
     if 5 <= int(hour) < 12:
         return "УТРО"

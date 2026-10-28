@@ -2,7 +2,7 @@ import datetime
 import json
 import unittest
 
-from city_news import NEWS, city_news_feed, daypart_label
+from city_news import NEWS, city_news_feed, daypart_label, city_weather
 
 
 class FakeDB:
@@ -29,6 +29,18 @@ class CityNewsTests(unittest.TestCase):
         morning = datetime.datetime(2026, 10, 28, 8, tzinfo=datetime.timezone.utc)
         night = datetime.datetime(2026, 10, 28, 23, tzinfo=datetime.timezone.utc)
         self.assertNotEqual(city_news_feed(morning), city_news_feed(night))
+
+    def test_weather_is_stable_for_same_three_hour_block(self):
+        first = datetime.datetime(2026, 10, 28, 8, 10, tzinfo=datetime.timezone.utc)
+        second = datetime.datetime(2026, 10, 28, 8, 55, tzinfo=datetime.timezone.utc)
+        self.assertEqual(city_weather(first), city_weather(second))
+
+    def test_weather_changes_between_blocks_or_seasons(self):
+        morning = datetime.datetime(2026, 10, 28, 8, tzinfo=datetime.timezone.utc)
+        winter = datetime.datetime(2026, 12, 28, 8, tzinfo=datetime.timezone.utc)
+        self.assertNotEqual(city_weather(morning)["period"], city_weather(winter)["period"])
+        self.assertTrue(city_weather(morning)["title"])
+        self.assertTrue(city_weather(morning)["description"])
 
     def test_all_dayparts_have_varied_stories(self):
         self.assertTrue(all(len(stories) >= 4 for stories in NEWS.values()))
