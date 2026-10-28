@@ -813,9 +813,9 @@ def process(uid, text):
         r = get_request(db,rid)
         if not r: send(uid,"Заявка не найдена.",[["💎 Донат-заявки"]]); return
         DONATION_ADMIN_SELECTED[uid] = rid
-        rows = [["🕒 Ожидает оплаты","💳 Подтвердить оплату"],["🎁 Выдать покупку","✅ Завершить заявку"],["❌ Отменить заявку"],["💬 Шаблон: заявка","💬 Шаблон: ожидание"],["💬 Шаблон: оплачено","💬 Шаблон: выдано"],["💬 Шаблон: отмена"],["💎 Донат-заявки"]]
+        rows = [["🕒 Ожидает оплаты","💳 Подтвердить оплату"],["📦 Отметить ручную выдачу","✅ Завершить заявку"],["❌ Отменить заявку"],["💬 Шаблон: заявка","💬 Шаблон: ожидание"],["💬 Шаблон: оплачено","💬 Шаблон: выдано"],["💬 Шаблон: отмена"],["💎 Донат-заявки"]]
         send(uid,f"ЗАЯВКА №{rid}\\nVK {r['vk_id']} • {r['nickname']}\\n{r['service_title']} • {r['price_rub'] or 'договорная'} ₽\\nСтатус: {STATUS.get(r['status'],r['status'])}",rows); return
-    status_actions = {"🕒 Ожидает оплаты":"awaiting","💳 Подтвердить оплату":"paid","🎁 Выдать покупку":"granted","✅ Завершить заявку":"completed","❌ Отменить заявку":"cancelled"}
+    status_actions = {"🕒 Ожидает оплаты":"awaiting","💳 Подтвердить оплату":"paid","📦 Отметить ручную выдачу":"granted","✅ Завершить заявку":"completed","❌ Отменить заявку":"cancelled"}
     if text in status_actions and has_admin_access(uid):
         rid = DONATION_ADMIN_SELECTED.get(uid)
         r = get_request(db,rid) if rid else None
@@ -826,7 +826,7 @@ def process(uid, text):
         set_status(db,rid,st,uid)
         templ = {"paid":"💳 Оплата подтверждена","granted":"🎁 Покупка выдана","cancelled":"❌ Заявка отменена"}.get(st)
         if templ: send(r["vk_id"],TEMPLATES[templ].format(id=rid,service=r["service_title"]))
-        send(uid,f"Статус заявки №{rid}: {STATUS[st]}",[[f"💎 Заявка #{rid}"],["💎 Донат-заявки"]]); return
+        send(uid, (f"Статус заявки №{rid}: {STATUS[st]}\\n\\nПодтверди ручную выдачу в игре перед этим действием." if st == "granted" else f"Статус заявки №{rid}: {STATUS[st]}"),[[f"💎 Заявка #{rid}"],["💎 Донат-заявки"]]); return
     if text.startswith("💬 Шаблон:") and has_admin_access(uid):
         rid = DONATION_ADMIN_SELECTED.get(uid); r = get_request(db,rid) if rid else None
         if not r: send(uid,"Сначала открой заявку.",[["💎 Донат-заявки"]]); return
