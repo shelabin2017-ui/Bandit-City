@@ -782,14 +782,14 @@ def process(uid, text):
     from donation import SERVICES, create_request, ensure_schema, list_requests, set_status, get_request, STATUS, TEMPLATES
     if text == "💎 Поддержать проект":
         rows = [[label] for label in SERVICES] + [["🏙️ Главное меню"]]
-        send(uid, "💎 ПОДДЕРЖКА BANDIT CITY\\nВыбери услугу. Оплата проверяется вручную.", rows)
+        send(uid, "💎 ПОДДЕРЖКА BANDIT CITY\nВыбери услугу. Оплата проверяется вручную.", rows)
         return
     if text in SERVICES:
         rid, msg = create_request(db, user, text)
         if rid:
-            send(uid, msg + "\\n\\nПосле перевода нажми «💳 Я оплатил».", [["💳 Я оплатил"], ["💎 Поддержать проект"], ["🏙️ Главное меню"]])
+            send(uid, msg + "\n\nПосле перевода нажми «💳 Я оплатил».", [["💳 Я оплатил"], ["💎 Поддержать проект"], ["🏙️ Главное меню"]])
             for aid in ADMIN_IDS:
-                try: send(aid, f"💎 Заявка №{rid}\\nИгрок VK {uid}: {SERVICES[text][1]}\\nСумма: {SERVICES[text][2] or 'договорная'} ₽", [["💎 Донат-заявки"], ["👑 Админ-панель"]])
+                try: send(aid, f"💎 Заявка №{rid}\nИгрок VK {uid}: {SERVICES[text][1]}\nСумма: {SERVICES[text][2] or 'договорная'} ₽", [["💎 Донат-заявки"], ["👑 Админ-панель"]])
                 except Exception: logging.exception("Donation admin notification failed")
         return
     if text == "💳 Я оплатил":
@@ -806,7 +806,7 @@ def process(uid, text):
         requests = list_requests(db)
         rows = [[f"💎 Заявка #{r['id']}"] for r in requests] + [["👑 Админ-панель"]]
         body = ["💎 ДОНАТ-ЗАЯВКИ"] + [f"№{r['id']} • VK {r['vk_id']} • {r['service_title']} • {STATUS.get(r['status'],r['status'])}" for r in requests]
-        send(uid, "\\n".join(body) if requests else "Заявок пока нет.", rows); return
+        send(uid, "\n".join(body) if requests else "Заявок пока нет.", rows); return
     if text.startswith("💎 Заявка #") and has_admin_access(uid):
         try: rid = int(text.split("#",1)[1])
         except ValueError: send(uid,"Неверный номер.",[["💎 Донат-заявки"]]); return
@@ -814,7 +814,7 @@ def process(uid, text):
         if not r: send(uid,"Заявка не найдена.",[["💎 Донат-заявки"]]); return
         DONATION_ADMIN_SELECTED[uid] = rid
         rows = [["🕒 Ожидает оплаты","💳 Подтвердить оплату"],["📦 Отметить ручную выдачу","✅ Завершить заявку"],["❌ Отменить заявку"],["💬 Шаблон: заявка","💬 Шаблон: ожидание"],["💬 Шаблон: оплачено","💬 Шаблон: выдано"],["💬 Шаблон: отмена"],["💎 Донат-заявки"]]
-        send(uid,f"ЗАЯВКА №{rid}\\nVK {r['vk_id']} • {r['nickname']}\\n{r['service_title']} • {r['price_rub'] or 'договорная'} ₽\\nСтатус: {STATUS.get(r['status'],r['status'])}",rows); return
+        send(uid,f"ЗАЯВКА №{rid}\nVK {r['vk_id']} • {r['nickname']}\n{r['service_title']} • {r['price_rub'] or 'договорная'} ₽\nСтатус: {STATUS.get(r['status'],r['status'])}",rows); return
     status_actions = {"🕒 Ожидает оплаты":"awaiting","💳 Подтвердить оплату":"paid","📦 Отметить ручную выдачу":"granted","✅ Завершить заявку":"completed","❌ Отменить заявку":"cancelled"}
     if text in status_actions and has_admin_access(uid):
         rid = DONATION_ADMIN_SELECTED.get(uid)
@@ -826,7 +826,7 @@ def process(uid, text):
         set_status(db,rid,st,uid)
         templ = {"paid":"💳 Оплата подтверждена","granted":"🎁 Покупка выдана","cancelled":"❌ Заявка отменена"}.get(st)
         if templ: send(r["vk_id"],TEMPLATES[templ].format(id=rid,service=r["service_title"]))
-        send(uid, (f"Статус заявки №{rid}: {STATUS[st]}\\n\\nПодтверди ручную выдачу в игре перед этим действием." if st == "granted" else f"Статус заявки №{rid}: {STATUS[st]}"),[[f"💎 Заявка #{rid}"],["💎 Донат-заявки"]]); return
+        send(uid, (f"Статус заявки №{rid}: {STATUS[st]}\n\nПодтверди ручную выдачу в игре перед этим действием." if st == "granted" else f"Статус заявки №{rid}: {STATUS[st]}"),[[f"💎 Заявка #{rid}"],["💎 Донат-заявки"]]); return
     if text.startswith("💬 Шаблон:") and has_admin_access(uid):
         rid = DONATION_ADMIN_SELECTED.get(uid); r = get_request(db,rid) if rid else None
         if not r: send(uid,"Сначала открой заявку.",[["💎 Донат-заявки"]]); return
@@ -928,7 +928,7 @@ def process(uid, text):
             lines.append("🚗 {} · ⚡ {} км/мин · 💵 {}".format(model, speed, money(price)))
             rows.append(["🚗 Купить: " + model])
         rows.extend([["🚘 Гараж"], ["🏙️ Главное меню"]])
-        send_card(uid, "\\n".join(lines), rows, key="garage")
+        send_card(uid, "\n".join(lines), rows, key="garage")
         return
     if text.startswith("🚗 Купить: "):
         model = text.split(": ", 1)[1].strip()
