@@ -16,7 +16,7 @@ class DonationRequestTests(unittest.TestCase):
         self.tmp.cleanup()
 
     def test_request_is_saved_and_status_changes(self):
-        label = "💵 500 000 игровой валюты — 99 ₽"
+        label = "💵 500 000 игровой валюты — 99 ₽ (скидка 23%)"
         request_id, message = create_request(self.db, self.user, label)
         self.assertIsNotNone(request_id)
         self.assertIn("Альфа-Банк", message)
