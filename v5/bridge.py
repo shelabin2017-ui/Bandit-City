@@ -162,28 +162,58 @@ def buy_item_quantity(db, vk_id, name, quantity):
     return reply("✅ ПОКУПКА ОФОРМЛЕНА\n\n" + item + "\n📦 Количество: " + str(quantity) + "\n💵 За штуку: " + money(price) + "\n💰 Итого: " + money(total), [["🎒 Инвентарь"], ["🛍️ Предметы"], ["🛒 Магазин"]])
 
 def inventory(db,vk_id):
-    uid=player_id_by_vk(db,vk_id); rows=db.items(uid)
-    if not rows: return reply("🎒 ИНВЕНТАРЬ LOS SANTOS\n\nКарман пуст.",[["🛒 Магазин"],["🏙️ Главное меню"]])
-    body=["🎒 ИНВЕНТАРЬ LOS SANTOS",""]; buttons=[]; actions=[]; seen_actions=set()
+    from collections import Counter
+
+    uid = player_id_by_vk(db, vk_id)
+    rows = db.items(uid)
+    if not rows:
+        return reply("🎒 ИНВЕНТАРЬ LOS SANTOS\n\nКарман пуст.", [["🛒 Магазин"], ["🏙️ Главное меню"]])
+
+    def category(name):
+        low = str(name).lower()
+        if any(word in low for word in ("бургер", "сэндвич", "вода", "энергетик", "еда", "кофе", "чай", "сок", "напит")):
+            return "🍽️ ЕДА И НАПИТКИ", 0
+        if any(word in low for word in ("бокс", "короб", "кейс")):
+            return "🎁 БОКСЫ", 1
+        if any(word in low for word in ("сырь", "материал", "деталь", "запчаст")):
+            return "🧱 МАТЕРИАЛЫ", 2
+        if any(word in low for word in ("одежд", "куртк", "кроссов", "брюк", "обув")):
+            return "👕 ОДЕЖДА", 3
+        return "📦 ПРОЧЕЕ", 4
+
+    grouped = {}
     for row in rows:
-        name=str(row["name"])
-        body += ["📦 "+name,"💵 Цена: "+money(row["price"]),""]
+        name = str(row["name"])
+        grouped.setdefault(name, {"count": 0, "price": int(row["price"]), "category": category(name)})
+        grouped[name]["count"] += 1
+
+    body = ["🎒 ИНВЕНТАРЬ LOS SANTOS", ""]
+    actions = []
+    seen_actions = set()
+    ordered = sorted(grouped.items(), key=lambda pair: (pair[1]["category"][1], pair[0].casefold()))
+    current_category = None
+    for name, item in ordered:
+        heading = item["category"][0]
+        if heading != current_category:
+            body += [heading, ""]; current_category = heading
+        body.append(f"📦 {name} ×{item['count']}")
+        body.append("💵 Цена за предмет: " + money(item["price"]))
+        body.append("")
 
         # Player-facing labels never expose internal database IDs.
-        sell_label="🗑 Продать: "+name
+        sell_label = "🗑 Продать: " + name
         if sell_label not in seen_actions:
             actions.append(sell_label); seen_actions.add(sell_label)
         if name == "🎁 Подарочный бокс" and "🎁 Открыть бокс" not in seen_actions:
             actions.append("🎁 Открыть бокс"); seen_actions.add("🎁 Открыть бокс")
-        if any(word in name.lower() for word in ("бургер","сэндвич","вода","энергетик","еда","кофе","чай","сок")):
-            label="🍽 Использовать: "+name
+        if any(word in name.lower() for word in ("бургер", "сэндвич", "вода", "энергетик", "еда", "кофе", "чай", "сок")):
+            label = "🍽 Использовать: " + name
             if label not in seen_actions:
                 actions.append(label); seen_actions.add(label)
-    # Shared VK pagination handles long keyboards without exposing row IDs.
-    for i in range(0, len(actions), 2):
-        buttons.append(actions[i:i + 2])
-    buttons += [["🛒 Магазин"],["🏙️ Главное меню"]]
-    return reply("\n".join(body),buttons)
+
+    buttons = [actions[i:i + 2] for i in range(0, len(actions), 2)]
+    buttons += [["🛒 Магазин"], ["🏙️ Главное меню"]]
+    return reply("\n".join(body), buttons)
 
 def clothing_menu():
     return reply("🧥 ОДЕЖДА LOS SANTOS\n\nПостоянные категории. Эксклюзивы выдаются отдельно.",[["🧢 Головные уборы","👕 Верх"],["👖 Брюки","🥾 Обувь"],["💍 Аксессуары","💇 Волосы"],["↩️ В магазин"],["👤 Персонаж","🏙️ Главное меню"]])
