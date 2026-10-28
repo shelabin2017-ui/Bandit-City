@@ -440,7 +440,10 @@ def show_car_card(user_id, category, index, notice=None):
     CAR_SHOWROOM_STATE[int(user_id)] = {"category": category, "index": index}
     model, speed, base_price = cars[index]
     promo = db.car_promo_status()
-    price = db.car_purchase_price(base_price)
+    price = (
+        int(base_price) * (100 - promo["discount_percent"]) // 100
+        if promo["active"] else int(base_price)
+    )
     title = {
         "common": "🚙 ОБЫЧНЫЕ АВТО",
         "sport": "🏎 СПОРТИВНЫЕ АВТО",
