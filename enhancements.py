@@ -382,7 +382,7 @@ def apply(bot):
         ]
     bot.kb_business = kb_business
 
-    def process(uid, text):
+    def process(uid, text, attachments=None):
         raw = str(text or "").strip()
         low = raw.lower()
         user = bot.db.get_or_create_user(uid)
@@ -442,6 +442,6 @@ def apply(bot):
                 # https://vk.ru/stasvolk66 work exactly like a numeric ID.
                 raw = str(target)
 
-        original_process(uid, raw)
+        original_process(uid, raw, attachments)
 
     bot.process = process
