@@ -863,7 +863,24 @@ def process(uid, text):
         return
     cats = {"🚙 Обычные": "common", "🏎 Спорт": "sport", "🔥 Суперкары": "super", "💿 Лоурайдеры": "lowrider", "🚘 Спецтранспорт": "special"}
     if text in cats:
-        send_card(uid, game.catalog(cats[text]), kb_auto(), key="garage")
+        category = cats[text]
+        cars = game.CARS.get(category, [])
+        title = {"common":"🚙 ОБЫЧНЫЕ АВТО","sport":"🏎 СПОРТ","super":"🔥 СУПЕРКАРЫ","lowrider":"💿 ЛОУРАЙДЕРЫ","special":"🚘 СПЕЦТРАНСПОРТ"}.get(category, "🚗 АВТОСАЛОН")
+        lines = [title, ""]
+        rows = []
+        for model, speed, price in cars:
+            lines.append("🚗 {} · ⚡ {} км/мин · 💵 {}".format(model, speed, money(price)))
+            rows.append(["🚗 Купить: " + model])
+        rows.extend([["🚘 Гараж"], ["🏙️ Главное меню"]])
+        send_card(uid, "\\n".join(lines), rows, key="garage")
+        return
+    if text.startswith("🚗 Купить: "):
+        model = text.split(": ", 1)[1].strip()
+        known = {car[0] for category in game.CARS.values() for car in category}
+        if model not in known:
+            send(uid, "❌ Не удалось определить автомобиль.", kb_auto())
+        else:
+            send(uid, game.buy_car(user["id"], model), kb_auto())
         return
     if text == "🚘 Гараж" or low == "/garage":
         send_card(uid, game.garage(user["id"]), kb_auto(), key="garage")
