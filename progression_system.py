@@ -11,10 +11,12 @@ DAILY_TASKS = {
     "work3": {"title": "💼 Выполни 3 рабочие смены", "target": 3, "cash": 12000, "xp": 25, "action": "work"},
     "earn50": {"title": "💵 Получи награды за рабочие смены на 50 000 $", "target": 50000, "cash": 15000, "xp": 30, "action": "earn"},
     "city2": {"title": "🎮 Выполни 2 рабочие смены", "target": 2, "cash": 10000, "xp": 20, "action": "work"},
+    "cityhelp2": {"title": "🌆 Помоги городу в 2 происшествиях", "target": 2, "cash": 9000, "xp": 15, "action": "city_help"},
 }
 WEEKLY_TASKS = {
     "work15": {"title": "💼 Выполни 15 рабочих смен", "target": 15, "cash": 85000, "xp": 150, "action": "work"},
     "earn300": {"title": "💵 Получи награды за рабочие смены на 300 000 $", "target": 300000, "cash": 100000, "xp": 180, "action": "earn"},
+    "cityhelp10": {"title": "🌆 Помоги городу в 10 происшествиях", "target": 10, "cash": 65000, "xp": 100, "action": "city_help"},
 }
 
 def parse_contract_code(text):
