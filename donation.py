@@ -82,18 +82,33 @@ def get_request(db, request_id):
         return c.execute("SELECT * FROM donation_requests WHERE id=?", (int(request_id),)).fetchone()
 
 def set_status(db, request_id, status, admin_vk):
-    if status not in {"new","awaiting","paid","granted","completed","cancelled"}:
-        return False
+    allowed = {
+        "new": {"awaiting", "cancelled"},
+        "awaiting": {"paid", "cancelled"},
+        "paid": {"granted", "cancelled"},
+        "granted": {"completed"},
+        "completed": set(),
+        "cancelled": set(),
+    }
     ensure_schema(db)
     with db.connect() as c:
-        cur = c.execute("UPDATE donation_requests SET status=?,updated_at=?,admin_vk=? WHERE id=?",
-                        (status,int(time.time()),int(admin_vk),int(request_id)))
+        row = c.execute("SELECT status FROM donation_requests WHERE id=?", (int(request_id),)).fetchone()
+        if not row or status not in allowed.get(row["status"], set()):
+            return False
+        cur = c.execute(
+            "UPDATE donation_requests SET status=?,updated_at=?,admin_vk=? WHERE id=? AND status=?",
+            (status, int(time.time()), int(admin_vk), int(request_id), row["status"]),
+        )
         return cur.rowcount > 0
 
 def list_requests(db, limit=10):
+    """Return active requests; completed/cancelled requests remain in history."""
     ensure_schema(db)
     with db.connect() as c:
-        return c.execute("SELECT * FROM donation_requests ORDER BY id DESC LIMIT ?", (int(limit),)).fetchall()
+        return c.execute(
+            "SELECT * FROM donation_requests WHERE status NOT IN ('completed','cancelled') ORDER BY id DESC LIMIT ?",
+            (int(limit),),
+        ).fetchall()
 
 STATUS = {"new":"🆕 Новая","awaiting":"🕒 Ожидает оплаты","paid":"💳 Оплата подтверждена","granted":"🎁 Выдача выполнена","completed":"✅ Завершена","cancelled":"❌ Отменена"}
 TEMPLATES = {
