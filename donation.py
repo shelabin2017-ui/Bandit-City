@@ -37,7 +37,7 @@ def ensure_schema(db):
         )""")
         c.execute("CREATE INDEX IF NOT EXISTS idx_donation_requests_status ON donation_requests(status,id)")
 
-def create_request(db, user, service_label):
+def create_request(db, user, service_label, details=''):
     ensure_schema(db)
     service = SERVICES.get(service_label)
     if not service:
@@ -48,14 +48,33 @@ def create_request(db, user, service_label):
         cur = c.execute("""INSERT INTO donation_requests
             (user_id,vk_id,nickname,service_code,service_title,price_rub,details,status,created_at,updated_at)
             VALUES(?,?,?,?,?,?,?,'new',?,?)""",
-            (int(user["id"]), int(user["vk_id"]), str(user["nickname"] or ""), code, title, price, "", now, now))
+            (int(user["id"]), int(user["vk_id"]), str(user["nickname"] or ""), code, title, price, str(details or ""), now, now))
         rid = cur.lastrowid
+    if code == "custom":
+        return rid, (
+            f"📝 ЗАЯВКА НА ИНДИВИДУАЛЬНЫЙ ЗАКАЗ №{rid}\n\n"
+            f"Описание: {details}\n\n"
+            "Администратор проверит возможность выполнения и сообщит окончательную цену. "
+            "Пока не переводи деньги: эта заявка не является счётом на оплату."
+        )
     return rid, (
         f"💎 ЗАЯВКА №{rid}\n\nУслуга: {title}\n"
         + (f"Сумма: {price} ₽\n\n" if price else "Стоимость: по договорённости\n\n")
         + PAYMENT_DETAILS + "\n\nПосле перевода нажми «💳 Я оплатил» в меню доната. "
           "Оплата будет проверена вручную администратором. Создание заявки не означает, что платёж получен."
     )
+
+def set_price(db, request_id, price, admin_vk):
+    price = int(price)
+    if price < 1 or price > 100000:
+        return False
+    ensure_schema(db)
+    with db.connect() as c:
+        cur = c.execute(
+            "UPDATE donation_requests SET price_rub=?,updated_at=?,admin_vk=? WHERE id=? AND service_code='custom' AND status='new'",
+            (price, int(time.time()), int(admin_vk), int(request_id)),
+        )
+        return cur.rowcount > 0
 
 def get_request(db, request_id):
     ensure_schema(db)
