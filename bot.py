@@ -714,7 +714,7 @@ def _incoming_photo_attachments(attachments):
 
         # Some vk_api versions expose the message object, raw update, or an
         # attachments list instead of the flat attachN keys.
-        for key in ("attachments", "items", "object", "raw", "message"):
+        for key in ("attachments", "items", "object", "raw", "message", "data", "extra"):
             if key in value:
                 walk(value[key], depth + 1)
 
@@ -1667,6 +1667,8 @@ def main():
                                 "attachments": getattr(event, "attachments", None),
                                 "object": getattr(event, "object", None),
                                 "raw": getattr(event, "raw", None),
+                                "data": getattr(event, "data", None),
+                                "extra": getattr(event, "extra", None),
                             },
                         )
                 except Exception:
