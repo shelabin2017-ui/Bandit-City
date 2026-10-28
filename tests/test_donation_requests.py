@@ -24,15 +24,24 @@ class DonationRequestTests(unittest.TestCase):
         request = get_request(self.db, request_id)
         self.assertEqual(request["service_code"], SERVICES[label][0])
         self.assertEqual(request["status"], "new")
+        self.assertFalse(set_status(self.db, request_id, "paid", 700001))
+        self.assertTrue(set_status(self.db, request_id, "awaiting", 700001))
         self.assertTrue(set_status(self.db, request_id, "paid", 700001))
-        self.assertEqual(get_request(self.db, request_id)["status"], "paid")
-        self.assertEqual(len(list_requests(self.db)), 1)
+        self.assertTrue(set_status(self.db, request_id, "granted", 700001))
+        self.assertTrue(set_status(self.db, request_id, "completed", 700001))
+        self.assertEqual(get_request(self.db, request_id)["status"], "completed")
+        self.assertEqual(len(list_requests(self.db)), 0)
 
     def test_unknown_service_and_invalid_status_are_rejected(self):
         request_id, message = create_request(self.db, self.user, "unknown")
         self.assertIsNone(request_id)
         self.assertIn("Неизвестная услуга", message)
         self.assertFalse(set_status(self.db, 1, "made_up", 700001))
+        label = "💵 500 000 игровой валюты — 99 ₽ (скидка 23%)"
+        request_id, _ = create_request(self.db, self.user, label)
+        self.assertTrue(set_status(self.db, request_id, "cancelled", 700001))
+        self.assertFalse(set_status(self.db, request_id, "awaiting", 700001))
+        self.assertEqual(list_requests(self.db), [])
 
 
     def test_custom_order_waits_for_admin_price(self):
@@ -48,6 +57,12 @@ class DonationRequestTests(unittest.TestCase):
         self.assertEqual(get_request(self.db, request_id)["price_rub"], 299)
         self.assertFalse(set_price(self.db, request_id, 0, 700001))
         self.assertFalse(set_price(self.db, request_id, 100001, 700001))
+        self.assertTrue(set_status(self.db, request_id, "awaiting", 700001))
+        self.assertTrue(set_status(self.db, request_id, "paid", 700001))
+        self.assertTrue(set_status(self.db, request_id, "granted", 700001))
+        self.assertTrue(set_status(self.db, request_id, "completed", 700001))
+        self.assertFalse(set_price(self.db, request_id, 499, 700001))
+        self.assertEqual(list_requests(self.db), [])
 
 
 if __name__ == "__main__":
