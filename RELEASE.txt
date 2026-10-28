@@ -1,5 +1,5 @@
 BANDIT CITY RELEASE
-Build: 2026-10-28.6
-Announcement: В автосалоне добавлена навигация по одной машине за раз и акция −20% на все автомобили сроком 72 часа с сохранением срока после перезапуска; исправлена обработка рассылки; в автосалоне доступны кнопки покупки автомобилей; количество бизнесов зависит от уровня (максимум пять); добавлен каталог поддержки с ручными заявками и проверкой оплаты администратором. Инвентарь теперь сгруппирован по типам предметов, отсортирован по категориям и показывает количество одинаковых предметов без внутренних ID. Автоматическая диагностика проверяет целостность БД и восстанавливает только недостающую схему безопасным способом.
+Build: 2026-10-28.7
+Announcement: Вышло обновление игры. В проект добавлено памятное обращение в честь Стаса и просьба почтить его память минутой молчания. Также продолжаем исправлять ошибки и улучшать игровые механики.
 Deployment: VPS downloads the verified bandit-city-release.zip from GitHub Releases. The manual deploy script backs up the live project, preserves .env and bandit.db, tests before restart, and rolls back on failure.
 Safety: Preserve the existing .env and bandit.db. The updater backs up the project and removes files introduced by an unsuccessful update during rollback.
