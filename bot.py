@@ -1305,7 +1305,7 @@ def process(uid, text, attachments=None):
     if text.startswith("🎪 "):
         title = text[3:].strip()
         for key, event in v5.EVENTS.items():
-            if event["title"] == title and key in __import__("catalog").active_events():
+            if event["title"] == title and key in __import__("event_announcer").active_events(db):
                 msg, buttons = v5.participate_event(db, uid, key)
                 send_card(uid, msg, buttons)
                 return

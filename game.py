@@ -60,7 +60,8 @@ class Game:
     def record_event_action(self,uid,action,amount=1):
         """Count actions only while a matching time-limited event is active."""
         from catalog import active_events
-        for event in active_events().values():
+        from event_announcer import active_events as runtime_active_events
+        for event in runtime_active_events(self.db).values():
             if event.get("goal_action") == action and event.get("goal_code"):
                 self.db.mission_add(uid,event["goal_code"],amount)
 
@@ -388,12 +389,54 @@ class Game:
             return "ℹ️ Этот предмет нельзя использовать как еду или напиток."
         return f"✅ ИСПОЛЬЗОВАНО: {name}\n\n{effect}"
 
-    def city_events(self,uid):
-        self.db.city_event_seed()
-        rows=self.db.city_event_list()
-        if not rows:
-            return "🌆 СОБЫТИЯ\n\nСегодня город спокоен."
-        return "🌆 СОБЫТИЯ ГОРОДА\n\n"+"\n\n".join(f"{r['title']}\n{r['description']}" for r in rows)
+    def city_events(self, uid):
+        import datetime
+        from catalog import EVENTS
+        from event_announcer import active_events, event_overrides
+
+        now = datetime.datetime.now(datetime.timezone.utc)
+        overrides = event_overrides(self.db)
+        active = active_events(self.db, now)
+        lines = ["🌆 СОБЫТИЯ ГОРОДА", ""]
+        if active:
+            lines.append("🔥 СЕЙЧАС ПРОХОДЯТ")
+            for code, event in active.items():
+                lines.extend([str(event.get("title") or code), str(event.get("description") or "Городское событие активно.")])
+                goal = event.get("goal_label")
+                if goal:
+                    lines.append("🎯 Цель: " + str(goal))
+                end_at = event.get("end_at")
+                if end_at:
+                    try:
+                        end = datetime.datetime.fromisoformat(str(end_at).replace("Z", "+00:00"))
+                        lines.append("⏳ До: " + end.strftime("%d.%m.%Y %H:%M UTC"))
+                    except ValueError:
+                        pass
+                lines.extend(["🎁 Участвуй, пока событие активно.", ""])
+        upcoming = []
+        for code, event in EVENTS.items():
+            if overrides.get(code) == "off" or code in active or overrides.get(code) == "on":
+                continue
+            start_at = event.get("start_at")
+            if not start_at:
+                continue
+            try:
+                start = datetime.datetime.fromisoformat(str(start_at).replace("Z", "+00:00"))
+            except ValueError:
+                continue
+            if start > now:
+                upcoming.append((start, code, event))
+        upcoming.sort(key=lambda item: item[0])
+        if upcoming:
+            lines.extend(["🕒 СКОРО"])
+            for start, code, event in upcoming[:3]:
+                lines.append("{} — старт {}".format(event.get("title") or code, start.strftime("%d.%m.%Y %H:%M UTC")))
+                lines.append(str(event.get("description") or "Подробности появятся ближе к началу."))
+                lines.append("")
+        if not active and not upcoming:
+            lines.append("Пока нет запланированных событий. Следи за новостями города.")
+        lines.append("📢 Анонсы о старте и ежедневные сообщения приходят автоматически.")
+        return "\\n".join(lines).strip()
 
     def profile(self, uid):
         u=self.db.user(uid)

@@ -115,11 +115,17 @@ def _event_is_active(event, now=None):
     return True
 
 
-def active_events(now=None):
-    return {
-        key: event for key, event in EVENTS.items()
-        if _event_is_active(event, now)
-    }
+def active_events(now=None, overrides=None):
+    """Return scheduled events, honoring explicit admin overrides (on/off)."""
+    overrides = overrides or {}
+    result = {}
+    for key, event in EVENTS.items():
+        override = str(overrides.get(key, "")).strip().lower()
+        if override in {"off", "0", "false"}:
+            continue
+        if override in {"on", "1", "true"} or _event_is_active(event, now):
+            result[key] = event
+    return result
 
 
 def event_catalog(event_key, active_only=False, now=None):
