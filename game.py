@@ -443,7 +443,7 @@ class Game:
         if not active and not upcoming:
             lines.append("Пока нет запланированных крупных ивентов — следи за городской лентой.")
         lines.extend(["📣 Важные старты объявляются игрокам автоматически.", "🗞️ Лента меняется в течение дня; возвращайся за новыми происшествиями."])
-        return "\\n".join(lines).strip()
+        return "\n".join(lines).strip()
 
     def profile(self, uid):
         u=self.db.user(uid)
