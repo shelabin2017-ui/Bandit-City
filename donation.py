@@ -1,4 +1,5 @@
 """Manual donation/order requests for Bandit City. No payment automation."""
+import secrets
 import time
 
 # Стартовые скидки для молодого проекта. В подписи указана реальная скидка
@@ -45,7 +46,20 @@ def ensure_schema(db):
             updated_at INTEGER NOT NULL,
             admin_vk INTEGER
         )""")
+        columns = {row["name"] for row in c.execute("PRAGMA table_info(donation_requests)").fetchall()}
+        if "request_code" not in columns:
+            c.execute("ALTER TABLE donation_requests ADD COLUMN request_code TEXT")
         c.execute("CREATE INDEX IF NOT EXISTS idx_donation_requests_status ON donation_requests(status,id)")
+        # Backfill legacy requests without changing their internal numeric IDs.
+        rows = c.execute("SELECT id FROM donation_requests WHERE request_code IS NULL OR request_code=''").fetchall()
+        for row in rows:
+            while True:
+                code = "BC-{}".format(secrets.randbelow(9000) + 1000)
+                exists = c.execute("SELECT 1 FROM donation_requests WHERE request_code=?", (code,)).fetchone()
+                if not exists:
+                    c.execute("UPDATE donation_requests SET request_code=? WHERE id=?", (code, int(row["id"])))
+                    break
+        c.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_donation_requests_code ON donation_requests(request_code)")
 
 def create_request(db, user, service_label, details=''):
     ensure_schema(db)
@@ -60,15 +74,21 @@ def create_request(db, user, service_label, details=''):
             VALUES(?,?,?,?,?,?,?,'new',?,?)""",
             (int(user["id"]), int(user["vk_id"]), str(user["nickname"] or ""), code, title, price, str(details or ""), now, now))
         rid = cur.lastrowid
+        while True:
+            public_code = "BC-{}".format(secrets.randbelow(9000) + 1000)
+            exists = c.execute("SELECT 1 FROM donation_requests WHERE request_code=?", (public_code,)).fetchone()
+            if not exists:
+                c.execute("UPDATE donation_requests SET request_code=? WHERE id=?", (public_code, rid))
+                break
     if code == "custom":
         return rid, (
-            f"📝 ЗАЯВКА НА ИНДИВИДУАЛЬНЫЙ ЗАКАЗ №{rid}\n\n"
+            f"📝 ЗАЯВКА НА ИНДИВИДУАЛЬНЫЙ ЗАКАЗ {public_code}\n\n"
             f"Описание: {details}\n\n"
             "Администратор проверит возможность выполнения и сообщит окончательную цену. "
             "Пока не переводи деньги: эта заявка не является счётом на оплату."
         )
     return rid, (
-        f"💎 ЗАЯВКА №{rid}\n\nУслуга: {title}\n"
+        f"💎 ЗАЯВКА {public_code}\n\nУслуга: {title}\n"
         + (f"Сумма: {price} ₽\n\n" if price else "Стоимость: по договорённости\n\n")
         + PAYMENT_DETAILS + "\n\nПосле перевода нажми «💳 Я оплатил» в меню доната. "
           "Оплата будет проверена вручную администратором. Создание заявки не означает, что платёж получен."
@@ -90,6 +110,13 @@ def get_request(db, request_id):
     ensure_schema(db)
     with db.connect() as c:
         return c.execute("SELECT * FROM donation_requests WHERE id=?", (int(request_id),)).fetchone()
+
+
+def public_request_code(request):
+    """Human-facing unique code; keep numeric id for internal callbacks and database links."""
+    if not request:
+        return "BC-????"
+    return str(request["request_code"] or "BC-{:04d}".format(int(request["id"]) % 9000 + 1000))
 
 def set_status(db, request_id, status, admin_vk):
     allowed = {

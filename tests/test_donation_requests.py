@@ -3,7 +3,7 @@ import tempfile
 import unittest
 
 from db import Database
-from donation import SERVICES, create_request, get_request, list_requests, set_status, set_price, resolve_service_label
+from donation import SERVICES, create_request, get_request, list_requests, set_status, set_price, resolve_service_label, public_request_code
 
 
 class DonationRequestTests(unittest.TestCase):
@@ -29,6 +29,8 @@ class DonationRequestTests(unittest.TestCase):
         request = get_request(self.db, request_id)
         self.assertEqual(request["service_code"], SERVICES[label][0])
         self.assertEqual(request["status"], "new")
+        self.assertRegex(request["request_code"], r"^BC-\d{4}$")
+        self.assertEqual(public_request_code(request), request["request_code"])
         self.assertFalse(set_status(self.db, request_id, "paid", 700001))
         self.assertTrue(set_status(self.db, request_id, "awaiting", 700001))
         self.assertTrue(set_status(self.db, request_id, "paid", 700001))
@@ -55,6 +57,7 @@ class DonationRequestTests(unittest.TestCase):
         self.assertIsNotNone(request_id)
         self.assertIn("не является счётом на оплату", message)
         self.assertNotIn("Альфа-Банк", message)
+        self.assertIn(public_request_code(get_request(self.db, request_id)), message)
         request = get_request(self.db, request_id)
         self.assertEqual(request["service_code"], "custom")
         self.assertEqual(request["price_rub"], 0)
