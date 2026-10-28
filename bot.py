@@ -669,35 +669,57 @@ def execute_broadcast(uid, message):
         [[role_ui.main_button(uid) or "👑 Админ-панель"]],
     )
 def _incoming_photo_attachments(attachments):
-    """Extract VK photo attachment identifiers from Long Poll event metadata."""
+    """Extract VK photo attachment IDs from vk_api Long Poll payload variants."""
     photos = []
-    if not isinstance(attachments, dict):
-        return photos
-    # vk_api Long Poll normally exposes attachN_type / attachN / attachN_access_key.
-    for key, value in attachments.items():
-        if not key.endswith("_type") or value != "photo":
-            continue
-        prefix = key[:-5]
-        photo = attachments.get(prefix)
-        if not photo:
-            continue
-        access_key = attachments.get(prefix + "_access_key")
-        if isinstance(photo, str) and photo.startswith("photo"):
-            attachment = photo
-            if access_key and "_" in photo:
-                attachment = photo + "_" + str(access_key)
+    seen = set()
+
+    def add(value, access_key=None):
+        if not isinstance(value, str) or not value.startswith("photo"):
+            return
+        attachment = value
+        if access_key and "_" not in value.rsplit("photo", 1)[-1]:
+            attachment += "_" + str(access_key)
+        if attachment not in seen:
+            seen.add(attachment)
             photos.append(attachment)
-    # Also support normalized attachment dictionaries used by other VK API wrappers.
-    for item in attachments.get("items", []) if isinstance(attachments.get("items"), list) else []:
-        if isinstance(item, dict) and item.get("type") == "photo":
-            p = item.get("photo") or {}
-            owner_id, photo_id = p.get("owner_id"), p.get("id")
-            if owner_id is not None and photo_id is not None:
-                attachment = "photo{}_{}".format(owner_id, photo_id)
-                if p.get("access_key"):
-                    attachment += "_" + str(p["access_key"])
-                photos.append(attachment)
-    return list(dict.fromkeys(photos))
+
+    def walk(value, depth=0):
+        if depth > 8:
+            return
+        if isinstance(value, str):
+            add(value)
+            return
+        if isinstance(value, (list, tuple)):
+            for item in value:
+                walk(item, depth + 1)
+            return
+        if not isinstance(value, dict):
+            return
+
+        # Raw VK Long Poll metadata: attachN_type=photo, attachN=photoOWNER_ID.
+        for key, kind in value.items():
+            if isinstance(key, str) and key.endswith("_type") and kind == "photo":
+                prefix = key[:-5]
+                add(value.get(prefix), value.get(prefix + "_access_key"))
+
+        # Normalized API shape: {"type":"photo","photo":{"owner_id":..,"id":..}}.
+        if value.get("type") == "photo":
+            photo = value.get("photo") or {}
+            if isinstance(photo, dict):
+                owner_id, photo_id = photo.get("owner_id"), photo.get("id")
+                if owner_id is not None and photo_id is not None:
+                    add("photo{}_{}".format(owner_id, photo_id), photo.get("access_key"))
+            elif isinstance(photo, str):
+                add(photo, value.get("access_key"))
+
+        # Some vk_api versions expose the message object, raw update, or an
+        # attachments list instead of the flat attachN keys.
+        for key in ("attachments", "items", "object", "raw", "message"):
+            if key in value:
+                walk(value[key], depth + 1)
+
+    walk(attachments)
+    return photos
 
 
 def process(uid, text, attachments=None):
@@ -1638,7 +1660,15 @@ def main():
             for event in longpoll.listen():
                 try:
                     if event.type == VkEventType.MESSAGE_NEW and event.to_me:
-                        process(event.user_id, event.text or "", getattr(event, "attachments", None))
+                        process(
+                            event.user_id,
+                            event.text or "",
+                            {
+                                "attachments": getattr(event, "attachments", None),
+                                "object": getattr(event, "object", None),
+                                "raw": getattr(event, "raw", None),
+                            },
+                        )
                 except Exception:
                     logging.exception("Ошибка обработки сообщения")
         except Exception:
