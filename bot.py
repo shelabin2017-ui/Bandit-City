@@ -565,7 +565,7 @@ def process_input(uid, text):
             send(uid, msg, [["💎 Поддержать проект"], ["🏙️ Главное меню"]])
             for aid in ADMIN_IDS:
                 try:
-                    send(aid, "📝 ИНДИВИДУАЛЬНЫЙ ЗАКАЗ №{}\\nИгрок VK {}\\nОписание: {}\\n\\nНазначь цену после проверки заказа.".format(rid, uid, details), [[f"💎 Заявка #{rid}"], ["💎 Донат-заявки"]])
+                    send(aid, "📝 ИНДИВИДУАЛЬНЫЙ ЗАКАЗ №{}\nИгрок VK {}\nОписание: {}\n\nНазначь цену после проверки заказа.".format(rid, uid, details), [[f"💎 Заявка #{rid}"], ["💎 Донат-заявки"]])
                 except Exception:
                     logging.exception("Custom donation admin notification failed")
             return True
@@ -582,7 +582,7 @@ def process_input(uid, text):
                 send(uid, "Не удалось назначить цену. Цена должна быть от 1 до 100000 ₽, заявка — новый индивидуальный заказ.", [[f"💎 Заявка #{rid}"], ["💎 Донат-заявки"]])
                 return True
             r = get_request(db, rid)
-            send(r["vk_id"], "💎 По индивидуальному заказу №{} согласована цена: {} ₽.\\n\\n{}\\n\\nПосле перевода нажми «💳 Я оплатил». Оплата будет проверена администратором.".format(rid, price, PAYMENT_DETAILS), [["💳 Я оплатил"], ["💎 Поддержать проект"], ["🏙️ Главное меню"]])
+            send(r["vk_id"], "💎 По индивидуальному заказу №{} согласована цена: {} ₽.\n\n{}\n\nПосле перевода нажми «💳 Я оплатил». Оплата будет проверена администратором.".format(rid, price, PAYMENT_DETAILS), [["💳 Я оплатил"], ["💎 Поддержать проект"], ["🏙️ Главное меню"]])
             send(uid, "Цена {} ₽ назначена для заявки №{}. Игроку отправлены реквизиты.".format(price, rid), [[f"💎 Заявка #{rid}"], ["💎 Донат-заявки"]])
             return True
     except (ValueError, IndexError):
@@ -820,7 +820,7 @@ def process(uid, text):
         return
     if text in SERVICES and SERVICES[text][0] == "custom":
         set_state(uid, "donation_custom_details", service_label=text)
-        send(uid, "📝 ИНДИВИДУАЛЬНЫЙ ЗАКАЗ\\n\\nОпиши, что именно хочешь получить. Администратор проверит возможность выполнения и назначит цену. Не переводи деньги до согласования цены.\\n\\nОт 5 до 1000 символов.", [["❌ Отмена"]])
+        send(uid, "📝 ИНДИВИДУАЛЬНЫЙ ЗАКАЗ\n\nОпиши, что именно хочешь получить. Администратор проверит возможность выполнения и назначит цену. Не переводи деньги до согласования цены.\n\nОт 5 до 1000 символов.", [["❌ Отмена"]])
         return
     if text in SERVICES:
         rid, msg = create_request(db, user, text)
@@ -855,8 +855,8 @@ def process(uid, text):
         if r["service_code"] == "custom" and r["status"] == "new" and not r["price_rub"]:
             rows.append(["💰 Назначить цену"])
         rows += [["💬 Шаблон: заявка","💬 Шаблон: ожидание"],["💬 Шаблон: оплачено","💬 Шаблон: выдано"],["💬 Шаблон: отмена"],["💎 Донат-заявки"]]
-        details = "\\nОписание: {}".format(r["details"]) if r["service_code"] == "custom" else ""
-        send(uid,"ЗАЯВКА №{}\\nVK {} • {}\\n{} • {} ₽{}\\nСтатус: {}".format(rid,r["vk_id"],r["nickname"],r["service_title"],r["price_rub"] or "договорная",details,STATUS.get(r["status"],r["status"])),rows); return
+        details = "\nОписание: {}".format(r["details"]) if r["service_code"] == "custom" else ""
+        send(uid,"ЗАЯВКА №{}\nVK {} • {}\n{} • {} ₽{}\nСтатус: {}".format(rid,r["vk_id"],r["nickname"],r["service_title"],r["price_rub"] or "договорная",details,STATUS.get(r["status"],r["status"])),rows); return
     if text == "💰 Назначить цену" and has_admin_access(uid):
         rid = DONATION_ADMIN_SELECTED.get(uid)
         r = get_request(db, rid) if rid else None
