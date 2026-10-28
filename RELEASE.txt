@@ -1,5 +1,5 @@
 BANDIT CITY RELEASE
-Build: 2026-10-28.9
-Announcement: Исправлено резервное копирование при обновлении работающего бота: предупреждение tar о файле, изменившемся во время чтения, больше не обрывает установку без проверки архива. Перед обновлением проверяются целостность резервной копии и наличие .env, bandit.db и run.py.
+Build: 2026-10-28.10
+Announcement: Исправлено резервное копирование при обновлении работающего бота: предупреждение tar о файле, изменившемся во время чтения, больше не обрывает установку без проверки архива; проверка списка файлов не зависит от конвейера grep. Перед обновлением проверяются целостность резервной копии и наличие .env, bandit.db и run.py.
 Deployment: VPS downloads the verified bandit-city-release.zip from GitHub Releases. The deploy script preserves .env, bandit.db, and .venv, tests before restart, and rolls back on failure.
 Safety: No destructive retry is required. Validate the backup before changing live files.
