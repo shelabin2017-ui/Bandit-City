@@ -1101,7 +1101,7 @@ def process(uid, text, attachments=None):
     if text in ("📊 Мой статус", "🍔 Потребности"):
         send(uid, game.status(user["id"]), [["🎒 Инвентарь"],["🛒 Магазин"],["🌆 События города"],["🏙️ Главное меню"]]); return
     if text == "🌆 События города":
-        send(uid, game.city_events(user["id"]), [["📊 Мой статус"],["🏙️ Главное меню"]]); return
+        send(uid, game.city_events(user["id"]), [["🤝 Помочь городу"],["📊 Мой статус"],["🏙️ Главное меню"]]); return
     if text == "🤝 Помочь городу":
         msg, buttons = game.city_incident_action(user["id"])
         send(uid, msg, buttons); return
