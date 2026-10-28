@@ -5,6 +5,8 @@ source, deletes player data, or attempts to rewrite a corrupt database.
 """
 import logging
 import time
+import json
+import datetime
 
 REQUIRED_TABLES = {
     "users", "settings", "businesses", "cars", "items", "city_events",
@@ -61,12 +63,48 @@ def run_diagnostics(db):
         return {"ok": False, "repaired": False, "reason": "diagnostics_exception", "detail": str(exc)[:300]}
 
 
+def _read_current_status(db):
+    try:
+        raw = db.get_setting("diagnostics_current_status", "{}")
+        value = json.loads(raw or "{}")
+        return value if isinstance(value, dict) else {}
+    except Exception:
+        return {}
+
+
+def _write_current_status(db, result):
+    checked_at = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    status = {
+        "ok": bool(result.get("ok")),
+        "checked_at": checked_at,
+        "reason": "" if result.get("ok") else str(result.get("reason", "unknown")),
+        "detail": "" if result.get("ok") else str(result.get("detail", result))[:300],
+        "repaired": bool(result.get("repaired")),
+    }
+    # Keep only the CURRENT state. A successful check clears the active error report.
+    db.set_setting("diagnostics_current_status", json.dumps(status, ensure_ascii=False))
+    return status
+
+
 def diagnostics_worker(db, interval_seconds=300):
-    """Run checks immediately, then every five minutes by default."""
+    """Run checks; log transitions, and clear the current issue after a healthy check."""
+    previous_ok = None
     while True:
         result = run_diagnostics(db)
+        previous = _read_current_status(db)
+        try:
+            status = _write_current_status(db, result)
+        except Exception:
+            status = {"ok": bool(result.get("ok")), "reason": result.get("reason", "status_storage_failed")}
+            logging.exception("Auto-diagnostics: could not update current status")
         if result.get("ok"):
-            logging.info("Auto-diagnostics: OK (repaired=%s)", result.get("repaired", False))
+            if previous_ok is False or previous.get("ok") is False:
+                logging.info("Auto-diagnostics: RECOVERED; previous active error report cleared.")
+            elif previous_ok is None:
+                logging.info("Auto-diagnostics: OK (repaired=%s)", result.get("repaired", False))
+            previous_ok = True
         else:
-            logging.error("Auto-diagnostics: ATTENTION REQUIRED: %s", result)
+            if previous_ok is not False:
+                logging.error("Auto-diagnostics: ATTENTION REQUIRED: %s", status)
+            previous_ok = False
         time.sleep(max(30, int(interval_seconds)))
