@@ -65,9 +65,16 @@ def buy_business(db, user_id, code):
         ).fetchone()
         if existing:
             return "❌ Этот бизнес у тебя уже есть."
-        user = c.execute("SELECT balance FROM users WHERE id=?", (user_id,)).fetchone()
+        user = c.execute("SELECT balance,level FROM users WHERE id=?", (user_id,)).fetchone()
         if not user:
             return "❌ Игрок не найден."
+        # Уровень определяет общее число бизнесов, включая старый аэропорт.
+        legacy = c.execute("SELECT 1 FROM businesses WHERE user_id=?", (user_id,)).fetchone()
+        portfolio_count = c.execute("SELECT COUNT(*) FROM business_portfolio WHERE user_id=?", (user_id,)).fetchone()[0]
+        owned_count = int(portfolio_count) + (1 if legacy else 0)
+        business_limit = min(5, max(1, int(user["level"] or 1)))
+        if owned_count >= business_limit:
+            return f"🔒 Лимит бизнеса: {owned_count}/{business_limit}. Повышай уровень, чтобы открыть дополнительные слоты (максимум 5)."
         if int(user["balance"]) < item["price"]:
             return f"❌ Не хватает денег. Цена: {money(item['price'])}."
         now = int(time.time())
