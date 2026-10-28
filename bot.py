@@ -1208,6 +1208,9 @@ def process(uid, text):
 
         handled, response, rows = admin.handle(uid, text)
         if handled:
+            # Internal broadcast marker must be executed, never shown as a chat message.
+            if response.startswith("__BROADCAST_EXEC__|"):
+                execute_broadcast(uid, response.split("|", 1)[1]); return
             if response == "__MAIN__":
                 send_card(uid, "🏙 Главное меню", main_kb(uid)); return
             send_card(uid, response, rows); return
