@@ -1,6 +1,8 @@
 """Persistent one-time memorial announcement for Bandit City."""
 import logging
 import time
+from pathlib import Path
+import requests
 from datetime import datetime, time as wall_time
 from zoneinfo import ZoneInfo
 
@@ -24,15 +26,46 @@ MEMORIAL_HOUR = 21
 MEMORIAL_MINUTE = 33
 
 
+def _upload_memorial_photo(vk, group_id):
+    """Upload the committed memorial poster to VK messages and return its attachment ID."""
+    photo_path = Path(__file__).resolve().parent / "IMG_0874.png"
+    if not photo_path.is_file():
+        raise FileNotFoundError("Memorial photo is missing from release: " + str(photo_path))
+    upload_info = vk.photos.getMessagesUploadServer(group_id=int(group_id))
+    with photo_path.open("rb") as photo_file:
+        response = requests.post(
+            upload_info["upload_url"],
+            files={"photo": (photo_path.name, photo_file, "image/png")},
+            timeout=60,
+        )
+    response.raise_for_status()
+    uploaded = response.json()
+    saved = vk.photos.saveMessagesPhoto(
+        photo=uploaded["photo"],
+        server=uploaded["server"],
+        hash=uploaded["hash"],
+        group_id=int(group_id),
+    )
+    if not saved:
+        raise RuntimeError("VK did not return a saved memorial photo")
+    item = saved[0]
+    attachment = "photo{}_{}".format(item["owner_id"], item["id"])
+    if item.get("access_key"):
+        attachment += "_" + item["access_key"]
+    return attachment
+
+
 def announce_memorial(db, vk, group_id):
-    """Send a persistent, resumable memorial announcement to eligible players."""
+    """Send a persistent, resumable memorial announcement with the poster attached."""
     try:
+        attachment = _upload_memorial_photo(vk, group_id)
         result = announce_release(
             db,
             vk,
             group_id,
             MEMORIAL_RELEASE_ID,
             MEMORIAL_MESSAGE,
+            attachment=attachment,
         )
         logging.info("Stas memorial announcement finished: %s", result)
         return result
