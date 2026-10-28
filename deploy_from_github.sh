@@ -48,10 +48,21 @@ rsync -a "$TMP_DIR/source/" "$APP_DIR/" \
   --exclude='.git/' --exclude='.env' --exclude='bandit.db' --exclude='.venv/' \
   --exclude='__pycache__/' --exclude='*.pyc' --exclude='*.db' --exclude='*.sqlite*'
 
+restore_project() {
+  # Restore the exact previous file set, removing files introduced by a failed update.
+  mkdir -p "$TMP_DIR/restore"
+  tar -xzf "$BACKUP_DIR/project.tar.gz" -C "$TMP_DIR/restore"
+  rsync -a --delete "$TMP_DIR/restore/" "$APP_DIR/" \
+    --exclude='.git/' --exclude='.env' --exclude='bandit.db' --exclude='.venv/' \
+    --exclude='__pycache__/' --exclude='*.pyc' --exclude='*.db' --exclude='*.sqlite*'
+  [[ ! -f "$BACKUP_DIR/.env" ]] || cp -a "$BACKUP_DIR/.env" "$APP_DIR/.env"
+  [[ ! -f "$BACKUP_DIR/bandit.db" ]] || cp -a "$BACKUP_DIR/bandit.db" "$APP_DIR/bandit.db"
+}
+
 PYTHON="$APP_DIR/.venv/bin/python"
 if [[ ! -x "$PYTHON" ]]; then
   echo "ERROR: project virtualenv not found at $PYTHON; restoring previous project." >&2
-  tar -xzf "$BACKUP_DIR/project.tar.gz" -C "$APP_DIR"
+  restore_project
   exit 1
 fi
 
@@ -60,9 +71,7 @@ rollback() {
   trap - ERR
   echo "ERROR: update validation/startup failed (exit $code). Rolling back project files and runtime database/config backup." >&2
   systemctl stop "$SERVICE" >/dev/null 2>&1 || true
-  tar -xzf "$BACKUP_DIR/project.tar.gz" -C "$APP_DIR" || true
-  [[ ! -f "$BACKUP_DIR/.env" ]] || cp -a "$BACKUP_DIR/.env" "$APP_DIR/.env"
-  [[ ! -f "$BACKUP_DIR/bandit.db" ]] || cp -a "$BACKUP_DIR/bandit.db" "$APP_DIR/bandit.db"
+  restore_project || true
   if [[ "$HAD_SERVICE" -eq 1 ]]; then systemctl start "$SERVICE" || true; fi
   exit "$code"
 }
