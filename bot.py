@@ -323,6 +323,20 @@ def kb_more(uid=None):
     return rows
 
 
+def donation_admin_ids():
+    """Return legacy admins plus staff accounts with economy-management access."""
+    recipients = set(ADMIN_IDS)
+    try:
+        recipients.update(
+            int(staff.vk_id)
+            for staff in roles.staff()
+            if int(staff.role) >= 20
+        )
+    except Exception:
+        logging.exception("Не удалось получить список сотрудников для уведомлений о донате")
+    return recipients
+
+
 def has_admin_access(uid):
     return int(uid) in ADMIN_IDS or roles.has(uid, "economy.manage")
 
@@ -564,7 +578,7 @@ def process_input(uid, text):
                 send(uid, msg, [["💎 Поддержать проект"], ["🏙️ Главное меню"]])
                 return True
             send(uid, msg, [["💎 Поддержать проект"], ["🏙️ Главное меню"]])
-            for aid in ADMIN_IDS:
+            for aid in donation_admin_ids():
                 try:
                     send(aid, "📝 ИНДИВИДУАЛЬНЫЙ ЗАКАЗ №{}\nИгрок VK {}\nОписание: {}\n\nНазначь цену после проверки заказа.".format(rid, uid, details), [[f"💎 Заявка #{rid}"], ["💎 Донат-заявки"]])
                 except Exception:
@@ -830,7 +844,7 @@ def process(uid, text):
         rid, msg = create_request(db, user, text)
         if rid:
             send(uid, msg + "\n\n⚠️ ВАЖНО ПРИ ОПЛАТЕ\n1. В назначении платежа обязательно укажи, за какую услугу Bandit City платишь: «" + SERVICES[text][1] + "» (заявка №" + str(rid) + ").\n2. После перевода обязательно пришли в этот чат скриншот или чек успешной оплаты. На скриншоте должны быть видны сумма, дата и статус платежа; можешь закрыть лишние личные данные.\n3. Затем нажми «💳 Я оплатил». Администрация вручную проверит перевод и чек. Одного нажатия кнопки недостаточно для подтверждения оплаты.", [["💳 Я оплатил"], ["💎 Поддержать проект"], ["🏙️ Главное меню"]])
-            for aid in ADMIN_IDS:
+            for aid in donation_admin_ids():
                 try: send(aid, f"💎 Заявка №{rid}\nИгрок VK {uid}: {SERVICES[text][1]}\nСумма: {SERVICES[text][2] or 'договорная'} ₽", [["💎 Донат-заявки"], ["👑 Админ-панель"]])
                 except Exception: logging.exception("Donation admin notification failed")
         return
@@ -846,7 +860,7 @@ def process(uid, text):
             send(uid, "Не удалось подтвердить цену. Обратись к администрации.", [["💎 Поддержать проект"], ["🏙️ Главное меню"]]); return
         from donation import PAYMENT_DETAILS
         send(uid, f"✅ Цена по заказу №{rid} принята: {r['price_rub']} ₽.\\n\\n{PAYMENT_DETAILS}\\n\\n⚠️ ВАЖНО ПРИ ОПЛАТЕ\\n1. В назначении платежа обязательно укажи: «Индивидуальный заказ Bandit City №{rid}».\\n2. После перевода обязательно пришли в этот чат скриншот или чек успешной оплаты. На нём должны быть видны сумма, дата и статус платежа; лишние личные данные можешь закрыть.\\n3. Затем нажми «💳 Я оплатил». Администрация вручную проверит перевод и чек. Одного нажатия кнопки недостаточно для подтверждения оплаты.", [["💳 Я оплатил"], ["💎 Поддержать проект"], ["🏙️ Главное меню"]])
-        for aid in ADMIN_IDS:
+        for aid in donation_admin_ids():
             send(aid, f"✅ Игрок VK {uid} согласился с ценой {r['price_rub']} ₽ по заказу №{rid}. Ожидается оплата.", [["💎 Донат-заявки"], ["👑 Админ-панель"]])
         return
     if text.startswith("❌ Не согласен с ценой по заказу №"):
@@ -860,7 +874,7 @@ def process(uid, text):
         if not set_status(db, rid, "cancelled", 0):
             send(uid, "Не удалось отменить заказ. Обратись к администрации.", [["💎 Поддержать проект"], ["🏙️ Главное меню"]]); return
         send(uid, f"Заказ №{rid} отменён. Переводить деньги не нужно.", [["💎 Поддержать проект"], ["🏙️ Главное меню"]])
-        for aid in ADMIN_IDS:
+        for aid in donation_admin_ids():
             send(aid, f"❌ Игрок VK {uid} отклонил цену по индивидуальному заказу №{rid}.", [["💎 Донат-заявки"], ["👑 Админ-панель"]])
         return
     if text.startswith("✅ Подтверждаю получение заказа №"):
@@ -874,7 +888,7 @@ def process(uid, text):
         if not set_status(db, rid, "completed", 0):
             send(uid, "Не удалось завершить заказ. Напиши администрации.", [["💎 Поддержать проект"], ["🏙️ Главное меню"]]); return
         send(uid, f"✅ Получение по заказу №{rid} подтверждено. Спасибо за поддержку Bandit City!", [["💎 Поддержать проект"], ["🏙️ Главное меню"]])
-        for aid in ADMIN_IDS:
+        for aid in donation_admin_ids():
             send(aid, f"✅ Игрок VK {uid} подтвердил получение по заявке №{rid}. Заявка завершена.", [["💎 Донат-заявки"], ["👑 Админ-панель"]])
         return
     if text.startswith("❗ Не получил заказ №"):
@@ -886,7 +900,7 @@ def process(uid, text):
         if not r or int(r["vk_id"]) != int(uid) or r["status"] != "granted":
             send(uid, "Этот заказ не найден или не ожидает подтверждения получения.", [["💎 Поддержать проект"], ["🏙️ Главное меню"]]); return
         send(uid, f"⚠️ Сообщил администрации, что заказ №{rid} не получен. Статус не изменён.", [["💎 Поддержать проект"], ["🏙️ Главное меню"]])
-        for aid in ADMIN_IDS:
+        for aid in donation_admin_ids():
             send(aid, f"⚠️ Игрок VK {uid} сообщил, что не получил заказ №{rid}. Проверь выдачу.", [[f"💎 Заявка #{rid}"], ["💎 Донат-заявки"]])
         return
     if text == "💳 Я оплатил":
@@ -898,7 +912,7 @@ def process(uid, text):
         if r["status"] == "new" and not set_status(db, r["id"], "awaiting", 0):
             send(uid, "Не удалось обновить заявку. Обратись к администрации.", [["💎 Поддержать проект"], ["🏙️ Главное меню"]]); return
         send(uid, f"🕒 Заявка №{r['id']} отмечена для проверки. Это не подтверждение оплаты.", [["💎 Поддержать проект"], ["🏙️ Главное меню"]])
-        for aid in ADMIN_IDS: send(aid, f"💳 Игрок VK {uid} сообщил об оплате заявки №{r['id']}. Проверь перевод вручную.", [["💎 Донат-заявки"], ["👑 Админ-панель"]])
+        for aid in donation_admin_ids(): send(aid, f"💳 Игрок VK {uid} сообщил об оплате заявки №{r['id']}. Проверь перевод вручную.", [["💎 Донат-заявки"], ["👑 Админ-панель"]])
         return
     if text == "💎 Донат-заявки" and has_admin_access(uid):
         requests = list_requests(db)
