@@ -46,6 +46,7 @@ vk = session.get_api()
 longpoll = VkLongPoll(session)
 
 CARD_CACHE = {}
+DONATION_ADMIN_SELECTED = {}
 KEYBOARD_PAGES = {}
 TUTORIAL_ACTIVE = set()
 CARD_DIR = Path(__file__).resolve().parent / "assets" / "cards"
@@ -310,7 +311,7 @@ def kb_more(uid=None):
         ["📅 Контракты", "🏴 Банды"],
         ["🏆 Ачивки", "🎟 Промокод"],
         ["⚙️ Настройки", "❓ Помощь"],
-        ["👑 О создателе"],
+        ["👑 О создателе", "💎 Поддержать проект"],
         ["🏙️ Главное меню"],
     ]
     # Показываем пролог только игрокам, которые ещё не завершили его.
@@ -777,6 +778,61 @@ def process(uid, text):
     if text == "👑 О создателе":
         send_card(uid, creator_text(), [["🏙️ Главное меню"]])
         return
+
+    from donation import SERVICES, create_request, ensure_schema, list_requests, set_status, get_request, STATUS, TEMPLATES
+    if text == "💎 Поддержать проект":
+        rows = [[label] for label in SERVICES] + [["🏙️ Главное меню"]]
+        send(uid, "💎 ПОДДЕРЖКА BANDIT CITY\\nВыбери услугу. Оплата проверяется вручную.", rows)
+        return
+    if text in SERVICES:
+        rid, msg = create_request(db, user, text)
+        if rid:
+            send(uid, msg + "\\n\\nПосле перевода нажми «💳 Я оплатил».", [["💳 Я оплатил"], ["💎 Поддержать проект"], ["🏙️ Главное меню"]])
+            for aid in ADMIN_IDS:
+                try: send(aid, f"💎 Заявка №{rid}\\nИгрок VK {uid}: {SERVICES[text][1]}\\nСумма: {SERVICES[text][2] or 'договорная'} ₽", [["💎 Донат-заявки"], ["👑 Админ-панель"]])
+                except Exception: logging.exception("Donation admin notification failed")
+        return
+    if text == "💳 Я оплатил":
+        ensure_schema(db)
+        with db.connect() as c:
+            r = c.execute("SELECT * FROM donation_requests WHERE vk_id=? AND status IN ('new','awaiting') ORDER BY id DESC LIMIT 1", (int(uid),)).fetchone()
+        if not r:
+            send(uid, "Активная заявка не найдена.", [["💎 Поддержать проект"], ["🏙️ Главное меню"]]); return
+        set_status(db, r["id"], "awaiting", 0)
+        send(uid, f"🕒 Заявка №{r['id']} отмечена для проверки. Это не подтверждение оплаты.", [["💎 Поддержать проект"], ["🏙️ Главное меню"]])
+        for aid in ADMIN_IDS: send(aid, f"💳 Игрок VK {uid} сообщил об оплате заявки №{r['id']}. Проверь перевод вручную.", [["💎 Донат-заявки"], ["👑 Админ-панель"]])
+        return
+    if text == "💎 Донат-заявки" and has_admin_access(uid):
+        requests = list_requests(db)
+        rows = [[f"💎 Заявка #{r['id']}"] for r in requests] + [["👑 Админ-панель"]]
+        body = ["💎 ДОНАТ-ЗАЯВКИ"] + [f"№{r['id']} • VK {r['vk_id']} • {r['service_title']} • {STATUS.get(r['status'],r['status'])}" for r in requests]
+        send(uid, "\\n".join(body) if requests else "Заявок пока нет.", rows); return
+    if text.startswith("💎 Заявка #") and has_admin_access(uid):
+        try: rid = int(text.split("#",1)[1])
+        except ValueError: send(uid,"Неверный номер.",[["💎 Донат-заявки"]]); return
+        r = get_request(db,rid)
+        if not r: send(uid,"Заявка не найдена.",[["💎 Донат-заявки"]]); return
+        DONATION_ADMIN_SELECTED[uid] = rid
+        rows = [["🕒 Ожидает оплаты","💳 Подтвердить оплату"],["🎁 Выдать покупку","✅ Завершить заявку"],["❌ Отменить заявку"],["💬 Шаблон: заявка","💬 Шаблон: ожидание"],["💬 Шаблон: оплачено","💬 Шаблон: выдано"],["💬 Шаблон: отмена"],["💎 Донат-заявки"]]
+        send(uid,f"ЗАЯВКА №{rid}\\nVK {r['vk_id']} • {r['nickname']}\\n{r['service_title']} • {r['price_rub'] or 'договорная'} ₽\\nСтатус: {STATUS.get(r['status'],r['status'])}",rows); return
+    status_actions = {"🕒 Ожидает оплаты":"awaiting","💳 Подтвердить оплату":"paid","🎁 Выдать покупку":"granted","✅ Завершить заявку":"completed","❌ Отменить заявку":"cancelled"}
+    if text in status_actions and has_admin_access(uid):
+        rid = DONATION_ADMIN_SELECTED.get(uid)
+        r = get_request(db,rid) if rid else None
+        if not r: send(uid,"Сначала открой заявку.",[["💎 Донат-заявки"]]); return
+        st = status_actions[text]
+        if st in ("granted","completed") and r["status"] not in ("paid","granted","completed"):
+            send(uid,"Сначала проверь перевод и подтверди оплату.",[[f"💎 Заявка #{rid}"]]); return
+        set_status(db,rid,st,uid)
+        templ = {"paid":"💳 Оплата подтверждена","granted":"🎁 Покупка выдана","cancelled":"❌ Заявка отменена"}.get(st)
+        if templ: send(r["vk_id"],TEMPLATES[templ].format(id=rid,service=r["service_title"]))
+        send(uid,f"Статус заявки №{rid}: {STATUS[st]}",[[f"💎 Заявка #{rid}"],["💎 Донат-заявки"]]); return
+    if text.startswith("💬 Шаблон:") and has_admin_access(uid):
+        rid = DONATION_ADMIN_SELECTED.get(uid); r = get_request(db,rid) if rid else None
+        if not r: send(uid,"Сначала открой заявку.",[["💎 Донат-заявки"]]); return
+        tm = {"💬 Шаблон: заявка":"📨 Заявка принята","💬 Шаблон: ожидание":"🕒 Ожидаем оплату","💬 Шаблон: оплачено":"💳 Оплата подтверждена","💬 Шаблон: выдано":"🎁 Покупка выдана","💬 Шаблон: отмена":"❌ Заявка отменена"}
+        if text in tm: send(r["vk_id"],TEMPLATES[tm[text]].format(id=rid,service=r["service_title"]))
+        send(uid,"Шаблон обработан.",[[f"💎 Заявка #{rid}"],["💎 Донат-заявки"]]); return
 
     if text in ("📊 Мой статус", "🍔 Потребности"):
         send(uid, game.status(user["id"]), [["🎒 Инвентарь"],["🛒 Магазин"],["🌆 События города"],["🏙️ Главное меню"]]); return
