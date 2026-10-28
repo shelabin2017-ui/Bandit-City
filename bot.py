@@ -815,6 +815,11 @@ def process(uid, text):
         return
 
     from donation import SERVICES, create_request, ensure_schema, list_requests, set_status, get_request, set_price, PAYMENT_DETAILS, STATUS, TEMPLATES
+    # VK may return a truncated label for long keyboard buttons; resolve it to the canonical service label.
+    if text not in SERVICES and len(text) >= 24:
+        matched_service = next((label for label in SERVICES if label.startswith(text)), None)
+        if matched_service:
+            text = matched_service
     if text == "💎 Поддержать проект":
         rows = [[label] for label in SERVICES] + [["🏙️ Главное меню"]]
         send(uid, "💎 ПОДДЕРЖКА BANDIT CITY\nВыбери услугу. Оплата проверяется вручную.", rows)
