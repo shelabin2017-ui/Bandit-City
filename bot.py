@@ -19,6 +19,7 @@ from admin_panel import AdminPanel
 from roles import RoleManager
 from role_ui import RoleUI
 from release import announce_new_release
+from memorial import announce_memorial
 from keyboard_layout import normalize_rows, paginate_rows
 from progression_system import Progression, DAILY_TASKS, WEEKLY_TASKS, parse_contract_code
 from duel_system import DuelSystem
@@ -1720,6 +1721,7 @@ def main():
     from event_announcer import event_announcer_worker
 
     workers = [
+        (lambda: announce_memorial(db, vk, GROUP_ID), "stas-memorial"),
         (lambda: announce_new_release(db, vk, GROUP_ID, attachment=release_card_attachment()), "release-announcement"),
         (business_worker, "business-worker"),
         (player_reminder_worker, "player-reminders"),
