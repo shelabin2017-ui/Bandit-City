@@ -238,7 +238,8 @@ def event_catalog(db=None,vk_id=None):
 
 def participate_event(db,vk_id,event_key):
     event=EVENTS.get(event_key)
-    if not event or event_key not in active_events():
+    from event_announcer import active_events as runtime_active_events
+    if not event or event_key not in runtime_active_events(db):
         return reply("⏳ Это событие сейчас недоступно.", [["🎪 Ивент-дропы"],["🏙️ Главное меню"]])
     uid=player_id_by_vk(db,vk_id)
     goal_code=event.get("goal_code")
