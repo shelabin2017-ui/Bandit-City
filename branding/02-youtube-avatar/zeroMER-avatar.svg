@@ -1,24 +1,30 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
 <defs>
- <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#21172c"/><stop offset=".48" stop-color="#853b4c"/><stop offset="1" stop-color="#f08b55"/></linearGradient>
- <linearGradient id="type" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#fff7e9"/><stop offset=".5" stop-color="#ffd2a1"/><stop offset="1" stop-color="#e98769"/></linearGradient>
- <filter id="shadow"><feGaussianBlur in="SourceAlpha" stdDeviation="14"/><feOffset dy="12"/><feComponentTransfer><feFuncA type="linear" slope=".7"/></feComponentTransfer><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter>
- <clipPath id="clip"><circle cx="512" cy="512" r="466"/></clipPath>
+ <radialGradient id="bg"><stop stop-color="#f28e60"/><stop offset=".55" stop-color="#833d50"/><stop offset="1" stop-color="#171426"/></radialGradient>
+ <linearGradient id="letters" x2="0" y2="1"><stop stop-color="#fff4df"/><stop offset=".45" stop-color="#ffc995"/><stop offset="1" stop-color="#dc765e"/></linearGradient>
+ <filter id="shadow"><feGaussianBlur in="SourceAlpha" stdDeviation="16"/><feOffset dy="12"/><feComponentTransfer><feFuncA type="linear" slope=".75"/></feComponentTransfer><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+ <clipPath id="circle"><circle cx="512" cy="512" r="475"/></clipPath>
 </defs>
-<circle cx="512" cy="512" r="500" fill="#080910"/>
-<circle cx="512" cy="512" r="475" fill="url(#bg)" stroke="#ffd3a3" stroke-width="12"/>
-<g clip-path="url(#clip)">
- <circle cx="512" cy="450" r="270" fill="#ffb477" opacity=".28"/>
- <path d="M-20 760L1040 250M-20 900L1040 390" stroke="#fff1d8" stroke-opacity=".09" stroke-width="48"/>
- <path d="M0 760h1024v264H0z" fill="#15131d" opacity=".45"/>
- <path d="M100 810q30-105 140-125l150-10 115 65 130 18q50 10 72 62l12 55H80z" fill="#11131a" stroke="#e99a73" stroke-width="9"/>
- <circle cx="260" cy="875" r="44" fill="#090b12" stroke="#b1a4a0" stroke-width="10"/><circle cx="670" cy="875" r="44" fill="#090b12" stroke="#b1a4a0" stroke-width="10"/>
- <g fill="#f6bb8f" opacity=".65"><path d="M60 560h42v150H60zm72-85h48v235h-48zm720 45h45v190h-45zm65-100h50v290h-50z"/></g>
+<circle cx="512" cy="512" r="505" fill="#080910"/>
+<circle cx="512" cy="512" r="480" fill="url(#bg)" stroke="#f5c59d" stroke-width="12"/>
+<g clip-path="url(#circle)">
+ <circle cx="510" cy="390" r="245" fill="#ffc18b" opacity=".25"/>
+ <path d="M0 700h1024v324H0z" fill="#171522" opacity=".72"/>
+ <!-- city silhouettes -->
+ <g fill="#1b1928"><path d="M0 740V430h110v310zm120 0V520h100v220zm112 0V370h150v370zm165 0V500h120v240zm132 0V410h155v330zm170 0V520h110v220zm125 0V390h150v350z"/></g>
+ <g fill="#ffca9b" opacity=".65"><path d="M35 500h10v28H35zm35 0h10v28H70zm190-80h12v25h-12zm30 0h12v25h-12zm195 120h12v25h-12zm32 0h12v25h-12zm205-90h12v25h-12zm32 0h12v25h-12zm190 80h12v25h-12z"/></g>
+ <!-- spray paint strokes -->
+ <g fill="none" stroke-linecap="round"><path d="M90 310l145-85m-120 150 195-22m-160 70 130-8m520-130 140-80m-110 145 170-15m-130 75 125-10" stroke="#ffc08c" stroke-width="16" opacity=".8"/><path d="M130 440l-22 60m170-230 20-44m540 215 32 60m60-210 20-45" stroke="#fff0dc" stroke-width="8"/></g>
+ <!-- lowrider silhouette -->
+ <path d="M140 820q45-105 145-125l160-10 115 60 145 18q55 10 80 72l8 65H110z" fill="#17131d" stroke="#f2a078" stroke-width="9"/>
+ <path d="M420 700l130-8 120 75H360z" fill="#4a4658" stroke="#f5c59d" stroke-width="5"/>
+ <circle cx="280" cy="895" r="43" fill="#080910" stroke="#d5aa91" stroke-width="9"/><circle cx="700" cy="895" r="43" fill="#080910" stroke="#d5aa91" stroke-width="9"/>
 </g>
-<circle cx="512" cy="512" r="466" fill="none" stroke="#0d0c13" stroke-width="18"/>
+<!-- thick sticker-like wordmark -->
 <g filter="url(#shadow)">
- <text x="512" y="490" text-anchor="middle" font-family="Impact,'Arial Black',sans-serif" font-size="250" font-weight="900" letter-spacing="-12" fill="url(#type)" stroke="#17131d" stroke-width="34" paint-order="stroke">zero</text>
- <text x="512" y="700" text-anchor="middle" font-family="Impact,'Arial Black',sans-serif" font-size="245" font-weight="900" letter-spacing="2" fill="#ffcf98" stroke="#17131d" stroke-width="34" paint-order="stroke">MER</text>
+ <text x="512" y="490" text-anchor="middle" font-family="Impact,'Arial Black',sans-serif" font-size="250" font-weight="900" letter-spacing="-13" fill="url(#letters)" stroke="#111019" stroke-width="42" paint-order="stroke">zero</text>
+ <text x="512" y="705" text-anchor="middle" font-family="Impact,'Arial Black',sans-serif" font-size="255" font-weight="900" letter-spacing="2" fill="#ffd1a2" stroke="#111019" stroke-width="42" paint-order="stroke">MER</text>
 </g>
-<path d="M180 770l150-35 14 35-150 35zm510-590 150-35 14 35-150 35z" fill="#fff0d9" opacity=".85"/>
+<path d="M165 765l110-28 12 35-110 28zm570-560 110-28 12 35-110 28z" fill="#fff0dc"/>
+<circle cx="512" cy="512" r="480" fill="none" stroke="#090a10" stroke-width="20"/>
 </svg>
