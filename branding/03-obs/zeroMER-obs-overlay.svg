@@ -1,16 +1,29 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
-<defs><linearGradient id="a" x2="1" y2="1"><stop stop-color="#ffbd83"/><stop offset="1" stop-color="#d84d43"/></linearGradient><filter id="g"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
-<!-- Transparent gameplay area; only decorative frames are drawn -->
-<path d="M42 42h360v8H50v170h-8zM1878 42h-360v8h352v170h8zM42 1038h360v-8H50V860h-8zM1878 1038h-360v-8h352V860h8z" fill="url(#a)" filter="url(#g)"/>
-<rect x="1470" y="110" width="400" height="620" rx="18" fill="#0b0b12" fill-opacity=".48" stroke="#f08b62" stroke-width="4"/>
-<path d="M1470 160h400" stroke="#f08b62" stroke-width="4"/>
-<text x="1500" y="145" font-family="Arial,sans-serif" font-size="26" font-weight="700" letter-spacing="5" fill="#ffe1c7">LIVE CHAT</text>
-<rect x="70" y="790" width="420" height="220" rx="18" fill="#0b0b12" fill-opacity=".5" stroke="#f08b62" stroke-width="4"/>
-<text x="100" y="835" font-family="Arial,sans-serif" font-size="25" font-weight="700" letter-spacing="4" fill="#ffe1c7">WEBCAM</text>
-<rect x="85" y="855" width="390" height="135" rx="12" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="2" stroke-dasharray="10 10"/>
-<text x="960" y="1005" text-anchor="middle" font-family="Arial Black,Impact,sans-serif" font-size="58" font-weight="900" fill="#fff1df" stroke="#17131e" stroke-width="8" paint-order="stroke">zeroMER</text>
-<text x="960" y="1044" text-anchor="middle" font-family="Arial,sans-serif" font-size="19" letter-spacing="8" fill="#ffbd83">SAMP • GTA • LIVE</text>
-<path d="M1520 770h350" stroke="#f08b62" stroke-width="3" opacity=".8"/>
-<text x="1520" y="815" font-family="Arial,sans-serif" font-size="22" letter-spacing="3" fill="#ffe1c7">LATEST SUPPORT</text>
-<!-- Note: gameplay remains transparent; arrange webcam/chat widgets beneath this overlay in OBS -->
+<defs>
+ <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffd09b"/><stop offset=".55" stop-color="#f18a61"/><stop offset="1" stop-color="#a9434b"/></linearGradient>
+ <filter id="glow"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+ <linearGradient id="panel" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#17131d" stop-opacity=".9"/><stop offset="1" stop-color="#090b12" stop-opacity=".78"/></linearGradient>
+</defs>
+<!-- Transparent canvas: add this as an image source above gameplay in OBS. -->
+<!-- brand plaque -->
+<path d="M48 48h390v8H56v116h-8z" fill="url(#accent)" filter="url(#glow)"/>
+<path d="M48 48h390v8H56v116h-8z" fill="none" stroke="#ffe0bd" stroke-width="2"/>
+<text x="78" y="116" font-family="Impact,'Arial Black',sans-serif" font-size="54" font-weight="900" fill="#fff1df" stroke="#17131d" stroke-width="8" paint-order="stroke">zeroMER</text>
+<text x="80" y="145" font-family="Arial,sans-serif" font-size="15" letter-spacing="5" fill="#ffd0a2">SAMP • GTA • LIVE</text>
+<!-- webcam frame: 16:9 -->
+<rect x="48" y="760" width="430" height="260" rx="16" fill="url(#panel)" stroke="url(#accent)" stroke-width="5"/>
+<path d="M48 810h430" stroke="url(#accent)" stroke-width="3"/>
+<text x="76" y="794" font-family="Arial,sans-serif" font-size="21" font-weight="700" letter-spacing="5" fill="#ffe4c9">LIVE CAM</text>
+<rect x="66" y="827" width="394" height="174" rx="8" fill="none" stroke="#fff1df" stroke-opacity=".22" stroke-width="2" stroke-dasharray="8 9"/>
+<!-- chat panel, designed as a reserved transparent widget area -->
+<rect x="1510" y="120" width="360" height="650" rx="16" fill="url(#panel)" stroke="url(#accent)" stroke-width="4"/>
+<path d="M1510 177h360" stroke="url(#accent)" stroke-width="3"/>
+<text x="1540" y="158" font-family="Arial,sans-serif" font-size="24" font-weight="700" letter-spacing="5" fill="#ffe4c9">ЧАТ ЭФИРА</text>
+<text x="1540" y="220" font-family="Arial,sans-serif" font-size="16" letter-spacing="2" fill="#e8c9b6" opacity=".7">CHAT WIDGET AREA</text>
+<!-- lower stream information strip -->
+<path d="M535 1018h850" stroke="url(#accent)" stroke-width="3" opacity=".8"/>
+<text x="960" y="1000" text-anchor="middle" font-family="Impact,'Arial Black',sans-serif" font-size="45" font-weight="900" fill="#fff1df" stroke="#17131d" stroke-width="7" paint-order="stroke">zeroMER</text>
+<text x="960" y="1048" text-anchor="middle" font-family="Arial,sans-serif" font-size="17" letter-spacing="8" fill="#ffd0a2">LOS SANTOS STREET LIFE</text>
+<!-- corner accents -->
+<path d="M1872 48h-390v8h382v116h8zM48 1032h390v-8H56V908h-8zM1872 1032h-390v-8h382V908h8z" fill="url(#accent)" opacity=".9" filter="url(#glow)"/>
 </svg>
