@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2560" height="1440" viewBox="0 0 2560 1440">
+<defs>
+ <linearGradient id="sky" x2="0" y2="1"><stop stop-color="#241b3b"/><stop offset=".48" stop-color="#f06b42"/><stop offset="1" stop-color="#17131f"/></linearGradient>
+ <linearGradient id="road" x2="0" y2="1"><stop stop-color="#292633"/><stop offset="1" stop-color="#090a10"/></linearGradient>
+ <linearGradient id="sun"><stop stop-color="#ffd18b"/><stop offset="1" stop-color="#ff704f"/></linearGradient>
+ <filter id="glow"><feGaussianBlur stdDeviation="12" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+ <pattern id="grain" width="90" height="90" patternUnits="userSpaceOnUse"><circle cx="8" cy="14" r="2" fill="#fff" opacity=".13"/><circle cx="54" cy="66" r="1.5" fill="#fff" opacity=".1"/></pattern>
+</defs>
+<rect width="2560" height="1440" fill="url(#sky)"/><circle cx="1280" cy="570" r="280" fill="url(#sun)" opacity=".9"/>
+<path d="M0 800 L0 690 160 590 260 670 390 520 520 700 670 580 800 720 930 570 1080 740 1210 620 1370 730 1510 560 1660 710 1810 570 1960 700 2110 530 2260 690 2390 590 2560 690 2560 900Z" fill="#28243a"/>
+<g fill="#171823"><path d="M0 820V700h100v120zm120 0V630h100v190zm120 0V730h120v90zm160 0V650h130v170zm170 0V710h110v110zm145 0V610h140v210zm170 0V690h120v130zm150 0V620h150v200zm180 0V700h120v120zm150 0V590h150v230zm180 0V670h120v150zm150 0V610h140v210zm170 0V700h120v120zm150 0V620h150v200z"/>
+<g fill="#ffb47d" opacity=".7"><path d="M35 735h12v25H35zm40 0h12v25H75zm80-60h12v25h-12zm35 0h12v25h-12zm180 0h12v25h-12zm35 0h12v25h-12zm245 60h12v25h-12zm35 0h12v25h-12zm190-70h12v25h-12zm35 0h12v25h-12zm210 70h12v25h-12zm35 0h12v25h-12zm220-90h12v25h-12zm35 0h12v25h-12zm220 80h12v25h-12zm35 0h12v25h-12z"/></g></g>
+<path d="M0 900 Q1280 790 2560 900V1440H0Z" fill="url(#road)"/>
+<path d="M0 1040 Q1280 930 2560 1040" fill="none" stroke="#f18a63" stroke-width="5" opacity=".45"/>
+<g fill="#11131d" stroke="#ff9b70" stroke-width="5"><path d="M890 1010q40-70 130-78h360q100 8 145 78l75 28v90H820v-90z"/><path d="M1050 940h420l90 78H970z" fill="#373449"/><path d="M870 1060h85v26h-85zm690 0h85v26h-85z" fill="#ff765d" filter="url(#glow)"/></g>
+<g fill="#101018"><path d="M300 920q-20-180-160-310 170 75 210 220 35-210 170-330-80 180-95 360 90-150 230-190-155 115-205 250z"/><path d="M2220 920q20-180 160-310-170 75-210 220-35-210-170-330 80 180 95 360-90-150-230-190 155 115 205 250z"/></g>
+<g fill="none" stroke="#111018" stroke-width="26" stroke-linecap="round"><path d="M460 1000Q440 720 350 550M350 550l-180-100m180 100 30-190m-30 190 170-80"/><path d="M2100 1000q20-280 110-450m-110 450 160-170m-160 170-150-210"/></g>
+<text x="1280" y="420" text-anchor="middle" font-family="Arial Black,Impact,sans-serif" font-size="190" font-weight="900" letter-spacing="-8" fill="#fff4e9" stroke="#17131e" stroke-width="18" paint-order="stroke">zeroMER</text>
+<text x="1280" y="510" text-anchor="middle" font-family="Arial,sans-serif" font-size="42" font-weight="700" letter-spacing="18" fill="#ffd1a2">LOS SANTOS • STREET LIFE • LIVE</text>
+<rect width="2560" height="1440" fill="url(#grain)"/>
+<rect x="390" y="0" width="1780" height="1440" fill="none" stroke="#fff" stroke-opacity=".08" stroke-width="3"/>
+</svg>
