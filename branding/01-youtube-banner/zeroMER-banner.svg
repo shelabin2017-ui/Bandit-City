@@ -1,72 +1,61 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="2560" height="1440" viewBox="0 0 2560 1440">
 <defs>
- <linearGradient id="sky" x2="0" y2="1"><stop stop-color="#17162d"/><stop offset=".34" stop-color="#65344f"/><stop offset=".62" stop-color="#e36d57"/><stop offset="1" stop-color="#f7b16e"/></linearGradient>
- <linearGradient id="sun" x2="0" y2="1"><stop stop-color="#fff0bd"/><stop offset="1" stop-color="#ff9a65"/></linearGradient>
- <linearGradient id="street" x2="0" y2="1"><stop stop-color="#4a3440"/><stop offset=".25" stop-color="#1e1b2a"/><stop offset="1" stop-color="#080a12"/></linearGradient>
- <linearGradient id="car" x2="0" y2="1"><stop stop-color="#f2a17c"/><stop offset=".45" stop-color="#963e48"/><stop offset="1" stop-color="#171520"/></linearGradient>
- <linearGradient id="chrome" x2="0" y2="1"><stop stop-color="#fff4df"/><stop offset=".45" stop-color="#d9a28d"/><stop offset="1" stop-color="#59434d"/></linearGradient>
- <filter id="glow"><feGaussianBlur stdDeviation="18" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
- <filter id="shadow"><feGaussianBlur in="SourceAlpha" stdDeviation="20"/><feOffset dy="16"/><feComponentTransfer><feFuncA type="linear" slope=".65"/></feComponentTransfer><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter>
- <pattern id="windows" width="44" height="54" patternUnits="userSpaceOnUse"><rect x="8" y="8" width="19" height="28" fill="#ffc18e" opacity=".6"/><rect x="31" y="8" width="8" height="28" fill="#ffdcad" opacity=".2"/></pattern>
- <pattern id="grain" width="90" height="90" patternUnits="userSpaceOnUse"><circle cx="9" cy="13" r="1.5" fill="#fff" opacity=".18"/><circle cx="64" cy="71" r="1" fill="#fff" opacity=".12"/><path d="M20 40h13m36 22h9" stroke="#fff" stroke-opacity=".09"/></pattern>
+ <linearGradient id="sky" x2="0" y2="1"><stop stop-color="#101426"/><stop offset=".36" stop-color="#493044"/><stop offset=".66" stop-color="#d45f51"/><stop offset="1" stop-color="#f4a66c"/></linearGradient>
+ <radialGradient id="sun"><stop stop-color="#fff0c4" stop-opacity=".95"/><stop offset=".55" stop-color="#ffad79" stop-opacity=".38"/><stop offset="1" stop-color="#ff986d" stop-opacity="0"/></radialGradient>
+ <linearGradient id="road" x2="0" y2="1"><stop stop-color="#45303b"/><stop offset=".25" stop-color="#201b2b"/><stop offset="1" stop-color="#080b14"/></linearGradient>
+ <linearGradient id="metal" x2="0" y2="1"><stop stop-color="#fff4df"/><stop offset=".18" stop-color="#f7c59f"/><stop offset=".42" stop-color="#a95d65"/><stop offset=".7" stop-color="#492b40"/><stop offset="1" stop-color="#171522"/></linearGradient>
+ <linearGradient id="carpaint" x2="0" y2="1"><stop stop-color="#ffbd92"/><stop offset=".22" stop-color="#c55c63"/><stop offset=".58" stop-color="#542b45"/><stop offset="1" stop-color="#10121d"/></linearGradient>
+ <linearGradient id="glass" x2="0" y2="1"><stop stop-color="#b9c6d1" stop-opacity=".78"/><stop offset=".3" stop-color="#30394d"/><stop offset="1" stop-color="#111523"/></linearGradient>
+ <pattern id="windows" width="48" height="62" patternUnits="userSpaceOnUse"><rect x="8" y="9" width="20" height="31" fill="#ffc48f" opacity=".7"/><rect x="34" y="9" width="8" height="31" fill="#ffe0b5" opacity=".22"/></pattern>
+ <pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="12" cy="20" r="1.5" fill="#fff" opacity=".2"/><circle cx="74" cy="68" r="1" fill="#fff" opacity=".18"/><path d="M30 82h18M81 12h9" stroke="#fff" opacity=".12"/></pattern>
+ <filter id="glow"><feGaussianBlur stdDeviation="20" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+ <filter id="shadow"><feGaussianBlur in="SourceAlpha" stdDeviation="18"/><feOffset dy="20"/><feComponentTransfer><feFuncA type="linear" slope=".75"/></feComponentTransfer><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+ <filter id="soft"><feGaussianBlur stdDeviation="55"/></filter>
 </defs>
 <rect width="2560" height="1440" fill="url(#sky)"/>
-<circle cx="1280" cy="590" r="365" fill="#ffad79" opacity=".22" filter="url(#glow)"/>
-<circle cx="1280" cy="580" r="278" fill="url(#sun)" opacity=".94"/>
-<g opacity=".55" stroke="#f7c49a" stroke-width="7"><path d="M1010 520h540M1030 570h500M1070 620h420M1110 670h340"/></g>
-<!-- distant hills and downtown silhouette -->
-<path d="M0 825l190-90 140 45 180-125 210 110 180-70 210 90 180-100 180 70 180-120 220 95 190-85 200 90v260H0z" fill="#3a2940"/>
-<g fill="#201e2d">
- <path d="M0 900V620h130v280zm145 0V540h155v360zm172 0V690h100v210zm120 0V470h160v430zm178 0V620h120v280zm140 0V520h170v380zm190 0V670h130v230zm145 0V450h180v450zm195 0V590h130v310zm145 0V500h170v400zm190 0V660h140v240zm155 0V540h180v360zm200 0V650h120v250z"/>
- <path d="M455 470l80-125 82 125zm662 50l74-160 75 160zm515-65l84-150 82 150z" />
+<circle cx="1290" cy="560" r="490" fill="url(#sun)"/>
+<circle cx="1290" cy="560" r="190" fill="#ffd3a2" opacity=".76"/>
+<path d="M0 690L210 610 330 665 520 540 680 660 870 520 1030 650 1200 575 1390 660 1570 520 1740 650 1940 540 2110 650 2290 565 2560 675V900H0Z" fill="#292438" opacity=".62"/>
+<!-- distant skyline -->
+<g fill="#171b2b">
+<path d="M0 920V590h120v330zm135 0V700h105v220zm130 0V530h145v390zm164 0V650h96v270zm120 0V480h180v440zm200 0V625h115v295zm132 0V540h155v380zm175 0V660h105v260zm125 0V500h170v420zm190 0V620h120v300zm145 0V560h170v360zm190 0V670h110v250zm130 0V520h180v400zm205 0V640h125v280z"/>
 </g>
-<g fill="url(#windows)" opacity=".85">
- <path d="M160 560h125v330H160zm290-80h145v410H450zm315 90h145v320H765zm330-55h155v375h-155zm330-100h165v475h-165zm330 105h125v370h-125zm300-65h150v435h-150z"/>
+<g fill="url(#windows)" opacity=".75"><path d="M0 590h120v330H0zm265-60h145v390H265zm284-50h180v440H549zm384 60h155v380H933zm280-40h170v420h-170zm295 60h120v360h-120zm265-60h170v420h-170zm335 120h125v300h-125z"/></g>
+<!-- elevated freeway and road -->
+<path d="M0 900Q650 820 1280 900T2560 870V1440H0Z" fill="url(#road)"/>
+<path d="M0 940Q650 860 1280 940T2560 910" fill="none" stroke="#e28b75" stroke-width="8" opacity=".42"/>
+<path d="M1200 940L940 1440M1360 940l210 500" stroke="#d99a83" stroke-width="5" opacity=".16"/>
+<path d="M1270 1040l-30 110m-55 120-42 170m230-400 35 115m42 135 55 165" stroke="#f4c39c" stroke-width="9" stroke-dasharray="54 58" opacity=".22"/>
+<!-- palm trees -->
+<g fill="none" stroke-linecap="round">
+<path d="M170 1050Q220 720 170 350" stroke="#171622" stroke-width="36"/><path d="M170 360Q30 270 0 390M170 360Q30 330 20 220M170 360Q120 190 190 110M170 360Q260 180 360 210M170 360Q330 300 390 390M170 360Q300 400 320 490" stroke="#171622" stroke-width="23"/>
+<path d="M2350 1030Q2290 700 2390 300" stroke="#171622" stroke-width="38"/><path d="M2390 310Q2220 220 2150 330M2390 310Q2240 160 2260 80M2390 310Q2390 110 2500 70M2390 310Q2530 190 2560 260M2390 310Q2530 320 2560 420M2390 310Q2490 400 2480 500" stroke="#171622" stroke-width="24"/>
 </g>
-<!-- neon signs -->
-<g font-family="Arial,sans-serif" font-weight="900" letter-spacing="8" filter="url(#glow)">
- <text x="530" y="660" font-size="34" fill="#ff9a78">MOTEL</text>
- <text x="1740" y="640" font-size="32" fill="#ff9a78">CUSTOMS</text>
- <text x="1940" y="790" font-size="24" fill="#8bd7e9">OPEN 24H</text>
-</g>
-<!-- palms left and right -->
-<g fill="none" stroke="#17131e" stroke-linecap="round">
- <path d="M260 1070Q320 770 240 450" stroke-width="38"/>
- <path d="M240 450q-190-120-235-45 135-5 225 92-145-170-130-245 75 85 165 205-35-200 45-275 20 145-5 280 110-165 205-165-95 110-195 220 185-70 250-12-150 5-305 95" stroke-width="24"/>
- <path d="M2280 1060Q2220 750 2310 420" stroke-width="38"/>
- <path d="M2310 420q180-140 235-65-135-2-225 100 145-180 135-250-75 90-165 215 40-205-40-280-25 145 0 285-115-165-210-160 100 105 205 220-190-65-255-5 155 0 315 90" stroke-width="24"/>
-</g>
-<!-- street -->
-<path d="M0 910Q1280 830 2560 910V1440H0Z" fill="url(#street)"/>
-<path d="M0 1010Q1280 910 2560 1010" stroke="#f08a6c" stroke-width="5" fill="none" opacity=".6"/>
-<g opacity=".35" fill="none" stroke="#f6a47f" stroke-width="6"><path d="M90 1130l480-40m-300 160 370-24m1350-80 390 38m-470 115 290 26M970 1280l220-8m240 80 180 18"/></g>
-<!-- road markings -->
-<path d="M1240 930l-100 510h38l118-510zm100 0l100 510h38l-118-510z" fill="#f5c18d" opacity=".2"/>
-<!-- lowrider detailed hero car -->
+<!-- palm frond highlights -->
+<g fill="none" stroke="#b65e5b" stroke-width="7" opacity=".55"><path d="M170 360Q30 270 0 390M170 360Q120 190 190 110M170 360Q330 300 390 390M2390 310Q2240 160 2260 80M2390 310Q2530 190 2560 260"/></g>
+<!-- street lights -->
+<g fill="none" stroke="#171622" stroke-width="15"><path d="M470 890V570q0-55 55-55h75M2080 895V500q0-55-55-55h-80"/></g>
+<g fill="#ffd2a1" filter="url(#glow)"><ellipse cx="600" cy="515" rx="32" ry="13"/><ellipse cx="1945" cy="445" rx="32" ry="13"/></g>
+<!-- central brand plate -->
 <g filter="url(#shadow)">
- <ellipse cx="1280" cy="1198" rx="700" ry="90" fill="#05060b" opacity=".75"/>
- <path d="M670 1090q85-155 250-180l220-18 185 30 160 122 205 32q100 18 140 125l15 85H610l15-120q8-52 45-76z" fill="url(#car)" stroke="#f6b38c" stroke-width="9"/>
- <path d="M1000 922l150-18 185 25 130 110H900z" fill="#242331" stroke="#e9b294" stroke-width="7"/>
- <path d="M1030 930l130-15 145 20 88 89H960z" fill="#5d5968" opacity=".9"/>
- <path d="M1180 921l-5 103" stroke="#f4c9a5" stroke-width="5" opacity=".65"/>
- <path d="M875 1050h760" stroke="#ffc69a" stroke-width="5" opacity=".8"/>
- <path d="M700 1100l160-38-32 75H660zm1130 5-160-38 30 75h170z" fill="#ff655f" filter="url(#glow)"/>
- <path d="M800 1190h950" stroke="#0a0a10" stroke-width="22"/>
- <circle cx="890" cy="1220" r="88" fill="#080910" stroke="url(#chrome)" stroke-width="16"/><circle cx="890" cy="1220" r="45" fill="#302a35" stroke="#f5bd94" stroke-width="9"/><circle cx="890" cy="1220" r="12" fill="#fff0d8"/>
- <circle cx="1660" cy="1220" r="88" fill="#080910" stroke="url(#chrome)" stroke-width="16"/><circle cx="1660" cy="1220" r="45" fill="#302a35" stroke="#f5bd94" stroke-width="9"/><circle cx="1660" cy="1220" r="12" fill="#fff0d8"/>
- <path d="M1010 1140h520" stroke="#f7c6a4" stroke-width="4" opacity=".45"/>
+<path d="M640 475L700 425H1860L1920 475V790L1860 840H700L640 790Z" fill="#0b101d" opacity=".58" stroke="#e9a17f" stroke-width="3"/>
+<path d="M680 500h1200M680 765h1200" stroke="#f5bd96" stroke-width="2" opacity=".45"/>
+<text x="1280" y="665" text-anchor="middle" font-family="Impact,'Arial Black',sans-serif" font-size="220" font-weight="900" letter-spacing="9" fill="url(#metal)" stroke="#17131f" stroke-width="18" paint-order="stroke" filter="url(#shadow)">zeroMER</text>
+<text x="1280" y="735" text-anchor="middle" font-family="Arial,sans-serif" font-size="28" font-weight="700" letter-spacing="15" fill="#ffd5b5">SAMP • GTA • OPEN WORLD</text>
 </g>
-<!-- graffiti splashes framing title -->
-<g fill="none" stroke-linecap="round" opacity=".9">
- <path d="M670 350l-75-38m110 70-105 15m110-60-25-80m118 100 70-55m-110 85 40 70M1880 350l85-45m-100 85 125 10m-105-75 35-80m-125 95-65-50m110 95-45 70" stroke="#f9a16f" stroke-width="10"/>
- <path d="M730 420l-18 45m112-65 12 38m-175-100-28 30m115 95-42 25m107-100 25-35M1800 420l18 45m-112-65-12 38m175-100 28 30m-115 95 42 25m-107-100-25-35" stroke="#f3d0ae" stroke-width="6"/>
+<!-- foreground sports coupe -->
+<g transform="translate(0 0)" filter="url(#shadow)">
+<ellipse cx="1280" cy="1195" rx="610" ry="90" fill="#050710" opacity=".85"/>
+<path d="M650 1135Q730 1050 890 1015L1060 900Q1120 865 1240 860H1470Q1570 875 1660 970L1820 1030Q1900 1060 1940 1140L1890 1190H690Z" fill="url(#carpaint)" stroke="#f4b28e" stroke-width="7"/>
+<path d="M1010 1008L1110 914Q1150 888 1240 885H1450Q1525 900 1605 1005Z" fill="url(#glass)" stroke="#f2c09d" stroke-width="7"/>
+<path d="M1325 890v120M1080 1015h560" stroke="#e8a58a" stroke-width="5" opacity=".65"/>
+<path d="M700 1120Q980 1070 1280 1090T1885 1120L1860 1165H710Z" fill="#171523" opacity=".8"/>
+<path d="M710 1100l145-45 130 10-45 55H700zM1730 1065l135 42 48 55h-190z" fill="#ffcfaa" opacity=".75" filter="url(#glow)"/>
+<path d="M850 1168h220m430 0h260" stroke="#f8c5a2" stroke-width="8" opacity=".45"/>
+<circle cx="940" cy="1175" r="88" fill="#090b13" stroke="#a66b70" stroke-width="14"/><circle cx="940" cy="1175" r="42" fill="#aab0b8" stroke="#252638" stroke-width="12"/><circle cx="1640" cy="1175" r="88" fill="#090b13" stroke="#a66b70" stroke-width="14"/><circle cx="1640" cy="1175" r="42" fill="#aab0b8" stroke="#252638" stroke-width="12"/>
+<path d="M910 1175h60m-30-30v60m700-30h60m-30-30v60" stroke="#343344" stroke-width="8"/>
 </g>
-<!-- central identity -->
-<g filter="url(#shadow)">
- <text x="1280" y="440" text-anchor="middle" font-family="Impact,'Arial Black',sans-serif" font-size="250" font-weight="900" letter-spacing="-8" fill="#fff0dc" stroke="#15121c" stroke-width="34" paint-order="stroke">zeroMER</text>
- <text x="1280" y="535" text-anchor="middle" font-family="Arial,sans-serif" font-size="42" font-weight="900" letter-spacing="18" fill="#ffd0a6" stroke="#241925" stroke-width="5" paint-order="stroke">SAMP  •  GTA  •  LIVE</text>
- <text x="1280" y="610" text-anchor="middle" font-family="Arial,sans-serif" font-size="26" font-weight="700" letter-spacing="11" fill="#fff0df">LOS SANTOS STREET LIFE</text>
-</g>
-<rect width="2560" height="1440" fill="url(#grain)"/>
-<rect x="18" y="18" width="2524" height="1404" rx="8" fill="none" stroke="#f5c39b" stroke-opacity=".35" stroke-width="3"/>
+<!-- foreground vignette and grain -->
+<rect width="2560" height="1440" fill="url(#grain)" opacity=".45"/>
+<rect width="2560" height="1440" fill="none" stroke="#090b14" stroke-width="110" opacity=".55"/>
 </svg>
