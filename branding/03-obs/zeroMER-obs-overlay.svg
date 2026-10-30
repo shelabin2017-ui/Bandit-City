@@ -1,33 +1,32 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
 <defs>
- <linearGradient id="edge" x2="1" y2="1"><stop stop-color="#ffe0b8"/><stop offset=".48" stop-color="#ed956f"/><stop offset="1" stop-color="#9d4555"/></linearGradient>
- <linearGradient id="glass" x2="0" y2="1"><stop stop-color="#171522" stop-opacity=".88"/><stop offset="1" stop-color="#080a12" stop-opacity=".78"/></linearGradient>
- <filter id="glow"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+<linearGradient id="edge" x2="1" y2="1"><stop stop-color="#ffe4c4"/><stop offset=".48" stop-color="#ed956f"/><stop offset="1" stop-color="#8f4057"/></linearGradient>
+<linearGradient id="panel" x2="0" y2="1"><stop stop-color="#111522" stop-opacity=".92"/><stop offset="1" stop-color="#090b14" stop-opacity=".82"/></linearGradient>
+<filter id="glow"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
 </defs>
-<!-- Transparent gameplay canvas. Add as top image layer in OBS. -->
-<!-- top-left brand tag -->
-<path d="M38 38h360v7H45v100h-7z" fill="url(#edge)" filter="url(#glow)"/>
-<path d="M38 38h360v7H45v100h-7z" fill="none" stroke="#ffe4c8" stroke-width="2"/>
-<text x="70" y="100" font-family="Impact,'Arial Black',sans-serif" font-size="54" fill="#fff1df" stroke="#18131d" stroke-width="8" paint-order="stroke">zeroMER</text>
-<text x="72" y="127" font-family="Arial,sans-serif" font-size="14" letter-spacing="5" fill="#ffd0a7">LOS SANTOS STREET LIFE</text>
-<!-- right chat frame -->
-<path d="M1515 95h360v620h-360z" fill="url(#glass)" stroke="url(#edge)" stroke-width="4"/>
-<path d="M1515 154h360" stroke="url(#edge)" stroke-width="3"/>
-<path d="M1532 95h70l-18 18h-52zm291 0h52v18h-70z" fill="#f0a078"/>
-<text x="1545" y="135" font-family="Arial,sans-serif" font-size="22" font-weight="900" letter-spacing="5" fill="#ffe6ce">ЧАТ ЭФИРА</text>
-<text x="1545" y="193" font-family="Arial,sans-serif" font-size="14" letter-spacing="3" fill="#f1c7ae" opacity=".55">LIVE CHAT • SAMP / GTA</text>
+<!-- Center is intentionally transparent for gameplay capture. -->
+<!-- top identity -->
+<path d="M38 38h420v8H46v116h-8z" fill="url(#edge)" filter="url(#glow)"/>
+<path d="M55 62h350v76H55z" fill="url(#panel)" stroke="url(#edge)" stroke-width="2"/>
+<text x="78" y="116" font-family="Impact,'Arial Black',sans-serif" font-size="55" letter-spacing="2" fill="#fff0dd" stroke="#1b1721" stroke-width="7" paint-order="stroke">zeroMER</text>
+<text x="80" y="137" font-family="Arial,sans-serif" font-size="12" letter-spacing="4" fill="#ffc39f">SAMP • GTA • OPEN WORLD</text>
+<!-- live badge -->
+<path d="M1640 42h220l22 22v52h-242z" fill="url(#panel)" stroke="url(#edge)" stroke-width="3"/>
+<circle cx="1670" cy="83" r="9" fill="#ff655f" filter="url(#glow)"/>
+<text x="1695" y="92" font-family="Arial,sans-serif" font-size="25" font-weight="900" letter-spacing="4" fill="#ffe6d1">LIVE</text>
+<!-- chat panel -->
+<path d="M1510 170h370v565h-370z" fill="url(#panel)" stroke="url(#edge)" stroke-width="4"/>
+<path d="M1510 228h370" stroke="url(#edge)" stroke-width="3"/>
+<text x="1540" y="210" font-family="Arial,sans-serif" font-size="22" font-weight="900" letter-spacing="5" fill="#ffe6ce">ЧАТ ЭФИРА</text>
+<text x="1540" y="260" font-family="Arial,sans-serif" font-size="13" letter-spacing="3" fill="#e7b99e" opacity=".7">COMMUNITY • SAMP / GTA</text>
 <!-- webcam frame -->
-<path d="M38 765h445v260H38z" fill="url(#glass)" stroke="url(#edge)" stroke-width="5"/>
-<path d="M38 812h445" stroke="url(#edge)" stroke-width="3"/>
-<path d="M38 765h85l-18 18H38zm360 0h85v18h-85z" fill="#ef9a74"/>
-<text x="66" y="798" font-family="Arial,sans-serif" font-size="20" font-weight="900" letter-spacing="5" fill="#ffe6ce">LIVE CAM</text>
-<rect x="56" y="831" width="409" height="174" rx="5" fill="none" stroke="#fff1df" stroke-opacity=".22" stroke-width="2" stroke-dasharray="9 9"/>
-<!-- bottom center nameplate -->
-<path d="M700 1014h520l-32 42H732z" fill="url(#glass)" stroke="url(#edge)" stroke-width="3"/>
-<text x="960" y="1044" text-anchor="middle" font-family="Impact,'Arial Black',sans-serif" font-size="37" fill="#fff0dd" stroke="#17131d" stroke-width="5" paint-order="stroke">zeroMER</text>
-<!-- corner ticks -->
-<g fill="none" stroke="url(#edge)" stroke-width="5" filter="url(#glow)"><path d="M38 185v-35h35M1882 95h-35m35 0v35M38 1035v-35h35M1882 1035h-35m35 0v-35"/></g>
-<!-- subtle bottom status rail -->
-<path d="M540 1070h840" stroke="#f0a078" stroke-width="2" opacity=".55"/>
-<text x="960" y="1068" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" letter-spacing="7" fill="#ffd3b2" opacity=".8">SAMP • GTA • LIVE STREAM</text>
+<path d="M38 760h445v280H38z" fill="url(#panel)" stroke="url(#edge)" stroke-width="5"/>
+<path d="M38 808h445" stroke="url(#edge)" stroke-width="3"/>
+<text x="62" y="793" font-family="Arial,sans-serif" font-size="17" font-weight="900" letter-spacing="4" fill="#ffe6ce">PLAYER CAM</text>
+<path d="M52 775h15v-15m388 0h15v15m-418 250v15h15m388 0h15v-15" fill="none" stroke="#ffe1c2" stroke-width="4"/>
+<!-- bottom status strip -->
+<path d="M525 1010h855l28 28v26H525z" fill="url(#panel)" stroke="url(#edge)" stroke-width="3"/>
+<text x="560" y="1044" font-family="Arial,sans-serif" font-size="17" font-weight="700" letter-spacing="4" fill="#f8d2b5">ZERO MER • LOS SANTOS STREET LIFE</text>
+<!-- corner ornaments -->
+<path d="M38 180v-24h24M1882 150h-24v24M38 1050v-24h24M1882 1050v-24h-24" fill="none" stroke="url(#edge)" stroke-width="5"/>
 </svg>
