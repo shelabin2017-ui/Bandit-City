@@ -1,9 +1,24 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-<defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#171321"/><stop offset=".55" stop-color="#a84239"/><stop offset="1" stop-color="#f39a55"/></linearGradient><filter id="s"><feGaussianBlur stdDeviation="18" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
-<circle cx="512" cy="512" r="500" fill="#090a10"/><circle cx="512" cy="512" r="470" fill="url(#bg)" stroke="#ffd19b" stroke-width="12"/>
-<path d="M100 740L920 280M130 850L890 420" stroke="#fff" stroke-opacity=".12" stroke-width="30"/>
-<path d="M170 700l120-380 90 50-110 380zm230-420h390l-35 100H500l-35 100h220l-30 100H435l-40 120h300l-35 100H250z" fill="#17131e" opacity=".65"/>
-<text x="512" y="555" text-anchor="middle" font-family="Arial Black,Impact,sans-serif" font-size="225" font-weight="900" letter-spacing="-14" fill="#fff2e4" stroke="#17131e" stroke-width="28" paint-order="stroke" filter="url(#s)">zero</text>
-<text x="512" y="730" text-anchor="middle" font-family="Arial Black,Impact,sans-serif" font-size="205" font-weight="900" letter-spacing="2" fill="#ffd18b" stroke="#17131e" stroke-width="25" paint-order="stroke">MER</text>
-<path d="M180 810l90-30 18 42-90 30zm560-620 90-30 18 42-90 30z" fill="#fff1d7"/>
+<defs>
+ <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#21172c"/><stop offset=".48" stop-color="#853b4c"/><stop offset="1" stop-color="#f08b55"/></linearGradient>
+ <linearGradient id="type" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#fff7e9"/><stop offset=".5" stop-color="#ffd2a1"/><stop offset="1" stop-color="#e98769"/></linearGradient>
+ <filter id="shadow"><feGaussianBlur in="SourceAlpha" stdDeviation="14"/><feOffset dy="12"/><feComponentTransfer><feFuncA type="linear" slope=".7"/></feComponentTransfer><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+ <clipPath id="clip"><circle cx="512" cy="512" r="466"/></clipPath>
+</defs>
+<circle cx="512" cy="512" r="500" fill="#080910"/>
+<circle cx="512" cy="512" r="475" fill="url(#bg)" stroke="#ffd3a3" stroke-width="12"/>
+<g clip-path="url(#clip)">
+ <circle cx="512" cy="450" r="270" fill="#ffb477" opacity=".28"/>
+ <path d="M-20 760L1040 250M-20 900L1040 390" stroke="#fff1d8" stroke-opacity=".09" stroke-width="48"/>
+ <path d="M0 760h1024v264H0z" fill="#15131d" opacity=".45"/>
+ <path d="M100 810q30-105 140-125l150-10 115 65 130 18q50 10 72 62l12 55H80z" fill="#11131a" stroke="#e99a73" stroke-width="9"/>
+ <circle cx="260" cy="875" r="44" fill="#090b12" stroke="#b1a4a0" stroke-width="10"/><circle cx="670" cy="875" r="44" fill="#090b12" stroke="#b1a4a0" stroke-width="10"/>
+ <g fill="#f6bb8f" opacity=".65"><path d="M60 560h42v150H60zm72-85h48v235h-48zm720 45h45v190h-45zm65-100h50v290h-50z"/></g>
+</g>
+<circle cx="512" cy="512" r="466" fill="none" stroke="#0d0c13" stroke-width="18"/>
+<g filter="url(#shadow)">
+ <text x="512" y="490" text-anchor="middle" font-family="Impact,'Arial Black',sans-serif" font-size="250" font-weight="900" letter-spacing="-12" fill="url(#type)" stroke="#17131d" stroke-width="34" paint-order="stroke">zero</text>
+ <text x="512" y="700" text-anchor="middle" font-family="Impact,'Arial Black',sans-serif" font-size="245" font-weight="900" letter-spacing="2" fill="#ffcf98" stroke="#17131d" stroke-width="34" paint-order="stroke">MER</text>
+</g>
+<path d="M180 770l150-35 14 35-150 35zm510-590 150-35 14 35-150 35z" fill="#fff0d9" opacity=".85"/>
 </svg>
