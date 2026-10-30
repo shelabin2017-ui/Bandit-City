@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+<defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#171321"/><stop offset=".55" stop-color="#a84239"/><stop offset="1" stop-color="#f39a55"/></linearGradient><filter id="s"><feGaussianBlur stdDeviation="18" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<circle cx="512" cy="512" r="500" fill="#090a10"/><circle cx="512" cy="512" r="470" fill="url(#bg)" stroke="#ffd19b" stroke-width="12"/>
+<path d="M100 740L920 280M130 850L890 420" stroke="#fff" stroke-opacity=".12" stroke-width="30"/>
+<path d="M170 700l120-380 90 50-110 380zm230-420h390l-35 100H500l-35 100h220l-30 100H435l-40 120h300l-35 100H250z" fill="#17131e" opacity=".65"/>
+<text x="512" y="555" text-anchor="middle" font-family="Arial Black,Impact,sans-serif" font-size="225" font-weight="900" letter-spacing="-14" fill="#fff2e4" stroke="#17131e" stroke-width="28" paint-order="stroke" filter="url(#s)">zero</text>
+<text x="512" y="730" text-anchor="middle" font-family="Arial Black,Impact,sans-serif" font-size="205" font-weight="900" letter-spacing="2" fill="#ffd18b" stroke="#17131e" stroke-width="25" paint-order="stroke">MER</text>
+<path d="M180 810l90-30 18 42-90 30zm560-620 90-30 18 42-90 30z" fill="#fff1d7"/>
+</svg>
