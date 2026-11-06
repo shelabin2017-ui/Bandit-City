@@ -1176,7 +1176,7 @@ def process(uid, text, attachments=None):
         send_card(uid, result, kb_work(), key="work")
         return
 
-    if text == "🏢 Бизнес":
+    if text in ("🏢 Бизнес", "💼 Бизнес"):
         from business_expansion import portfolio_text
         send_card(uid, game.business_info(user["id"]) + "\n\n" + portfolio_text(db, user["id"]), kb_business(), key="business")
         return
