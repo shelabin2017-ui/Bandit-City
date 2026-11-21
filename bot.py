@@ -1668,30 +1668,40 @@ def player_reminder_worker():
                 if business and int(business["stock"]) <= 60 and idle >= business_idle_after:
                     reminder_key = "low_stock"
                     if db.reminder_due(user_id, reminder_key, cooldown, now):
-                        message = (
-                            "📦 СКЛАД НА ИСХОДЕ\n\n"
-                            f"{name}, запасы сырья почти закончились. Пополни склад, "
-                            "пока бизнес не остановился и прибыль не просела."
+                        variants = (
+                            "📦 СКЛАД НА ИСХОДЕ\\n\\n{name}, запасы сырья почти закончились. Пополни склад, пока бизнес не остановился.",
+                            "🏭 БИЗНЕСУ НУЖНА ПОДМОГА\\n\\n{name}, на складе осталось мало сырья. Самое время пополнить запасы и не терять прибыль.",
+                            "⚠️ ПОСЛЕДНИЕ ЗАПАСЫ\\n\\n{name}, производство скоро может встать. Загляни на склад и подготовь новую партию сырья.",
+                            "📉 РИСК ПРОСТОЯ\\n\\n{name}, ресурсов почти не осталось. Пополни склад, чтобы городская экономика продолжала работать.",
                         )
+                        variant = db.next_reminder_variant(user_id, reminder_key, len(variants))
+                        message = variants[variant].format(name=name)
                         button = "💼 Бизнес"
                 elif business and int(business["balance"]) > 0 and idle >= business_idle_after:
                     reminder_key = "business_profit"
                     if db.reminder_due(user_id, reminder_key, cooldown, now):
-                        message = (
-                            "💰 ПРИБЫЛЬ ЖДЁТ!\n\n"
-                            f"{name}, твой бизнес накопил деньги. Загляни в город, проверь кассу "
-                            "и забери заработанное."
+                        variants = (
+                            "💰 ПРИБЫЛЬ ЖДЁТ!\\n\\n{name}, бизнес уже заработал для тебя. Загляни в кассу и забери деньги.",
+                            "🤑 КАССА ПОПОЛНИЛАСЬ\\n\\n{name}, пока тебя не было, дело приносило доход. Проверь баланс бизнеса.",
+                            "🏦 ЕСТЬ ЧТО ЗАБРАТЬ\\n\\n{name}, в кассе накопилась прибыль. Возвращайся в город и забери заработанное.",
+                            "📈 ТВОЁ ДЕЛО В ПЛЮСЕ\\n\\n{name}, бизнес не простаивал зря. Посети его — прибыль уже ждёт.",
                         )
+                        variant = db.next_reminder_variant(user_id, reminder_key, len(variants))
+                        message = variants[variant].format(name=name)
                         button = "💼 Бизнес"
                 elif idle >= inactive_after and int(player["onboarding_done"]):
                     reminder_key = "city_return"
                     cooldown = inactivity_cooldown
                     if db.reminder_due(user_id, reminder_key, cooldown, now):
-                        message = (
-                            "🏙️ ГОРОД ЗАЖДАЛСЯ!\n\n"
-                            f"{name}, давно тебя не было в городе. Проверь бизнес, загляни в события "
-                            "и посмотри, что изменилось в Bandit City."
+                        variants = (
+                            "🏙️ ГОРОД ЗАЖДАЛСЯ!\\n\\n{name}, улицы Los Santos не стоят на месте. Возвращайся: проверь дела и загляни в городские события.",
+                            "🚨 ЕСТЬ НОВОСТИ, БОСС\\n\\n{name}, пока тебя не было, город жил своей жизнью. Посмотри, что происходит в Bandit City.",
+                            "🌆 ТВОЁ МЕСТО В ГОРОДЕ СВОБОДНО\\n\\n{name}, дела, события и возможности никуда не делись. Загляни в игру и продолжи свою историю.",
+                            "👀 ДАВНО НЕ ВИДЕЛИСЬ\\n\\n{name}, город накопил для тебя новые поводы вернуться. Проверь бизнес и последние события.",
+                            "🔑 LOS SANTOS ЖДЁТ ТЕБЯ\\n\\n{name}, пора снова выйти на улицы. Впереди дела, встречи и новые возможности.",
                         )
+                        variant = db.next_reminder_variant(user_id, reminder_key, len(variants))
+                        message = variants[variant].format(name=name)
                         button = "🏙️ Главное меню"
 
                 if not message or not reminder_key:
