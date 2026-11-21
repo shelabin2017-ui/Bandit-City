@@ -56,6 +56,12 @@ class Database:
                 last_sent INTEGER NOT NULL,
                 PRIMARY KEY(user_id, reminder_key)
             );
+            CREATE TABLE IF NOT EXISTS player_reminder_variants(
+                user_id INTEGER NOT NULL,
+                reminder_key TEXT NOT NULL,
+                last_variant INTEGER NOT NULL,
+                PRIMARY KEY(user_id, reminder_key)
+            );
             CREATE TABLE IF NOT EXISTS jobs(
                 user_id INTEGER NOT NULL,
                 job TEXT NOT NULL,
@@ -630,6 +636,22 @@ class Database:
                 "ON CONFLICT(user_id,reminder_key) DO UPDATE SET last_sent=excluded.last_sent",
                 (int(user_id), str(reminder_key), now),
             )
+
+    def next_reminder_variant(self, user_id, reminder_key, variant_count):
+        """Return a persistent round-robin variant index for this player's reminder."""
+        count = max(1, int(variant_count))
+        with self.connect() as c:
+            row = c.execute(
+                "SELECT last_variant FROM player_reminder_variants WHERE user_id=? AND reminder_key=?",
+                (int(user_id), str(reminder_key)),
+            ).fetchone()
+            index = ((int(row["last_variant"]) + 1) % count) if row else (int(user_id) % count)
+            c.execute(
+                "INSERT INTO player_reminder_variants(user_id,reminder_key,last_variant) VALUES(?,?,?) "
+                "ON CONFLICT(user_id,reminder_key) DO UPDATE SET last_variant=excluded.last_variant",
+                (int(user_id), str(reminder_key), index),
+            )
+            return index
 
     def needs_onboarding(self, user_id):
         with self.connect() as c:
