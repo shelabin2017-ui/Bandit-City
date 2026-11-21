@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from catalog import EVENT_EXCLUSIVES, public_catalog, active_events
 from db import Database
@@ -34,7 +35,9 @@ class BanditCoreTest(unittest.TestCase):
             ("BC-OCT-NEON", "🌃 Neon City Background"),
             ("BC-OCT-NIGHT", "🎭 Nightfall Mask"),
         ):
-            ok, message = self.db.redeem_promo(user["id"], code)
+            # The October campaign has a fixed expiry; test redemption at a valid instant.
+            with patch("db.time.time", return_value=1793000000):
+                ok, message = self.db.redeem_promo(user["id"], code)
             self.assertTrue(ok, (code, message))
         with self.db.connect() as c:
             names = {r["name"] for r in c.execute(
@@ -45,7 +48,9 @@ class BanditCoreTest(unittest.TestCase):
 
     def test_event_promo_is_not_public(self):
         user = self.db.get_or_create_user(100001)
-        ok, message = self.db.redeem_promo(user["id"], "BC-OCT-LEGEND")
+        # Keep the test deterministic after the real campaign expiry.
+        with patch("db.time.time", return_value=1793000000):
+            ok, message = self.db.redeem_promo(user["id"], "BC-OCT-LEGEND")
         self.assertTrue(ok, message)
         with self.db.connect() as c:
             row = c.execute("SELECT 1 FROM v5_wardrobe WHERE user_id=? AND name=?", (user["id"], "🏆 Bandit Legend Outfit")).fetchone()
@@ -56,7 +61,8 @@ class BanditCoreTest(unittest.TestCase):
     def test_event_exclusive_buttons_are_rendered(self):
         from v5 import bridge as v5
         user = self.db.get_or_create_user(100005)
-        self.db.redeem_promo(user["id"], "BC-OCT-LEGEND")
+        with patch("db.time.time", return_value=1793000000):
+            self.db.redeem_promo(user["id"], "BC-OCT-LEGEND")
         message, buttons = v5.clothing_catalog(self.db, user["vk_id"], "🎪 Ивент • Эксклюзивы")
         self.assertIn("Bandit Legend Outfit", message)
         self.assertIn(["✅ 🏆 Bandit Legend Outfit"], buttons)
