@@ -124,30 +124,36 @@ class ProgressionTests(unittest.TestCase):
 
 
     def test_active_event_progress_counts_real_work(self):
-        now = int(time.time())
-        for offset in (0, 61, 122):
-            with patch("game.time.time", return_value=now + offset):
-                result = self.game.work(self.uid, "taxi")
-            self.assertIn("Таксист", result)
+        now = 1792497600  # 2026-10-20 12:00 UTC, inside the midnight event window.
+        active = {"midnight": {"goal_action": "work", "goal_code": "event_midnight_work"}}
+        with patch("event_announcer.active_events", return_value=active):
+            for offset in (0, 61, 122):
+                with patch("game.time.time", return_value=now + offset):
+                    result = self.game.work(self.uid, "taxi")
+                self.assertIn("Таксист", result)
         row = self.db.mission_rows(self.uid, ["event_midnight_work"])["event_midnight_work"]
         self.assertEqual(row["progress"], 3)
 
     def test_event_participation_is_unique_and_rewarded(self):
-        from catalog import EVENTS, active_events
+        from catalog import active_events
+        from datetime import datetime, timezone
         from v5 import bridge as v5
-        self.assertIn("midnight", active_events())
-        locked = v5.participate_event(self.db, 700001, "midnight")
-        self.assertIn("Прогресс: 0/3", locked[0])
-        self.assertEqual(len(self.db.event_history(self.uid)), 0)
-        self.db.mission_add(self.uid, "event_midnight_work", 3)
-        first = v5.participate_event(self.db, 700001, "midnight")
-        self.assertIn("УЧАСТИЕ ЗАСЧИТАНО", first[0])
-        history = self.db.event_history(self.uid)
-        self.assertEqual(len(history), 1)
-        self.assertEqual(history[0]["event_code"], "midnight")
-        second = v5.participate_event(self.db, 700001, "midnight")
-        self.assertIn("УЖЕ УЧАСТВОВАЛ", second[0])
-        self.assertEqual(len(self.db.event_history(self.uid)), 1)
+        event_time = datetime(2026, 10, 20, 12, 0, tzinfo=timezone.utc)
+        self.assertIn("midnight", active_events(event_time))
+        active = {"midnight": {"goal_action": "work", "goal_code": "event_midnight_work", "goal_target": 3, "goal_label": "Выполни 3 рабочие смены", "title": "🌙 НОЧНОЙ ЗАБЕГ", "drops": ["midnight_mask"]}}
+        with patch("event_announcer.active_events", return_value=active):
+            locked = v5.participate_event(self.db, 700001, "midnight")
+            self.assertIn("Прогресс: 0/3", locked[0])
+            self.assertEqual(len(self.db.event_history(self.uid)), 0)
+            self.db.mission_add(self.uid, "event_midnight_work", 3)
+            first = v5.participate_event(self.db, 700001, "midnight")
+            self.assertIn("УЧАСТИЕ ЗАСЧИТАНО", first[0])
+            history = self.db.event_history(self.uid)
+            self.assertEqual(len(history), 1)
+            self.assertEqual(history[0]["event_code"], "midnight")
+            second = v5.participate_event(self.db, 700001, "midnight")
+            self.assertIn("УЖЕ УЧАСТВОВАЛ", second[0])
+            self.assertEqual(len(self.db.event_history(self.uid)), 1)
         with self.db.connect() as c:
             row = c.execute(
                 "SELECT 1 FROM v5_wardrobe WHERE user_id=? AND category=? AND name=?",
